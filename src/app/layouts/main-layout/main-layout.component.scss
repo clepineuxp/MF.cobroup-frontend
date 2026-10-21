@@ -1,0 +1,8 @@
+:host { display: grid; min-height: 100vh; grid-template-rows: auto 1fr auto; }
+header, main, footer { width: min(100% - 2rem, 72rem); margin-inline: auto; }
+header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding-block: var(--space-6); border-bottom: 0.0625rem solid var(--color-border); }
+h1, .eyebrow { margin: 0; }
+.eyebrow, footer { color: var(--color-text-muted); }
+main { padding-block: var(--space-8); }
+footer { padding-block: var(--space-4); }
+@media (max-width: 35rem) { header { align-items: flex-start; flex-direction: column; } }

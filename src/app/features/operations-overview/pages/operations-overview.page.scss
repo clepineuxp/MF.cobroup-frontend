@@ -1,0 +1,4 @@
+section { max-width: 48rem; padding: clamp(var(--space-4), 4vw, var(--space-8)); border: 0.0625rem solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); box-shadow: var(--shadow-raised); }
+.status { color: var(--color-success); font-weight: 700; }
+h2 { margin-block: var(--space-2) var(--space-4); }
+p, li { line-height: 1.6; }
