@@ -5,12 +5,12 @@
 - Producto: COBROUP; rol: frontend operativo.
 - Maestro: `../cobroup.md/COBROUP.md` 1.0.1.
 - Estándar: `../cobroup.md/FRAMEWORK_DESARROLLO_FRONTEND.md` 1.0.
-- Rama activa: `feature/fase-1-inicializacion`.
-- Sin commits, push ni fases posteriores sin autorización.
+- Rama activa: `feature/fase-2-identidad-tenant`.
+- Sin push, merge, tag ni PR sin autorización.
 
 ## Estado actual
 
-- Fase: 1; resultado: COMPLETADA.
+- Fase: 2; resultado: COMPLETADA.
 - Angular 21.2.25 LTS, CLI/build 21.2.27, TypeScript 5.9.3, RxJS 7.8.2.
 - Node 22.15.1 LTS; npm 11.6.2.
 - PWA: activada; tema: light/dark implementado.
@@ -41,3 +41,10 @@
 - Resultado: fase 1 validada; commit autorizado: SÍ, únicamente para el alcance acumulado de fase 1.
 - Operaciones no autorizadas: push, merge, tag y PR.
 - Siguiente rama prevista: `feature/fase-2-identidad-tenant`.
+
+### 2026-10-21 — Acceso operativo por organización, fase 2
+
+- Implementación: formulario de acceso; sesión antiforgery; OIDC Code + PKCE; callback; tokens solo en memoria; refresh y revocación; guard y proxies locales de identidad/API.
+- Validación: build exitoso y pruebas 4/4.
+- Integración: autoridad real inicializada con una organización y usuarios `Admin`, `Supervisor` y `Collector`; el flujo OIDC completo se validó por rol.
+- Git: commit de cierre de fase 2 autorizado por el usuario; sin push, merge, tag ni PR.
