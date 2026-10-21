@@ -1,0 +1,3 @@
+.organization-switcher { display: grid; gap: var(--space-2); min-width: min(100%, 16rem); }
+label, p { color: var(--color-text-muted); font-size: 0.875rem; margin: 0; }
+select { border: 0.0625rem solid var(--color-border); border-radius: 0.5rem; padding: 0.55rem 0.75rem; background: var(--color-surface); color: var(--color-text); }

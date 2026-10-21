@@ -1,10 +1,12 @@
-<section class="auth-card" aria-labelledby="login-title"><p class="eyebrow">Acceso operativo</p><h2 id="login-title">Ingresa a tu organización</h2>
-  <p class="intro">Usa el código de tu organización y tus credenciales personales.</p>
+<section class="auth-card" aria-labelledby="login-title"><p class="eyebrow">Acceso operativo</p><h2 id="login-title">Ingresa a COBROUP</h2>
+  <p class="intro">Usa tus credenciales personales. Iniciaremos en la última organización que utilizaste.</p>
   <form [formGroup]="form" (ngSubmit)="submit()">
-    <label>Código de organización<input formControlName="organizationCode" autocomplete="organization" /></label>
     <label>Usuario<input formControlName="username" autocomplete="username" /></label>
     <label>Contraseña<input type="password" formControlName="password" autocomplete="current-password" /></label>
     @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
     <button type="submit" [disabled]="form.invalid || busy()">{{ busy() ? 'Validando…' : 'Ingresar' }}</button>
   </form><button class="secondary" type="button" [disabled]="busy()" (click)="continueSession()">Continuar sesión existente</button>
+  @if (membershipRequired()) {
+    <section role="status"><h3>Solicitar unirme a una organización</h3><p>Tu usuario no tiene una membresía activa. Solicita a un administrador que te agregue a su organización.</p></section>
+  }
 </section>

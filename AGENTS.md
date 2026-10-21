@@ -3,18 +3,19 @@
 ## Identidad y restricciones
 
 - Producto: COBROUP; rol: frontend operativo.
-- Maestro: `../cobroup.md/COBROUP.md` 1.0.1.
+- Maestro: `../cobroup.md/COBROUP.md` 1.0.5.
 - Estándar: `../cobroup.md/FRAMEWORK_DESARROLLO_FRONTEND.md` 1.0.
-- Rama activa: `feature/fase-2-identidad-tenant`.
+- Rama activa: `feature/fase-3-configuracion-rutas`.
 - Sin push, merge, tag ni PR sin autorización.
 
 ## Estado actual
 
-- Fase: 2; resultado: COMPLETADA.
+- Fase: 3; resultado: COMPLETADA.
 - Angular 21.2.25 LTS, CLI/build 21.2.27, TypeScript 5.9.3, RxJS 7.8.2.
 - Node 22.15.1 LTS; npm 11.6.2.
 - PWA: activada; tema: light/dark implementado.
 - Auditoría independiente: no realizada.
+- Línea base: 9 fases totales; 3 completas y 6 pendientes. Informe: `../cobroup.md/informe/avance.md`.
 
 ## Historial cronológico (append-only)
 
@@ -48,3 +49,28 @@
 - Validación: build exitoso y pruebas 4/4.
 - Integración: autoridad real inicializada con una organización y usuarios `Admin`, `Supervisor` y `Collector`; el flujo OIDC completo se validó por rol.
 - Git: commit de cierre de fase 2 autorizado por el usuario; sin push, merge, tag ni PR.
+
+### 2026-10-21 — Inicio de fase 3
+
+- Rama creada para configuración y rutas.
+- El primer corte pertenece al backend administrativo. La PWA operativa esperará contratos de consulta de rutas filtrados por asignación antes de exponer navegación o datos.
+- Git: sin cambios funcionales de fase 3; push, merge, tag y PR no autorizados.
+
+### 2026-10-21 — Puerto de desarrollo fase 3
+
+- `ng serve` configurado por defecto en `0.0.0.0:5200`; origen local OIDC actualizado a `http://localhost:5200` en la autoridad central.
+- Git: cambio sin commit; push, merge, tag y PR no autorizados.
+
+### 2026-10-21 — Usuario global y cambio de organización
+
+- Login reducido a usuario/contraseña; usa la última organización accedida. Si no existe membresía activa, muestra “Solicitar unirme a una organización” sin inventar todavía un flujo de aprobación.
+- Selector de organización agregado al shell; al cambiar revoca el refresh token anterior y reinicia Authorization Code + PKCE para obtener claims del nuevo tenant.
+- Validación: build exitoso y pruebas 4/4.
+- Git: cambios sin commit; fase 3 funcional pausada; push, merge, tag y PR no autorizados.
+
+### 2026-10-21 — Cierre funcional de fase 3
+
+- `/rutas`: muestra únicamente rutas activas autorizadas por el contrato operativo, con rol de acceso y cupos efectivos; contempla carga, vacío y error.
+- Seguridad: consume solo `MS.Cobroup.Backend`, mantiene token en memoria y reintenta una vez tras refresh ante `401`; no cachea datos de negocio.
+- Validación: build de producción exitoso; 5/5 pruebas de shell, tema y rutas.
+- Git: cambios de fase 3 sin commit; push, merge, tag y PR no autorizados.

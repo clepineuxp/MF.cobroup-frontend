@@ -1,6 +1,6 @@
 # MF.cobroup-frontend
 
-PWA operativa de COBROUP para cobradores, supervisores y administradores. Fase 2 incorpora acceso por organización y usuario, Authorization Code + PKCE, callback, refresh rotatorio en memoria y logout con revocación; no simula operaciones.
+PWA operativa de COBROUP para cobradores, supervisores y administradores. El acceso usa usuario y contraseña, abre la última organización utilizada y permite cambiar entre membresías activas. Conserva Authorization Code + PKCE, refresh rotatorio en memoria y logout con revocación. En fase 3 muestra únicamente rutas activas autorizadas por el backend operativo; no simula clientes, préstamos ni cobros.
 
 ## Requisitos
 
@@ -10,9 +10,11 @@ PWA operativa de COBROUP para cobradores, supervisores y administradores. Fase 2
 
 ```powershell
 npm ci
-npx ng serve --host=127.0.0.1 --port=4200
+npm start
 npm test -- --watch=false
 npm run build
 ```
 
-El build de producción habilita el service worker. `proxy.conf.json` dirige `/identity` a la autoridad y `/api` al backend operativo. El gateway de despliegue debe conservar esas rutas bajo el mismo origen. Los tokens no se persisten en almacenamiento del navegador.
+`npm start` escucha en todas las interfaces mediante `0.0.0.0:5200`; el origen local para navegador y OIDC es `http://localhost:5200`. El build de producción habilita el service worker. `proxy.conf.json` dirige `/identity` a la autoridad y `/api` al backend operativo. El gateway de despliegue debe conservar esas rutas bajo el mismo origen. Los tokens no se persisten en almacenamiento del navegador.
+
+La pantalla `/rutas` consume `GET /api/operations/v1/routes`. El access token vive en memoria y se renueva una vez ante `401`; los datos autenticados no se incorporan al caché PWA.
