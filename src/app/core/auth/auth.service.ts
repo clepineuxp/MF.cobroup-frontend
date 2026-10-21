@@ -100,6 +100,18 @@ export class AuthService {
     await this.loadContext(); return true;
   }
 
+  async authorizedFetch(input: string, init: RequestInit = {}): Promise<Response> {
+    if (!this.accessToken) throw new Error('La sesión operativa no está disponible.');
+    const execute = () => {
+      const headers = new Headers(init.headers);
+      headers.set('Authorization', `Bearer ${this.accessToken}`);
+      return fetch(input, { ...init, headers });
+    };
+    let response = await execute();
+    if (response.status === 401 && await this.refreshAccessToken()) response = await execute();
+    return response;
+  }
+
   private async loadContext(): Promise<void> {
     const response = await fetch(this.config.contextEndpoint, { headers: { Authorization: `Bearer ${this.accessToken}` } });
     if (!response.ok) throw new Error('El token no contiene un contexto de organización válido.');

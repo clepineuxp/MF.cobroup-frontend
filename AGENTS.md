@@ -3,18 +3,19 @@
 ## Identidad y restricciones
 
 - Producto: COBROUP; rol: frontend operativo.
-- Maestro: `../cobroup.md/COBROUP.md` 1.0.2.
+- Maestro: `../cobroup.md/COBROUP.md` 1.0.5.
 - Estándar: `../cobroup.md/FRAMEWORK_DESARROLLO_FRONTEND.md` 1.0.
 - Rama activa: `feature/fase-3-configuracion-rutas`.
 - Sin push, merge, tag ni PR sin autorización.
 
 ## Estado actual
 
-- Fase: 3; resultado: EN PROGRESO.
+- Fase: 3; resultado: COMPLETADA.
 - Angular 21.2.25 LTS, CLI/build 21.2.27, TypeScript 5.9.3, RxJS 7.8.2.
 - Node 22.15.1 LTS; npm 11.6.2.
 - PWA: activada; tema: light/dark implementado.
 - Auditoría independiente: no realizada.
+- Línea base: 9 fases totales; 3 completas y 6 pendientes. Informe: `../cobroup.md/informe/avance.md`.
 
 ## Historial cronológico (append-only)
 
@@ -66,3 +67,10 @@
 - Selector de organización agregado al shell; al cambiar revoca el refresh token anterior y reinicia Authorization Code + PKCE para obtener claims del nuevo tenant.
 - Validación: build exitoso y pruebas 4/4.
 - Git: cambios sin commit; fase 3 funcional pausada; push, merge, tag y PR no autorizados.
+
+### 2026-10-21 — Cierre funcional de fase 3
+
+- `/rutas`: muestra únicamente rutas activas autorizadas por el contrato operativo, con rol de acceso y cupos efectivos; contempla carga, vacío y error.
+- Seguridad: consume solo `MS.Cobroup.Backend`, mantiene token en memoria y reintenta una vez tras refresh ante `401`; no cachea datos de negocio.
+- Validación: build de producción exitoso; 5/5 pruebas de shell, tema y rutas.
+- Git: cambios de fase 3 sin commit; push, merge, tag y PR no autorizados.

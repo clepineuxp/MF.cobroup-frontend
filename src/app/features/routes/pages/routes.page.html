@@ -1,0 +1,16 @@
+<section aria-labelledby="routes-title">
+  <div class="heading"><div><p class="eyebrow">Alcance operativo</p><h2 id="routes-title">Mis rutas</h2></div><span class="count">{{ routes().length }}</span></div>
+  <p>Estas son las rutas activas autorizadas para tu usuario en la organización actual.</p>
+  @if (loading()) { <p>Cargando rutas…</p> }
+  @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+  @else if (!loading() && routes().length === 0) { <p class="empty">No tienes rutas activas asignadas.</p> }
+  <div class="grid">
+    @for (route of routes(); track route.id) {
+      <article>
+        <div class="route-title"><h3>{{ route.name }}</h3><span>{{ route.accessAs === 'Admin' ? 'Administrador' : route.accessAs === 'Supervisor' ? 'Supervisor' : 'Cobrador' }}</span></div>
+        @if (route.description) { <p>{{ route.description }}</p> }
+        <dl><div><dt>Cupo clientes</dt><dd>{{ route.maxActiveCustomers ?? 'Sin límite' }}</dd></div><div><dt>Cupo préstamos</dt><dd>{{ route.maxActiveLoans ?? 'Sin límite' }}</dd></div></dl>
+      </article>
+    }
+  </div>
+</section>
