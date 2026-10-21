@@ -21,6 +21,12 @@ export const routes: Routes = [
     title: 'Plantillas disponibles | COBROUP',
   },
   {
+    path: 'excepciones',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/loan-exceptions/pages/loan-exceptions.page').then((module) => module.LoanExceptionsPage),
+    title: 'Excepciones de crédito | COBROUP',
+  },
+  {
     path: 'clientes',
     canActivate: [authGuard],
     loadComponent: () => import('./features/customers/pages/customers.page').then((module) => module.CustomersPage),

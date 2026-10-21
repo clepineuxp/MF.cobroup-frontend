@@ -10,13 +10,13 @@
 
 ## Estado actual
 
-- Fase: 5; resultado: EN_CURSO.
+- Fase: 5; resultado: COMPLETADA_FUNCIONALMENTE.
 - Angular 21.2.25 LTS, CLI/build 21.2.27, TypeScript 5.9.3, RxJS 7.8.2.
 - Node 22.15.1 LTS; npm 11.6.2.
 - PWA: activada; tema: light/dark implementado.
 - Auditoría independiente: no realizada.
-- Línea base: 9 fases totales; 4 completas, 1 en curso y 4 posteriores. Informe: `../cobroup.md/informe/avance.md`.
-- Corte actual: consulta de plantillas publicadas del tenant; build productivo y 8/8 pruebas existentes.
+- Línea base: 9 fases totales; 5 completas funcionalmente, 4 posteriores pendientes. Informe: `../cobroup.md/informe/avance.md`.
+- Corte actual: consulta de plantillas publicadas y solicitudes operativas de excepción por cliente; build productivo limpio con 0 warnings y 10/10 pruebas existentes.
 
 ## Historial cronológico (append-only)
 
@@ -90,4 +90,12 @@
 - Seguridad: consume exclusivamente la fachada operativa y no envía tenant; la pantalla aclara que la originación pertenece a fase 6.
 - Validación: build productivo exitoso y 8/8 pruebas existentes.
 - Pendiente de fase: formulario de solicitud excepcional ligado a cliente visible.
+- Git: cambios de fase 5 sin commit; push, merge, tag y PR no autorizados.
+
+### 2026-10-21 — Cierre funcional de fase 5: solicitudes operativas de excepción
+
+- Interfaz: nueva pantalla `/excepciones` con formulario de solicitud para clientes activos de rutas asignadas (monto, plazo, tasa y justificación) y listado de solicitudes propias con estado y notas de respuesta.
+- Cancelación: acción para cancelar solicitudes propias en estado `Pending` directamente desde la interfaz.
+- Navegación: incorporada la ruta protegida `/excepciones` con título de página y enlace en la barra principal.
+- Validación: build de producción limpio con 0 warnings y 0 errores; 10/10 pruebas ejecutadas y aprobadas en Vitest.
 - Git: cambios de fase 5 sin commit; push, merge, tag y PR no autorizados.

@@ -1,0 +1,116 @@
+<section class="page-heading" aria-labelledby="exceptions-title">
+  <div>
+    <p class="eyebrow">Operación crediticia</p>
+    <h2 id="exceptions-title">Excepciones de crédito</h2>
+  </div>
+  <p>
+    Solicita condiciones fuera de catálogo para clientes activos en tus rutas asignadas.
+    La aprobación del administrador habilitará el préstamo en la siguiente fase.
+  </p>
+</section>
+
+@if (error()) {
+  <p class="message error" role="alert">{{ error() }}</p>
+}
+@if (success()) {
+  <p class="message success" role="status">{{ success() }}</p>
+}
+
+<div class="workspace">
+  <section class="panel form-panel" aria-labelledby="form-heading">
+    <h3 id="form-heading">Nueva solicitud</h3>
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <label>
+        Cliente activo
+        <select formControlName="customerId">
+          <option value="">-- Selecciona un cliente --</option>
+          @for (customer of customers(); track customer.id) {
+            <option [value]="customer.id">{{ customer.firstNames }} {{ customer.lastNames }}</option>
+          }
+        </select>
+      </label>
+
+      <div class="fields-row">
+        <label>
+          Monto propuesto
+          <input type="number" step="0.01" min="0.01" formControlName="proposedAmount" placeholder="Ej: 50000" />
+        </label>
+        <label>
+          Plazo (días)
+          <input type="number" min="1" formControlName="proposedDays" placeholder="Ej: 30" />
+        </label>
+        <label>
+          Porcentaje (%)
+          <input type="number" step="0.01" min="0.01" formControlName="proposedPercentage" placeholder="Ej: 15" />
+        </label>
+      </div>
+
+      <label>
+        Motivo o justificación de la excepción
+        <textarea rows="3" maxlength="500" formControlName="reason" placeholder="Describe la justificación crediticia para el cliente..."></textarea>
+      </label>
+
+      <button type="submit" [disabled]="submitting()">
+        {{ submitting() ? 'Enviando…' : 'Solicitar excepción' }}
+      </button>
+    </form>
+  </section>
+
+  <section class="panel list-panel" aria-labelledby="list-heading">
+    <div class="list-heading">
+      <h3 id="list-heading">Mis solicitudes</h3>
+      <span>{{ items().length }}</span>
+    </div>
+
+    @if (loading()) {
+      <p class="state-message">Cargando solicitudes…</p>
+    } @else if (items().length === 0) {
+      <p class="state-message empty">No hay solicitudes de excepción registradas en tus rutas.</p>
+    } @else {
+      <div class="exceptions-list">
+        @for (item of items(); track item.id) {
+          <article class="exception-card">
+            <header class="card-header">
+              <div>
+                <h4>{{ item.customerName || 'Cliente' }}</h4>
+                <p class="meta">{{ item.createdAtUtc | date:'medium' }}</p>
+              </div>
+              <span class="status-badge" [ngClass]="getStatusClass(item.status)">
+                {{ getStatusLabel(item.status) }}
+              </span>
+            </header>
+
+            <div class="terms-grid">
+              <div class="term-box">
+                <span class="term-label">Monto</span>
+                <span class="term-value">{{ item.proposedAmount | currency }}</span>
+              </div>
+              <div class="term-box">
+                <span class="term-label">Plazo</span>
+                <span class="term-value">{{ item.proposedDays }} d</span>
+              </div>
+              <div class="term-box">
+                <span class="term-label">Tasa</span>
+                <span class="term-value">{{ item.proposedPercentage }} %</span>
+              </div>
+            </div>
+
+            <p class="reason-text"><strong>Motivo:</strong> {{ item.reason }}</p>
+
+            @if (item.decisionNotes) {
+              <p class="notes-text"><strong>Respuesta admin:</strong> {{ item.decisionNotes }}</p>
+            }
+
+            @if (item.status === 'Pending') {
+              <footer class="card-footer">
+                <button type="button" class="btn-cancel" (click)="cancelRequest(item)">
+                  Cancelar solicitud
+                </button>
+              </footer>
+            }
+          </article>
+        }
+      </div>
+    }
+  </section>
+</div>
