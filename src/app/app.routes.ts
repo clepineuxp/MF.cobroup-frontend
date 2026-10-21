@@ -14,6 +14,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/routes/pages/routes.page').then((module) => module.RoutesPage),
     title: 'Mis rutas | COBROUP',
   },
+  {
+    path: 'clientes',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/customers/pages/customers.page').then((module) => module.CustomersPage),
+    title: 'Clientes | COBROUP',
+  },
   { path: 'login', loadComponent: () => import('./features/auth/pages/login.page').then((module) => module.LoginPage), title: 'Acceso operativo | COBROUP' },
   { path: 'auth/callback', loadComponent: () => import('./features/auth/pages/auth-callback.page').then((module) => module.AuthCallbackPage), title: 'Validando acceso | COBROUP' },
   { path: '**', redirectTo: '' },

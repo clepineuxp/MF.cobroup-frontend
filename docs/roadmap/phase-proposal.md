@@ -2,7 +2,7 @@
 
 1. **Fase 2 — completada:** identidad y tenant.
 2. **Fase 3 — completada funcionalmente:** configuración y rutas; commit final pendiente.
-3. **Fase 4 — pendiente:** clientes y alcance operativo.
+3. **Fase 4 — en curso:** clientes y alcance operativo.
 4. **Fase 5 — pendiente:** plantillas y excepciones.
 5. **Fase 6 — pendiente:** préstamos y cronograma.
 6. **Fase 7 — pendiente:** pagos, evidencias, agenda y mora.

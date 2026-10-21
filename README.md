@@ -1,6 +1,6 @@
 # MF.cobroup-frontend
 
-PWA operativa de COBROUP para cobradores, supervisores y administradores. El acceso usa usuario y contraseña, abre la última organización utilizada y permite cambiar entre membresías activas. Conserva Authorization Code + PKCE, refresh rotatorio en memoria y logout con revocación. En fase 3 muestra únicamente rutas activas autorizadas por el backend operativo; no simula clientes, préstamos ni cobros.
+PWA operativa de COBROUP para cobradores, supervisores y administradores. El acceso usa usuario y contraseña, abre la última organización utilizada y permite cambiar entre membresías activas. Conserva Authorization Code + PKCE, refresh rotatorio en memoria y logout con revocación. Fase 4 incorpora clientes reales por ruta, teléfonos, ubicaciones y captura GPS con alternativa manual; préstamos y cobros siguen fuera de alcance.
 
 ## Requisitos
 

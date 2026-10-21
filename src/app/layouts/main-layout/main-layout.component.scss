@@ -4,7 +4,7 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 .header-actions { display: flex; align-items: end; gap: var(--space-4); }
 h1, .eyebrow { margin: 0; }
 .eyebrow, footer { color: var(--color-text-muted); }
-nav { display: flex; gap: var(--space-4); margin-top: var(--space-4); }
+nav { display: flex; flex-wrap: wrap; gap: var(--space-4); margin-top: var(--space-4); }
 nav a { padding-block: var(--space-2); color: var(--color-text-muted); text-decoration: none; border-bottom: 0.125rem solid transparent; }
 nav a.active { color: var(--color-primary); border-color: currentColor; }
 main { padding-block: var(--space-8); }
