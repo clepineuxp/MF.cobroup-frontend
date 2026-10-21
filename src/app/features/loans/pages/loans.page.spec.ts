@@ -4,6 +4,7 @@ import { LoanTemplatesService } from '../../loan-templates/data/loan-templates.s
 import { LoanExceptionsService } from '../../loan-exceptions/data/loan-exceptions.service';
 import { RoutesService } from '../../routes/data/routes.service';
 import { LoansService } from '../data/loans.service';
+import { PaymentsService } from '../../payments/data/payments.service';
 import { LoansPage } from './loans.page';
 
 describe('Operative LoansPage', () => {
@@ -56,6 +57,14 @@ describe('Operative LoansPage', () => {
           id: 'inst-1',
           number: 1,
           dueDate: '2026-11-02',
+          expectedAmount: 28750,
+          paidAmount: 0,
+          status: 'Pending',
+        },
+        {
+          id: 'inst-2',
+          number: 2,
+          dueDate: '2026-11-03',
           expectedAmount: 28750,
           paidAmount: 0,
           status: 'Pending',
@@ -134,6 +143,26 @@ describe('Operative LoansPage', () => {
     ]),
   };
 
+  const paymentsService = {
+    getPaymentMethods: vi.fn().mockResolvedValue([
+      { id: 'pm-1', name: 'Efectivo', displayOrder: 1 },
+      { id: 'pm-2', name: 'Transferencia Bancaria', displayOrder: 2 },
+    ]),
+    listByLoan: vi.fn().mockResolvedValue([]),
+    registerPayment: vi.fn().mockResolvedValue({
+      id: 'payment-1',
+      amount: 28750,
+      paymentMethodId: 'pm-1',
+      paymentMethodName: 'Efectivo',
+      remainingLoanBalance: 546250,
+      loanStatus: 'Active',
+      allocations: [
+        { installmentNumber: 1, amountAllocated: 28750, isFullyCovered: true },
+      ],
+    }),
+    attachEvidence: vi.fn().mockResolvedValue({}),
+  };
+
   beforeEach(async () => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
@@ -146,6 +175,7 @@ describe('Operative LoansPage', () => {
         { provide: LoanTemplatesService, useValue: templatesService },
         { provide: LoanExceptionsService, useValue: exceptionsService },
         { provide: RoutesService, useValue: routesService },
+        { provide: PaymentsService, useValue: paymentsService },
       ],
     }).compileComponents();
   });
@@ -169,8 +199,9 @@ describe('Operative LoansPage', () => {
     fixture.detectChanges();
 
     expect(loansService.get).toHaveBeenCalledWith('loan-1');
+    expect(paymentsService.listByLoan).toHaveBeenCalledWith('loan-1');
     expect(page.selectedLoan()?.id).toBe('loan-1');
-    expect(fixture.nativeElement.textContent).toContain('Cronograma de Pagos');
+    expect(fixture.nativeElement.textContent).toContain('Cronograma');
   });
 
   it('calculates schedule preview when values are filled', async () => {
@@ -187,5 +218,34 @@ describe('Operative LoansPage', () => {
 
     expect(loansService.previewSchedule).toHaveBeenCalled();
     expect(page.schedulePreview()).not.toBeNull();
+  });
+
+  it('opens payment modal and processes cascade payment', async () => {
+    const fixture = TestBed.createComponent(LoansPage);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const page = fixture.componentInstance;
+    const loan = page.items()[0];
+
+    await page.openPayment(loan);
+    fixture.detectChanges();
+
+    expect(page.showPaymentModal()).toBe(true);
+    expect(page.paymentForm.controls.amount.value).toBe(28750);
+    expect(page.allocationPreview().length).toBeGreaterThan(0);
+
+    await page.submitPayment();
+    fixture.detectChanges();
+
+    expect(paymentsService.registerPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        loanId: 'loan-1',
+        amount: 28750,
+        paymentMethodId: 'pm-1',
+        idempotencyKey: expect.any(String),
+      })
+    );
+    expect(page.paymentSuccess()).not.toBeNull();
   });
 });

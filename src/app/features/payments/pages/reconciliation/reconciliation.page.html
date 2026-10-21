@@ -1,0 +1,118 @@
+<section class="reconciliation-page">
+  <header class="page-header">
+    <div>
+      <span class="badge">Operación Diaria</span>
+      <h1>Conciliación Diaria de Recaudo</h1>
+      <p class="subtitle">Monitorea y cuadra los pagos recaudados en tu ruta por cada medio de pago autorizado (AC-17).</p>
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="alert error" role="alert">
+      <span>{{ error() }}</span>
+    </div>
+  }
+
+  <div class="filters-card">
+    <form [formGroup]="filterForm" (ngSubmit)="loadReport()">
+      <div class="filter-group">
+        <label for="routeSelect">Ruta Asignada</label>
+        <select id="routeSelect" formControlName="routeId" (change)="loadReport()">
+          @for (route of routes(); track route.id) {
+            <option [value]="route.id">{{ route.name }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="dateSelect">Fecha de Recaudo</label>
+        <input id="dateSelect" type="date" formControlName="date" (change)="loadReport()" />
+      </div>
+
+      <div class="filter-actions">
+        <button type="submit" class="btn btn-primary" [disabled]="loading()">
+          @if (loading()) {
+            Actualizando...
+          } @else {
+            Consultar Conciliación
+          }
+        </button>
+      </div>
+    </form>
+  </div>
+
+  @if (report(); as rep) {
+    <div class="metrics-grid">
+      <div class="metric-card highlight">
+        <span class="metric-label">Total Recaudado Hoy</span>
+        <span class="metric-value">{{ rep.totalCollected | currency:'USD':'symbol':'1.2-2' }}</span>
+        <span class="metric-hint">Cuadrado automáticamente</span>
+      </div>
+
+      <div class="metric-card">
+        <span class="metric-label">Cantidad de Cobros</span>
+        <span class="metric-value">{{ rep.paymentCount }}</span>
+        <span class="metric-hint">Cobros procesados válidos</span>
+      </div>
+
+      <div class="metric-card">
+        <span class="metric-label">Medios Utilizados</span>
+        <span class="metric-value">{{ rep.methodBreakdown.length }}</span>
+        <span class="metric-hint">Canales con transacciones</span>
+      </div>
+    </div>
+
+    <div class="card table-card">
+      <div class="table-header">
+        <h2>Desglose por Medio de Pago</h2>
+      </div>
+
+      @if (rep.methodBreakdown.length === 0) {
+        <div class="empty-state">
+          <p>No se registraron cobros para la ruta y fecha seleccionada.</p>
+        </div>
+      } @else {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Medio de Pago</th>
+              <th class="text-center">Transacciones</th>
+              <th class="text-right">Total Recaudado</th>
+              <th class="text-right">Proporción</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (method of rep.methodBreakdown; track method.paymentMethodId) {
+              <tr>
+                <td class="method-name">
+                  <span class="dot"></span>
+                  <strong>{{ method.paymentMethodName }}</strong>
+                </td>
+                <td class="text-center">{{ method.count }}</td>
+                <td class="text-right amount-col">
+                  {{ method.totalAmount | currency:'USD':'symbol':'1.2-2' }}
+                </td>
+                <td class="text-right">
+                  <div class="percentage-cell">
+                    <span>{{ calculatePercentage(method.totalAmount, rep.totalCollected) | number:'1.1-1' }}%</span>
+                    <div class="progress-bar">
+                      <div class="fill" [style.width.%]="calculatePercentage(method.totalAmount, rep.totalCollected)"></div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr class="total-row">
+              <td><strong>Total General</strong></td>
+              <td class="text-center"><strong>{{ rep.paymentCount }}</strong></td>
+              <td class="text-right amount-col"><strong>{{ rep.totalCollected | currency:'USD':'symbol':'1.2-2' }}</strong></td>
+              <td class="text-right"><strong>100.0%</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+      }
+    </div>
+  }
+</section>
