@@ -5,17 +5,18 @@
 - Producto: COBROUP; rol: frontend operativo.
 - Maestro: `../cobroup.md/COBROUP.md` 1.0.5.
 - Estándar: `../cobroup.md/FRAMEWORK_DESARROLLO_FRONTEND.md` 1.0.
-- Rama activa: `feature/fase-3-configuracion-rutas`.
+- Rama activa: `feature/fase-4-clientes`.
 - Sin push, merge, tag ni PR sin autorización.
 
 ## Estado actual
 
-- Fase: 3; resultado: COMPLETADA.
+- Fase: 4; resultado: EN_CURSO.
 - Angular 21.2.25 LTS, CLI/build 21.2.27, TypeScript 5.9.3, RxJS 7.8.2.
 - Node 22.15.1 LTS; npm 11.6.2.
 - PWA: activada; tema: light/dark implementado.
 - Auditoría independiente: no realizada.
-- Línea base: 9 fases totales; 3 completas y 6 pendientes. Informe: `../cobroup.md/informe/avance.md`.
+- Línea base: 9 fases totales; 3 completas, 1 en curso y 5 pendientes. Informe: `../cobroup.md/informe/avance.md`.
+- Corte actual: alta, búsqueda y edición de clientes con teléfonos, ubicaciones y GPS; build productivo y 8/8 pruebas.
 
 ## Historial cronológico (append-only)
 

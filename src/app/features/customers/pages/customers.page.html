@@ -1,0 +1,55 @@
+<section aria-labelledby="customers-title">
+  <div class="heading">
+    <div><p class="eyebrow">Gestión operativa</p><h2 id="customers-title">Clientes</h2></div>
+    <button type="button" class="primary" (click)="openCreate()" [disabled]="routes().length === 0">Nuevo cliente</button>
+  </div>
+  <p>Consulta y administra únicamente clientes de las rutas autorizadas para la organización actual.</p>
+
+  @if (formOpen()) {
+    <form class="customer-form" (ngSubmit)="save()">
+      <div class="form-heading"><h3>{{ draft.id ? 'Editar cliente' : 'Nuevo cliente' }}</h3><button type="button" class="quiet" (click)="closeForm()">Cerrar</button></div>
+      <div class="fields">
+        <label>Ruta<select name="routeId" [(ngModel)]="draft.routeId" [disabled]="!!draft.id && !isAdmin()" required><option value="">Selecciona una ruta</option>@for (route of routes(); track route.id) { <option [value]="route.id">{{ route.name }}</option> }</select></label>
+        <label>Nombres<input name="firstNames" [(ngModel)]="draft.firstNames" maxlength="120" required></label>
+        <label>Apellidos<input name="lastNames" [(ngModel)]="draft.lastNames" maxlength="120" required></label>
+        <label>Comercio o trabajo<input name="business" [(ngModel)]="draft.businessOrWorkName" maxlength="160"></label>
+        @if (draft.id && isAdmin()) { <label>Estado<select name="status" [(ngModel)]="draft.status"><option value="Active">Activo</option><option value="Inactive">Inactivo</option></select></label> }
+      </div>
+      <label>Observaciones<textarea name="observations" [(ngModel)]="draft.observations" maxlength="1000" rows="3"></textarea></label>
+
+      <div class="subheading"><h4>Teléfonos (1–6)</h4><button type="button" class="quiet" (click)="addPhone()" [disabled]="draft.phones.length >= 6">Agregar</button></div>
+      <div class="repeater">
+        @for (phone of draft.phones; track $index; let index = $index) {
+          <div class="repeat-row"><label>Número<input [name]="'phone-' + index" [(ngModel)]="phone.number" inputmode="tel" required></label><label class="primary-choice"><input type="radio" name="primary-phone" [checked]="phone.isPrimary" (change)="setPrimaryPhone(index)"> Principal</label><button type="button" class="danger" (click)="removePhone(index)" [disabled]="draft.phones.length === 1">Quitar</button></div>
+        }
+      </div>
+
+      <div class="subheading"><h4>Ubicaciones (1–4)</h4><button type="button" class="quiet" (click)="addLocation()" [disabled]="draft.locations.length >= 4">Agregar</button></div>
+      <div class="repeater">
+        @for (location of draft.locations; track $index; let index = $index) {
+          <fieldset><legend>Ubicación {{ index + 1 }}</legend><div class="fields">
+            <label>Alias<input [name]="'alias-' + index" [(ngModel)]="location.alias" maxlength="120"></label>
+            <label>Dirección descriptiva<input [name]="'address-' + index" [(ngModel)]="location.address" maxlength="300"></label>
+            <label>Latitud<input type="number" [name]="'latitude-' + index" [(ngModel)]="location.latitude" min="-90" max="90" step="0.000001" required></label>
+            <label>Longitud<input type="number" [name]="'longitude-' + index" [(ngModel)]="location.longitude" min="-180" max="180" step="0.000001" required></label>
+          </div><div class="location-actions"><label class="primary-choice"><input type="radio" name="primary-location" [checked]="location.isPrimary" (change)="setPrimaryLocation(index)"> Principal</label><span>{{ location.source === 'Gps' ? 'Obtenida por GPS' : 'Captura manual' }}</span><button type="button" class="quiet" (click)="useCurrentLocation(index)">Usar GPS actual</button><button type="button" class="danger" (click)="removeLocation(index)" [disabled]="draft.locations.length === 1">Quitar</button></div></fieldset>
+        }
+      </div>
+      <div class="actions"><button type="button" class="quiet" (click)="closeForm()">Cancelar</button><button type="submit" class="primary" [disabled]="saving()">{{ saving() ? 'Guardando…' : 'Guardar cliente' }}</button></div>
+    </form>
+  }
+
+  <form class="filters" (ngSubmit)="search()">
+    <label>Ruta<select name="filterRoute" [(ngModel)]="filterRouteId"><option value="">Todas mis rutas</option>@for (route of routes(); track route.id) { <option [value]="route.id">{{ route.name }}</option> }</select></label>
+    <label>Buscar<input name="search" [(ngModel)]="searchTerm" placeholder="Nombre, comercio o teléfono"></label>
+    <button type="submit" class="primary">Buscar</button>
+  </form>
+  @if (success()) { <p class="success" role="status">{{ success() }}</p> }
+  @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+  @if (loading()) { <p>Cargando clientes…</p> }
+  @else if (customers().length === 0) { <p class="empty">No hay clientes visibles con los filtros actuales.</p> }
+  @else {
+    <p class="result-count">{{ totalCount() }} cliente(s)</p>
+    <div class="grid">@for (customer of customers(); track customer.id) { <article><div class="card-heading"><div><h3>{{ customer.firstNames }} {{ customer.lastNames }}</h3><span>{{ routeName(customer.routeId) }}</span></div><span class="status" [class.inactive]="customer.status === 'Inactive'">{{ customer.status === 'Active' ? 'Activo' : 'Inactivo' }}</span></div>@if (customer.businessOrWorkName) { <p>{{ customer.businessOrWorkName }}</p> }<dl><div><dt>Teléfono</dt><dd>{{ customer.primaryPhone }}</dd></div><div><dt>Ubicación principal</dt><dd>{{ customer.primaryLatitude }}, {{ customer.primaryLongitude }}</dd></div></dl><button type="button" class="quiet" (click)="openEdit(customer.id)">Ver y editar</button></article> }</div>
+  }
+</section>
