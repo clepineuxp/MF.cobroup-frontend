@@ -1,6 +1,6 @@
 # MF.cobroup-frontend
 
-PWA operativa de COBROUP para cobradores, supervisores y capacidades operativas del administrador. Fase 1 ofrece shell, rutas base, temas y contratos técnicos; no simula operaciones.
+PWA operativa de COBROUP para cobradores, supervisores y administradores. Fase 2 incorpora acceso por organización y usuario, Authorization Code + PKCE, callback, refresh rotatorio en memoria y logout con revocación; no simula operaciones.
 
 ## Requisitos
 
@@ -15,4 +15,4 @@ npm test -- --watch=false
 npm run build
 ```
 
-El build de producción habilita el service worker. La API operativa se configurará detrás de `/api/operations/v1`; no hay secretos en el frontend.
+El build de producción habilita el service worker. `proxy.conf.json` dirige `/identity` a la autoridad y `/api` al backend operativo. El gateway de despliegue debe conservar esas rutas bajo el mismo origen. Los tokens no se persisten en almacenamiento del navegador.

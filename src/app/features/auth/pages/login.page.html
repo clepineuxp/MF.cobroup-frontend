@@ -1,0 +1,10 @@
+<section class="auth-card" aria-labelledby="login-title"><p class="eyebrow">Acceso operativo</p><h2 id="login-title">Ingresa a tu organización</h2>
+  <p class="intro">Usa el código de tu organización y tus credenciales personales.</p>
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <label>Código de organización<input formControlName="organizationCode" autocomplete="organization" /></label>
+    <label>Usuario<input formControlName="username" autocomplete="username" /></label>
+    <label>Contraseña<input type="password" formControlName="password" autocomplete="current-password" /></label>
+    @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+    <button type="submit" [disabled]="form.invalid || busy()">{{ busy() ? 'Validando…' : 'Ingresar' }}</button>
+  </form><button class="secondary" type="button" [disabled]="busy()" (click)="continueSession()">Continuar sesión existente</button>
+</section>

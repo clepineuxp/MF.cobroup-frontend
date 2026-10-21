@@ -1,0 +1,13 @@
+{
+  "/identity": {
+    "target": "https://localhost:7119",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": { "^/identity": "" }
+  },
+  "/api": {
+    "target": "http://localhost:5218",
+    "secure": false,
+    "changeOrigin": true
+  }
+}
