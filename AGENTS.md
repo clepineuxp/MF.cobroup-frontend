@@ -3,20 +3,20 @@
 ## Identidad y restricciones
 
 - Producto: COBROUP; rol: frontend operativo.
-- Maestro: `../cobroup.md/COBROUP.md` 1.0.7.
+- Maestro: `../cobroup.md/COBROUP.md` 1.0.8.
 - Estándar: `../cobroup.md/FRAMEWORK_DESARROLLO_FRONTEND.md` 1.0.
-- Rama activa: `feature/fase-4-clientes`.
+- Rama activa: `feature/fase-5-plantillas-excepciones`.
 - Sin push, merge, tag ni PR sin autorización.
 
 ## Estado actual
 
-- Fase: 4; resultado: COMPLETADA.
+- Fase: 5; resultado: EN_CURSO.
 - Angular 21.2.25 LTS, CLI/build 21.2.27, TypeScript 5.9.3, RxJS 7.8.2.
 - Node 22.15.1 LTS; npm 11.6.2.
 - PWA: activada; tema: light/dark implementado.
 - Auditoría independiente: no realizada.
-- Línea base: 9 fases totales; 4 completas y 5 pendientes. Informe: `../cobroup.md/informe/avance.md`.
-- Corte actual: alta, búsqueda y edición de clientes con teléfonos, ubicaciones y GPS; build productivo y 8/8 pruebas.
+- Línea base: 9 fases totales; 4 completas, 1 en curso y 4 posteriores. Informe: `../cobroup.md/informe/avance.md`.
+- Corte actual: consulta de plantillas publicadas del tenant; build productivo y 8/8 pruebas existentes.
 
 ## Historial cronológico (append-only)
 
@@ -82,3 +82,12 @@
 - Seguridad: rutas disponibles proceden del alcance autenticado; el tenant no viaja en comandos y traslado/estado permanecen restringidos por servidor.
 - Validación: build productivo exitoso y 8/8 pruebas.
 - Git: commit de fase 4 autorizado; push, merge, tag y PR permanecen prohibidos.
+
+### 2026-10-21 — Inicio de fase 5: catálogo operativo
+
+- Rama: `feature/fase-5-plantillas-excepciones`; fase 4 ya comprometida al iniciar.
+- Interfaz: nueva pantalla `/plantillas` de solo lectura con límites, clasificación, versión y porcentajes de las plantillas publicadas para el tenant activo.
+- Seguridad: consume exclusivamente la fachada operativa y no envía tenant; la pantalla aclara que la originación pertenece a fase 6.
+- Validación: build productivo exitoso y 8/8 pruebas existentes.
+- Pendiente de fase: formulario de solicitud excepcional ligado a cliente visible.
+- Git: cambios de fase 5 sin commit; push, merge, tag y PR no autorizados.
