@@ -1,0 +1,107 @@
+<section class="mapa-container">
+  <div class="map-header">
+    <div>
+      <h2 class="title">Mapa operativo de ruta</h2>
+      <p class="subtitle">Georreferenciación de clientes con estado visual de cobranza</p>
+    </div>
+
+    <form [formGroup]="filterForm" (ngSubmit)="loadMapLocations()" class="controls-form">
+      <select formControlName="routeId" (change)="loadMapLocations()" aria-label="Ruta">
+        @for (route of routes(); track route.id) {
+          <option [value]="route.id">{{ route.name }}</option>
+        }
+      </select>
+      <input type="date" formControlName="date" (change)="loadMapLocations()" aria-label="Fecha" />
+    </form>
+  </div>
+
+  @if (error()) {
+    <div class="alert-error" role="alert">{{ error() }}</div>
+  }
+
+  <div class="chips-bar">
+    <button
+      type="button"
+      class="chip"
+      [class.active]="statusFilter() === 'ALL'"
+      (click)="setFilter('ALL')"
+    >
+      Todos ({{ rawLocations().length }})
+    </button>
+    <button
+      type="button"
+      class="chip chip-mora"
+      [class.active]="statusFilter() === 'OVERDUE'"
+      (click)="setFilter('OVERDUE')"
+    >
+      🔴 En mora ({{ moraCount() }})
+    </button>
+    <button
+      type="button"
+      class="chip chip-due"
+      [class.active]="statusFilter() === 'DUE'"
+      (click)="setFilter('DUE')"
+    >
+      🟡 Cobro hoy ({{ dueCount() }})
+    </button>
+    <button
+      type="button"
+      class="chip chip-collected"
+      [class.active]="statusFilter() === 'COLLECTED'"
+      (click)="setFilter('COLLECTED')"
+    >
+      🟢 Cobrado ({{ collectedCount() }})
+    </button>
+  </div>
+
+  <div class="map-layout">
+    <div class="map-wrapper">
+      <app-map-view
+        [points]="mapPoints()"
+        [selectedPointId]="selectedPoint()?.customerId ?? null"
+        height="500px"
+        (pointSelected)="onPointSelected($event)"
+      />
+    </div>
+
+    @if (selectedPoint(); as sel) {
+      <div class="inspector-card">
+        <div class="inspector-header">
+          <h3>{{ sel.customerName }}</h3>
+          <span class="status-badge" [style.--status-color]="sel.markerColor">{{ sel.status }}</span>
+        </div>
+        @if (sel.businessOrWorkName) {
+          <p class="desc">{{ sel.businessOrWorkName }}</p>
+        }
+        @if (sel.address) {
+          <p class="address">📍 {{ sel.address }}</p>
+        }
+
+        <div class="inspector-finances">
+          @if (sel.dueTodayAmount && sel.dueTodayAmount > 0) {
+            <div class="fin-row">
+              <span>Cuota hoy:</span>
+              <strong class="txt-due">{{ sel.dueTodayAmount | currency:'USD':'symbol':'1.0-0' }}</strong>
+            </div>
+          }
+          @if (sel.overdueAmount && sel.overdueAmount > 0) {
+            <div class="fin-row">
+              <span>Mora vencida:</span>
+              <strong class="txt-overdue">{{ sel.overdueAmount | currency:'USD':'symbol':'1.0-0' }}</strong>
+            </div>
+          }
+          @if (sel.loanBalance && sel.loanBalance > 0) {
+            <div class="fin-row">
+              <span>Saldo total:</span>
+              <span>{{ sel.loanBalance | currency:'USD':'symbol':'1.0-0' }}</span>
+            </div>
+          }
+        </div>
+
+        <button type="button" class="btn-collect" (click)="goToCollect(sel)">
+          Ir a cobrar
+        </button>
+      </div>
+    }
+  </div>
+</section>

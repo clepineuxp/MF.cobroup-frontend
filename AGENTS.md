@@ -3,20 +3,20 @@
 ## Identidad y restricciones
 
 - Producto: COBROUP; rol: frontend operativo.
-- Maestro: `../cobroup.md/COBROUP.md` 1.3.0.
+- Maestro: `../cobroup.md/COBROUP.md` 1.5.0.
 - Estándar: `../cobroup.md/FRAMEWORK_DESARROLLO_FRONTEND.md` 1.0.
-- Rama activa: `feature/fase-7-pagos-conciliacion`.
+- Rama activa: `feature/fase-8-mapas-analitica`.
 - Sin push, merge, tag ni PR sin autorización.
 
 ## Estado actual
 
-- Fase: 7; resultado: COMPLETADA_FUNCIONALMENTE.
+- Fase: 8; resultado: COMPLETADA_FUNCIONALMENTE.
 - Angular 21.2.25 LTS, CLI/build 21.2.27, TypeScript 5.9.3, RxJS 7.8.2.
 - Node 22.15.1 LTS; npm 11.6.2.
 - PWA: activada; tema: light/dark implementado.
 - Auditoría independiente: no realizada.
-- Línea base: 9 fases totales; 7 completas funcionalmente, 2 posteriores pendientes. Informe: `../cobroup.md/informe/avance.md`.
-- Corte actual: registro y confirmación de cobros con previsualización en cascada (AC-11), garantía de idempotencia (AC-12), selección de medios autorizados (AC-13), soporte de fotografía de comprobante (AC-14), y pantalla de conciliación diaria de recaudo por ruta y medio de pago (AC-17); build productivo limpio con 0 warnings; 25/25 pruebas Vitest pasando; budget SCSS < 4.00 kB.
+- Línea base: 9 fases totales; 8 completas funcionalmente, 1 posterior pendiente. Informe: `../cobroup.md/informe/avance.md`.
+- Corte actual: Fase 7 cerrada en Git (`f547dd0`); Fase 8 completada: agenda diaria de cobro (`/agenda`) con paradas secuenciadas y reordenamiento por GPS (Haversine), mapa interactivo de clientes (`/mapa`) con OpenStreetMap y pines semánticos de estado (mora, vence hoy, al día, sin cuota), componente reutilizable `map-view`, y acción rápida de cobro integrado; build productivo limpio con 0 warnings; 28/28 pruebas Vitest pasando; budget SCSS < 4.00 kB.
 
 ## Historial cronológico (append-only)
 
@@ -135,3 +135,28 @@
   - 25/25 pruebas Vitest pasando en verde (incluyendo `PaymentsService`, `LoansPage` y `ReconciliationPage`).
   - Build de producción generado con 0 advertencias y 0 errores (`ng build`).
 - Git: rama `feature/fase-7-pagos-conciliacion`; push, merge, tag y PR no autorizados.
+
+### 2026-10-21 — Cierre versionado de fase 7 en Git
+
+- Prompt: correcto, hacer commits de fase 7 e iniciar fase 8.
+- Resultado: fase 7 validada; commit autorizado: SÍ, commit local `f547dd0` (`feat(payments): implement live payment modal, evidence capture and daily reconciliation view`).
+- Rama de trabajo creada y activa: `feature/fase-8-mapas-analitica`.
+- Operaciones no autorizadas: push, merge, tag y PR.
+
+### 2026-10-21 — Implementación de fase 8: mapas, georreferenciación y analítica
+
+- Componente UI reutilizable:
+  - `src/app/shared/ui/map-view/map-view.component.ts`, `.html`, `.scss`: componente standalone con renderizado de mosaicos OpenStreetMap, marcadores interactivos codificados por color según estado (rojo mora, amarillo vence hoy, verde al día/cobrado, azul sin cuota) y popups con información de cuota y saldo.
+- Modelos y servicios:
+  - `agenda.models.ts` y `agenda.service.ts`: integración de `getDailyAgenda`, `optimizeRoute` y `getMapLocations` consumiendo `/api/operations/v1/agenda`.
+- Páginas y experiencia de usuario:
+  - `/agenda` (`agenda.page.ts`): resumen de paradas del día, saldo por cobrar, clientes en mora y pagos completados; lista de paradas ordenadas; botón "Reordenar por GPS" usando la geolocalización del navegador y optimización voraz; botón de cobro rápido con apertura automática del modal de pago pre-cargado con el cliente.
+  - `/mapa` (`mapa.page.ts`): visualización cartográfica completa de los clientes de la ruta con panel de detalle reactivo.
+  - Navegación: enlaces agregados en `main-layout.component.html` y rutas en `app.routes.ts`.
+- Estilos, temas y presupuestos:
+  - SCSS desacoplado con tokens semánticos (`var(--color-...)`); presupuesto de estilos < 4.00 kB cumplido con 0 advertencias.
+- Validación de arquitectura: cumplimiento estricto de FRAMEWORK_DESARROLLO_FRONTEND 1.0 (feature-based, componentes comunes en `shared/ui`, servicios HTTP dedicados).
+- Validación de suites:
+  - 28/28 pruebas Vitest pasando en verde (incluyendo 3 pruebas para `AgendaService`).
+  - Build de producción generado con 0 advertencias y 0 errores (`ng build`).
+- Git: rama `feature/fase-8-mapas-analitica`; push, merge, tag y PR no autorizados.

@@ -44,6 +44,18 @@ export const routes: Routes = [
     loadComponent: () => import('./features/payments/pages/reconciliation/reconciliation.page').then((module) => module.ReconciliationPage),
     title: 'Conciliación diaria | COBROUP',
   },
+  {
+    path: 'agenda',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/agenda/pages/agenda.page').then((module) => module.AgendaPage),
+    title: 'Agenda diaria | COBROUP',
+  },
+  {
+    path: 'mapa',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/agenda/pages/mapa.page').then((module) => module.MapaPage),
+    title: 'Mapa de ruta | COBROUP',
+  },
   { path: 'login', loadComponent: () => import('./features/auth/pages/login.page').then((module) => module.LoginPage), title: 'Acceso operativo | COBROUP' },
   { path: 'auth/callback', loadComponent: () => import('./features/auth/pages/auth-callback.page').then((module) => module.AuthCallbackPage), title: 'Validando acceso | COBROUP' },
   { path: '**', redirectTo: '' },
