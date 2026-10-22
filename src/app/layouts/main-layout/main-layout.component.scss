@@ -9,4 +9,21 @@ nav a { padding-block: var(--space-2); color: var(--color-text-muted); text-deco
 nav a.active { color: var(--color-primary); border-color: currentColor; }
 main { padding-block: var(--space-8); }
 footer { padding-block: var(--space-4); }
+.btn-logout {
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 0.0625rem solid var(--color-border);
+  border-radius: var(--radius-md, 0.375rem);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  &:hover {
+    color: #ef4444;
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.08);
+  }
+}
 @media (max-width: 35rem) { header, .header-actions { align-items: stretch; flex-direction: column; width: 100%; } }

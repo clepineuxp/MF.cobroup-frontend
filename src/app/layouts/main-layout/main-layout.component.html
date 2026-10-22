@@ -1,3 +1,30 @@
-<header><div><p class="eyebrow">Plataforma multi-tenant</p><h1>COBROUP Operación</h1><nav aria-label="Operación"><a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Resumen</a><a routerLink="/agenda" routerLinkActive="active">Agenda</a><a routerLink="/mapa" routerLinkActive="active">Mapa</a><a routerLink="/rutas" routerLinkActive="active">Mis rutas</a><a routerLink="/clientes" routerLinkActive="active">Clientes</a><a routerLink="/prestamos" routerLinkActive="active">Préstamos</a><a routerLink="/conciliacion" routerLinkActive="active">Conciliación</a><a routerLink="/plantillas" routerLinkActive="active">Plantillas</a><a routerLink="/excepciones" routerLinkActive="active">Excepciones</a></nav></div><div class="header-actions"><app-organization-switcher /><app-theme-switch /></div></header>
+<header>
+  <div>
+    <p class="eyebrow">Plataforma multi-tenant</p>
+    <h1>COBROUP Operación</h1>
+    @if (isAuthenticated()) {
+    <nav aria-label="Operación">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Resumen</a>
+      <a routerLink="/agenda" routerLinkActive="active">Agenda</a>
+      <a routerLink="/mapa" routerLinkActive="active">Mapa</a>
+      <a routerLink="/rutas" routerLinkActive="active">Mis rutas</a>
+      <a routerLink="/clientes" routerLinkActive="active">Clientes</a>
+      <a routerLink="/prestamos" routerLinkActive="active">Préstamos</a>
+      <a routerLink="/conciliacion" routerLinkActive="active">Conciliación</a>
+      <a routerLink="/plantillas" routerLinkActive="active">Plantillas</a>
+      <a routerLink="/excepciones" routerLinkActive="active">Excepciones</a>
+    </nav>
+    }
+  </div>
+  <div class="header-actions">
+    @if (isAuthenticated()) {
+      <app-organization-switcher />
+    }
+    <app-theme-switch />
+    @if (isAuthenticated()) {
+      <button type="button" class="btn-logout" (click)="logout()" title="Cerrar sesión">Cerrar sesión</button>
+    }
+  </div>
+</header>
 <main><router-outlet /></main>
 <footer>Fase 8 · Mapas, georreferenciación y analítica</footer>

@@ -6,6 +6,6 @@
 | Administrativa | `MS.Cobroup.BackendAdmin` | Configuración, rutas, asignaciones, plantillas, aprobaciones | Backend admin |
 | Administrativa | Consulta operativa versionada | Mapas, mora, recaudo | Backend operativo/proyección |
 
-Claims futuros: `sub`, `tenant_id`, roles y expiración. La interfaz no acepta éxito hasta confirmación de API. Errores contendrán código, mensaje seguro y `traceId`. No se cachean respuestas autenticadas por defecto.
+El access token JWT aporta `typ=access`, `sub`, `organization_id`, rol y vigencia; permanece solo en memoria. El refresh token es inaccesible a JavaScript y viaja únicamente en cookie segura. La interfaz no acepta éxito hasta confirmación de API. Los errores contienen código, mensaje seguro y `traceId`, sin tokens. No se cachean respuestas autenticadas. Ver `../../../cobroup.md/DECISION_AUTENTICACION_JWT.md`.
 
 Fase 3 consume `GET /api/operations/v1/routes`; el backend decide el alcance por tenant, rol y asignación. La PWA no consulta BackendAdmin directamente ni filtra seguridad solo en cliente.
