@@ -1,0 +1,157 @@
+<section class="agenda-container">
+  <div class="header-row">
+    <div>
+      <h2 class="title">Agenda diaria de cobro</h2>
+      <p class="subtitle">Secuencia de visitas, vencimientos y estado de mora en tiempo real</p>
+    </div>
+    <div class="actions">
+      <button
+        type="button"
+        class="btn-gps"
+        (click)="optimizeGps()"
+        [disabled]="optimizing() || loading()"
+        aria-label="Optimizar secuencia de visitas por GPS"
+      >
+        {{ optimizing() ? 'Calculando GPS...' : '📍 Optimizar por cercanía GPS' }}
+      </button>
+    </div>
+  </div>
+
+  <form [formGroup]="filterForm" (ngSubmit)="loadAgenda()" class="filter-bar">
+    <div class="field">
+      <label for="routeSelect">Ruta autorizada</label>
+      <select id="routeSelect" formControlName="routeId" (change)="loadAgenda()">
+        @for (route of routes(); track route.id) {
+          <option [value]="route.id">{{ route.name }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="dateInput">Fecha de negocio</label>
+      <input id="dateInput" type="date" formControlName="date" (change)="loadAgenda()" />
+    </div>
+  </form>
+
+  @if (error()) {
+    <div class="alert-error" role="alert">{{ error() }}</div>
+  }
+
+  @if (agenda(); as ag) {
+    <div class="summary-grid">
+      <div class="metric-card">
+        <span class="label">Para cobrar hoy</span>
+        <strong class="value due">{{ ag.summary.totalDueToday | currency:'USD':'symbol':'1.0-0' }}</strong>
+        <span class="sub">{{ ag.summary.dueTodayCount }} cuotas hoy</span>
+      </div>
+
+      <div class="metric-card">
+        <span class="label">Cartera en mora</span>
+        <strong class="value overdue">{{ ag.summary.totalOverdue | currency:'USD':'symbol':'1.0-0' }}</strong>
+        <span class="sub">{{ ag.summary.overdueCount }} clientes vencidos</span>
+      </div>
+
+      <div class="metric-card">
+        <span class="label">Cobrado hoy</span>
+        <strong class="value collected">{{ ag.summary.totalCollectedToday | currency:'USD':'symbol':'1.0-0' }}</strong>
+        <span class="sub">{{ ag.summary.collectedCount }} cobros realizados</span>
+      </div>
+
+      <div class="metric-card">
+        <span class="label">Total paradas</span>
+        <strong class="value">{{ ag.summary.totalCustomers }}</strong>
+        <span class="sub">{{ ag.summary.upToDateCount }} clientes al día</span>
+      </div>
+    </div>
+
+    <div class="tabs-bar" role="tablist">
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeFilter() === 'ALL'"
+        (click)="setFilter('ALL')"
+      >
+        Todos ({{ ag.items.length }})
+      </button>
+      <button
+        type="button"
+        class="tab-btn overdue"
+        [class.active]="activeFilter() === 'OVERDUE'"
+        (click)="setFilter('OVERDUE')"
+      >
+        En mora ({{ ag.summary.overdueCount }})
+      </button>
+      <button
+        type="button"
+        class="tab-btn due"
+        [class.active]="activeFilter() === 'DUE_TODAY'"
+        (click)="setFilter('DUE_TODAY')"
+      >
+        Cobro hoy ({{ ag.summary.dueTodayCount }})
+      </button>
+      <button
+        type="button"
+        class="tab-btn collected"
+        [class.active]="activeFilter() === 'COLLECTED'"
+        (click)="setFilter('COLLECTED')"
+      >
+        Cobrados ({{ ag.summary.collectedCount }})
+      </button>
+    </div>
+
+    <div class="items-list">
+      @for (item of filteredItems(); track item.customerId; let idx = $index) {
+        <article class="stop-card" [class.is-overdue]="item.status === 'Overdue'">
+          <div class="seq-badge">{{ idx + 1 }}</div>
+
+          <div class="info-col">
+            <div class="client-header">
+              <h3 class="name">{{ item.customerName }}</h3>
+              @if (item.businessOrWorkName) {
+                <span class="business">· {{ item.businessOrWorkName }}</span>
+              }
+              <span class="status-pill" [style.--pill-color]="item.markerColor">{{ item.statusLabel }}</span>
+            </div>
+
+            <div class="meta-row">
+              @if (item.primaryPhone) {
+                <span class="meta-item">📞 {{ item.primaryPhone }}</span>
+              }
+              @if (item.address) {
+                <span class="meta-item">📍 {{ item.address }}</span>
+              }
+              @if (item.distanceKm !== null) {
+                <span class="meta-item distance">🚗 {{ item.distanceKm }} km</span>
+              }
+            </div>
+          </div>
+
+          <div class="finance-col">
+            @if (item.dueTodayAmount > 0) {
+              <div class="amt-due">Hoy: <strong>{{ item.dueTodayAmount | currency:'USD':'symbol':'1.0-0' }}</strong></div>
+            }
+            @if (item.overdueAmount > 0) {
+              <div class="amt-overdue">Mora: <strong>{{ item.overdueAmount | currency:'USD':'symbol':'1.0-0' }}</strong></div>
+            }
+            @if (item.loanBalance > 0) {
+              <div class="amt-balance">Saldo: {{ item.loanBalance | currency:'USD':'symbol':'1.0-0' }}</div>
+            }
+          </div>
+
+          <div class="action-col">
+            <button
+              type="button"
+              class="btn-collect"
+              (click)="goToCollect(item)"
+              aria-label="Registrar cobro para este cliente"
+            >
+              Cobrar
+            </button>
+          </div>
+        </article>
+      } @empty {
+        <div class="empty-state">No hay paradas registradas para este filtro o ruta.</div>
+      }
+    </div>
+  }
+</section>

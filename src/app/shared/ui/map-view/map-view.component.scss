@@ -1,0 +1,177 @@
+.map-container {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  background-color: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  user-select: none;
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.map-grid-layer {
+  position: absolute;
+  inset: 0;
+  background-size: 32px 32px;
+  background-image:
+    linear-gradient(to right, var(--color-border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-border) 1px, transparent 1px);
+  opacity: 0.35;
+}
+
+.map-watermark {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+.markers-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.marker-pin {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 0.15s ease;
+
+  &:hover {
+    transform: translate(-50%, -105%) scale(1.1);
+  }
+
+  &.selected {
+    transform: translate(-50%, -105%) scale(1.2);
+    z-index: 10;
+  }
+}
+
+.pin-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: var(--pin-color, var(--color-primary));
+  border: 2px solid var(--color-surface);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+.pin-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  padding: 1px 4px;
+  border-radius: 4px;
+  margin-top: 2px;
+  border: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.map-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 5;
+}
+
+.btn-ctrl {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  font-size: 1.1rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+
+  &:hover {
+    background-color: var(--color-surface-raised);
+  }
+}
+
+.map-popup {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  min-width: 180px;
+  max-width: 260px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  h4 {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--color-text);
+  }
+}
+
+.btn-close {
+  background: transparent;
+  border: none;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.popup-sub,
+.popup-address {
+  margin: 2px 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.popup-finance {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.badge-mora {
+  background-color: var(--color-danger);
+  color: var(--color-surface);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.badge-due {
+  background-color: var(--color-warning);
+  color: var(--color-surface);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
