@@ -20,12 +20,48 @@ export class AuthService {
   private readonly contextState = signal<AuthContext | null>(null);
   private accessToken: string | null = null;
   private refreshPromise: Promise<boolean> | null = null;
+  private antiforgeryToken: string | null = null;
+  private antiforgeryPromise: Promise<string | null> | null = null;
 
   readonly context = this.contextState.asReadonly();
   readonly isAuthenticated = computed(() => this.contextState() !== null && this.accessToken !== null);
 
   constructor() {
-    this.refreshAccessToken().catch(() => {});
+    this.initSession().catch(() => {});
+  }
+
+  private async initSession(): Promise<void> {
+    await this.ensureAntiforgeryToken();
+    await this.refreshAccessToken();
+  }
+
+  async ensureAntiforgeryToken(force = false): Promise<string | null> {
+    if (!force && this.antiforgeryToken) {
+      return this.antiforgeryToken;
+    }
+    if (this.antiforgeryPromise) {
+      return this.antiforgeryPromise;
+    }
+    this.antiforgeryPromise = this.fetchAntiforgeryToken().finally(() => {
+      this.antiforgeryPromise = null;
+    });
+    return this.antiforgeryPromise;
+  }
+
+  private async fetchAntiforgeryToken(): Promise<string | null> {
+    try {
+      const response = await fetch(`${this.config.identityBaseUrl}/api/v1/auth/antiforgery`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Cache-Control': 'no-store' }
+      });
+      if (!response.ok) return null;
+      const data = (await response.json()) as { requestToken?: string };
+      this.antiforgeryToken = data.requestToken ?? null;
+      return this.antiforgeryToken;
+    } catch {
+      return null;
+    }
   }
 
   async login(credentials: LoginCredentials): Promise<LoginOutcome> {
@@ -51,6 +87,7 @@ export class AuthService {
     }
 
     this.accessToken = result.access_token ?? null;
+    await this.ensureAntiforgeryToken(true);
     await this.loadContext();
     await this.router.navigateByUrl('/');
     return 'authenticated';
@@ -70,16 +107,35 @@ export class AuthService {
   }
 
   async selectOrganization(organizationId: string): Promise<void> {
+    const xsrf = await this.ensureAntiforgeryToken();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (this.accessToken) {
       headers['Authorization'] = `Bearer ${this.accessToken}`;
     }
-    const response = await fetch(`${this.config.identityBaseUrl}/api/v1/auth/organizations/current`, {
+    if (xsrf) {
+      headers['X-XSRF-TOKEN'] = xsrf;
+    }
+
+    let response = await fetch(`${this.config.identityBaseUrl}/api/v1/auth/organizations/current`, {
       method: 'PUT',
       credentials: 'include',
       headers,
       body: JSON.stringify({ organizationId }),
     });
+
+    if (response.status === 400) {
+      const freshXsrf = await this.ensureAntiforgeryToken(true);
+      if (freshXsrf) {
+        headers['X-XSRF-TOKEN'] = freshXsrf;
+        response = await fetch(`${this.config.identityBaseUrl}/api/v1/auth/organizations/current`, {
+          method: 'PUT',
+          credentials: 'include',
+          headers,
+          body: JSON.stringify({ organizationId }),
+        });
+      }
+    }
+
     if (!response.ok) throw new Error('No fue posible cambiar de organización.');
 
     const result = (await response.json()) as { access_token?: string };
@@ -93,9 +149,13 @@ export class AuthService {
 
   async logout(): Promise<void> {
     try {
+      const xsrf = await this.ensureAntiforgeryToken();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (this.accessToken) {
         headers['Authorization'] = `Bearer ${this.accessToken}`;
+      }
+      if (xsrf) {
+        headers['X-XSRF-TOKEN'] = xsrf;
       }
       await fetch(`${this.config.identityBaseUrl}/api/v1/auth/logout`, {
         method: 'POST',
@@ -123,11 +183,29 @@ export class AuthService {
 
   private async performRefresh(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.config.identityBaseUrl}/api/v1/auth/refresh`, {
+      const xsrf = await this.ensureAntiforgeryToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (xsrf) {
+        headers['X-XSRF-TOKEN'] = xsrf;
+      }
+
+      let response = await fetch(`${this.config.identityBaseUrl}/api/v1/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
       });
+
+      if (response.status === 400) {
+        const freshXsrf = await this.ensureAntiforgeryToken(true);
+        if (freshXsrf) {
+          headers['X-XSRF-TOKEN'] = freshXsrf;
+          response = await fetch(`${this.config.identityBaseUrl}/api/v1/auth/refresh`, {
+            method: 'POST',
+            credentials: 'include',
+            headers,
+          });
+        }
+      }
 
       if (!response.ok) {
         this.accessToken = null;
