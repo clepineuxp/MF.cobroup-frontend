@@ -113,8 +113,9 @@ describe('AuthService Antiforgery and Refresh', () => {
     });
 
     service = TestBed.inject(AuthService);
-    await service.logout();
+    const result = await service.logout();
 
+    expect(result.remoteRevoked).toBe(true);
     expect(fetchSpy).toHaveBeenCalledWith('/identity/api/v1/auth/logout', expect.objectContaining({
       method: 'POST',
       credentials: 'include',
@@ -123,5 +124,71 @@ describe('AuthService Antiforgery and Refresh', () => {
       }),
     }));
     expect(mockRouter.navigateByUrl).toHaveBeenCalledWith('/login');
+  });
+
+  it('retries with fresh CSRF token only when response is explicit antiforgery error', async () => {
+    // 1. Initial antiforgery
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ requestToken: 'expired-csrf' }),
+    });
+    // 2. Refresh returns 400 with antiforgery error
+    fetchSpy.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      headers: new Headers({ 'x-cobroup-error': 'antiforgery_token_invalid' }),
+      clone: () => ({
+        json: async () => ({ error: 'antiforgery_token_invalid', code: 'antiforgery_token_invalid' }),
+      }),
+      json: async () => ({ error: 'antiforgery_token_invalid', code: 'antiforgery_token_invalid' }),
+    });
+    // 3. Fresh antiforgery
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ requestToken: 'new-csrf' }),
+    });
+    // 4. Retry succeeds
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ access_token: 'valid-jwt' }),
+    });
+    // 5. Load context
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ userId: 'u-1' }),
+    });
+
+    service = TestBed.inject(AuthService);
+    const success = await service.refreshAccessToken();
+
+    expect(success).toBe(true);
+    const refreshCalls = fetchSpy.mock.calls.filter((c: unknown[]) => c[0] === '/identity/api/v1/auth/refresh');
+    expect(refreshCalls.length).toBe(2);
+    expect(refreshCalls[1][1].headers['X-XSRF-TOKEN']).toBe('new-csrf');
+  });
+
+  it('does NOT retry when HTTP 400 is a generic validation error', async () => {
+    // 1. Initial antiforgery
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ requestToken: 'csrf-1' }),
+    });
+    // 2. Refresh returns generic 400 (e.g. model validation error)
+    fetchSpy.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      headers: new Headers(),
+      clone: () => ({
+        json: async () => ({ message: 'Validation failed' }),
+      }),
+      json: async () => ({ message: 'Validation failed' }),
+    });
+
+    service = TestBed.inject(AuthService);
+    const success = await service.refreshAccessToken();
+
+    expect(success).toBe(false);
+    const refreshCalls = fetchSpy.mock.calls.filter((c: unknown[]) => c[0] === '/identity/api/v1/auth/refresh');
+    expect(refreshCalls.length).toBe(1);
   });
 });

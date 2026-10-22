@@ -123,7 +123,7 @@ export class AuthService {
       body: JSON.stringify({ organizationId }),
     });
 
-    if (response.status === 400) {
+    if (await this.isCsrfFailure(response)) {
       const freshXsrf = await this.ensureAntiforgeryToken(true);
       if (freshXsrf) {
         headers['X-XSRF-TOKEN'] = freshXsrf;
@@ -147,7 +147,8 @@ export class AuthService {
     await this.router.navigateByUrl('/');
   }
 
-  async logout(): Promise<void> {
+  async logout(): Promise<{ remoteRevoked: boolean }> {
+    let remoteRevoked = false;
     try {
       const xsrf = await this.ensureAntiforgeryToken();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -157,18 +158,36 @@ export class AuthService {
       if (xsrf) {
         headers['X-XSRF-TOKEN'] = xsrf;
       }
-      await fetch(`${this.config.identityBaseUrl}/api/v1/auth/logout`, {
+      let response = await fetch(`${this.config.identityBaseUrl}/api/v1/auth/logout`, {
         method: 'POST',
         credentials: 'include',
         headers,
       });
-    } catch {
-      // Ignorar error de red para asegurar limpieza local
+
+      if (await this.isCsrfFailure(response)) {
+        const freshXsrf = await this.ensureAntiforgeryToken(true);
+        if (freshXsrf) {
+          headers['X-XSRF-TOKEN'] = freshXsrf;
+          response = await fetch(`${this.config.identityBaseUrl}/api/v1/auth/logout`, {
+            method: 'POST',
+            credentials: 'include',
+            headers,
+          });
+        }
+      }
+
+      remoteRevoked = response.ok;
+      if (!remoteRevoked) {
+        console.warn('La sesión local fue cerrada, pero no se pudo confirmar la revocación remota en el servidor (HTTP ' + response.status + ').');
+      }
+    } catch (err) {
+      console.warn('Error de red durante logout; la sesión remota no pudo ser confirmada revocada.', err);
     } finally {
       this.accessToken = null;
       this.contextState.set(null);
       await this.router.navigateByUrl('/login');
     }
+    return { remoteRevoked };
   }
 
   async refreshAccessToken(): Promise<boolean> {
@@ -179,6 +198,22 @@ export class AuthService {
       this.refreshPromise = null;
     });
     return this.refreshPromise;
+  }
+
+  private async isCsrfFailure(response: Response): Promise<boolean> {
+    if (response.status !== 400) {
+      return false;
+    }
+    if (response.headers.get('x-cobroup-error') === 'antiforgery_token_invalid') {
+      return true;
+    }
+    try {
+      const cloned = response.clone();
+      const payload = await cloned.json();
+      return payload?.error === 'antiforgery_token_invalid' || payload?.code === 'antiforgery_token_invalid';
+    } catch {
+      return false;
+    }
   }
 
   private async performRefresh(): Promise<boolean> {
@@ -195,7 +230,7 @@ export class AuthService {
         headers,
       });
 
-      if (response.status === 400) {
+      if (await this.isCsrfFailure(response)) {
         const freshXsrf = await this.ensureAntiforgeryToken(true);
         if (freshXsrf) {
           headers['X-XSRF-TOKEN'] = freshXsrf;
