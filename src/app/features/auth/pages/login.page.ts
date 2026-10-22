@@ -17,5 +17,11 @@ export class LoginPage {
     }
     catch (error) { this.error.set(error instanceof Error ? error.message : 'No fue posible iniciar sesión.'); this.busy.set(false); }
   }
-  async continueSession(): Promise<void> { this.busy.set(true); await this.auth.beginAuthorization(); }
+  async continueSession(): Promise<void> {
+    this.busy.set(true);
+    const restored = await this.auth.refreshAccessToken();
+    if (restored) return;
+    this.error.set('No hay una sesión previa activa para restaurar.');
+    this.busy.set(false);
+  }
 }

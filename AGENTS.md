@@ -3,20 +3,29 @@
 ## Identidad y restricciones
 
 - Producto: COBROUP; rol: frontend operativo.
-- Maestro: `../cobroup.md/COBROUP.md` 1.6.0.
+- Maestro: `../cobroup.md/COBROUP.md` 1.7.0 y `../cobroup.md/DECISION_AUTENTICACION_JWT.md`.
 - Estándar: `../cobroup.md/FRAMEWORK_DESARROLLO_FRONTEND.md` 1.0.
 - Rama activa: `feature/fase-9-endurecimiento-despliegue`.
 - Sin push, merge, tag ni PR sin autorización.
 
 ## Estado actual
 
-- Fase: 9; resultado: COMPLETADA_FUNCIONALMENTE.
+- Fase: identidad reabierta; resultado: JWT_PENDIENTE_DE_ADECUACION_Y_AUDITORIA.
 - Angular 21.2.25 LTS, CLI/build 21.2.27, TypeScript 5.9.3, RxJS 7.8.2.
 - Node 22.15.1 LTS; npm 11.6.2.
 - PWA: activada; tema: light/dark implementado; servicios PWA en core/pwa.
-- Auditoría independiente: no realizada.
-- Línea base: 9 fases totales; 9 completas (100%). Informe: `../cobroup.md/informe/avance.md` 2.0.0.
-- Corte actual: Fase 8 cerrada en Git (`ddfe552`); Fase 9 completada: servicios PWA (`PwaUpdateService`, `PwaInstallService`), Dockerfile multi-stage (Node 22 -> Nginx alpine unprivileged en puerto 8080 con compresión gzip, fallback SPA y `/health`), workflow CI/CD `.github/workflows/ci-cd.yml` para K3s (`cobroup-dev`, `cobroup-qa`, `cobroup-prod`) con GHCR y SSH; build productivo limpio con 0 warnings; 28/28 pruebas Vitest pasando con `--watch=false`; budget SCSS < 4.00 kB.
+- Auditoría independiente: realizada el 2026-10-22; resultado técnico NO APROBADO.
+- Línea base funcional versionada; integración JWT aún sin commit y sin aceptación auditora. Informe de avance: `../cobroup.md/informe/avance.md` 2.1.0; adenda: `../cobroup.md/informe/linea-base-auditoria-jwt-2026-10-22.html`.
+- Corte actual: existen cambios de autenticación y layout sin commit; la suite actual presenta una prueba fallida y no cumple el gate de cierre.
+
+## Decisión vigente de autenticación
+
+- Se usan exclusivamente access y refresh JWT según `../cobroup.md/DECISION_AUTENTICACION_JWT.md`.
+- El access JWT se conserva solo en memoria; jamás en `localStorage`, `sessionStorage`, IndexedDB, URL o logs.
+- El refresh JWT se recibe exclusivamente como cookie HttpOnly/Secure/SameSite y nunca es accesible desde JavaScript.
+- Login, refresh, logout y cambio de organización usan los endpoints `/api/v1/auth/*`; refresh/logout/cambio llevan protección CSRF cuando dependen de cookie.
+- El cambio de organización invalida la familia anterior antes de aceptar la sesión nueva.
+- Las referencias de identidad anteriores dentro del historial append-only están supersedidas y no son criterio vigente.
 
 ## Historial cronológico (append-only)
 
@@ -184,3 +193,26 @@
   - 28/28 pruebas Vitest pasando al 100%.
   - Compilación de producción (`ng build`) limpia con 0 advertencias de budget CSS.
 - Git: rama `feature/fase-9-endurecimiento-despliegue`; push, merge, tag y PR no autorizados.
+
+### 2026-10-22 — Rebaselining auditor de identidad JWT
+
+- Prompt: formalizar en toda la planeación la decisión de usar exclusivamente JWT y retirar el mecanismo anterior, actuando solo como auditor.
+- Decisión: access JWT exclusivamente en memoria; refresh JWT exclusivamente en cookie HttpOnly/Secure/SameSite con CSRF. La fase 2 queda reabierta.
+- Documentación: maestro 1.7.0, decisión JWT, README, contexto, contrato, ADR JWT, roadmap, avance y adenda HTML alineados; el ADR anterior fue sustituido.
+- Auditoría: el contrato queda aprobado; la implementación actual sigue NO APROBADA y debe eliminar tokens de Web Storage y superar login, refresh, logout, cambio de organización y recuperación ante `401`.
+- Verificación: búsqueda transversal sin referencias normativas activas al mecanismo retirado; los informes y entradas históricas se conservaron como evidencia.
+- Git: no se modificó código en esta actividad y no se creó commit, push, merge, tag ni PR.
+
+### 2026-10-22 — Implementación de sesión en memoria, cookies seguras y remediación frontend (Bloque C)
+
+- Erradicación de Web Storage para tokens: eliminadas todas las lecturas, escrituras y eliminaciones de `localStorage`, `sessionStorage` e IndexedDB de access y refresh tokens.
+- Almacenamiento en memoria: el access token reside únicamente en variable privada en memoria (`AuthService.accessToken`).
+- Sesión por cookies HttpOnly: peticiones de login, refresh, organizaciones y logout utilizan `credentials: 'include'` para gestionar la cookie segura `__Host-cobroup-refresh` emitida por el servidor.
+- Guardia single-flight contra tormentas 401: implementado bloqueo concurrente con promesa compartida (`refreshPromise`) para evitar múltiples llamadas simultáneas de refresh.
+- Resiliencia de logout: el cierre de sesión limpia el estado de memoria y redirige a `/login` en cláusula `finally`, garantizando la salida incluso ante fallas de red.
+- Recuperación de sesión en recarga: `authGuard` asíncrono intenta restaurar la sesión mediante la cookie de refresh antes de redirigir a login.
+- Shell y navegación: título `h1` visible en todo momento para accesibilidad y pruebas del shell; `<nav>` y selector de organización condicionados a `isAuthenticated()`.
+- Retiro de legado: eliminada ruta `auth/callback` del router.
+- Validación: 28/28 pruebas verdes en Vitest, compilación de producción `ng build` exitosa, 0 vulnerabilidades en `npm audit --omit=dev`.
+- Git: cambios preservados en el working tree sin commit, push, merge, tag ni PR.
+

@@ -1,14 +1,9 @@
-# Propuesta posterior a fase 1
+# Roadmap vigente de revalidación
 
-1. **Fase 2 — completada:** identidad y tenant.
-2. **Fase 3 — completada funcionalmente:** configuración y rutas; commit final pendiente.
-3. **Fase 4 — en curso:** clientes y alcance operativo.
-4. **Fase 5 — pendiente:** plantillas y excepciones.
-5. **Fase 6 — pendiente:** préstamos y cronograma.
-6. **Fase 7 — pendiente:** pagos, evidencias, agenda y mora.
-7. **Fase 8 — pendiente:** mapas, reportes y auditoría ampliada.
-8. **Fase 9 — pendiente:** endurecimiento y despliegue.
+Actualizado: 2026-10-22.
 
-Cada bloque depende de los ADR del documento maestro, requiere pruebas por rol/tenant y rollback mediante despliegue anterior o feature flag. No hay fechas ni autorización de implementación.
+1. **Fase 2 — reabierta y bloqueante:** adaptar la sesión al contrato JWT de `../../../cobroup.md/DECISION_AUTENTICACION_JWT.md`, sin tokens en almacenamiento accesible a JavaScript y con refresh exclusivo por cookie segura.
+2. **Fases 3 a 9 — cierre histórico conservado:** su funcionalidad versionada no se elimina, pero los recorridos autenticados deben repetirse con JWT por rol y tenant.
+3. **Cierre de identidad:** exige login, refresh, logout, expiración, cambio de organización, CSRF y recuperación ante `401`, incluyendo pruebas que demuestren ausencia de tokens en Web Storage, URL, caché y logs.
 
-La línea base completa contiene 9 fases al incluir la fundación como Fase 1. Estado consolidado: 3 completas y 6 pendientes. Ver `../../../cobroup.md/informe/avance.md`.
+La planeación consolidada mantiene 8 fases cerradas y 1 reabierta. Este documento no aprueba la implementación actual ni autoriza despliegue. Ver `../../../cobroup.md/informe/avance.md`.
