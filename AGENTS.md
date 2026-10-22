@@ -3,20 +3,20 @@
 ## Identidad y restricciones
 
 - Producto: COBROUP; rol: frontend operativo.
-- Maestro: `../cobroup.md/COBROUP.md` 1.5.0.
+- Maestro: `../cobroup.md/COBROUP.md` 1.6.0.
 - Estándar: `../cobroup.md/FRAMEWORK_DESARROLLO_FRONTEND.md` 1.0.
-- Rama activa: `feature/fase-8-mapas-analitica`.
+- Rama activa: `feature/fase-9-endurecimiento-despliegue`.
 - Sin push, merge, tag ni PR sin autorización.
 
 ## Estado actual
 
-- Fase: 8; resultado: COMPLETADA_FUNCIONALMENTE.
+- Fase: 9; resultado: COMPLETADA_FUNCIONALMENTE.
 - Angular 21.2.25 LTS, CLI/build 21.2.27, TypeScript 5.9.3, RxJS 7.8.2.
 - Node 22.15.1 LTS; npm 11.6.2.
-- PWA: activada; tema: light/dark implementado.
+- PWA: activada; tema: light/dark implementado; servicios PWA en core/pwa.
 - Auditoría independiente: no realizada.
-- Línea base: 9 fases totales; 8 completas funcionalmente, 1 posterior pendiente. Informe: `../cobroup.md/informe/avance.md`.
-- Corte actual: Fase 7 cerrada en Git (`f547dd0`); Fase 8 completada: agenda diaria de cobro (`/agenda`) con paradas secuenciadas y reordenamiento por GPS (Haversine), mapa interactivo de clientes (`/mapa`) con OpenStreetMap y pines semánticos de estado (mora, vence hoy, al día, sin cuota), componente reutilizable `map-view`, y acción rápida de cobro integrado; build productivo limpio con 0 warnings; 28/28 pruebas Vitest pasando; budget SCSS < 4.00 kB.
+- Línea base: 9 fases totales; 9 completas (100%). Informe: `../cobroup.md/informe/avance.md` 2.0.0.
+- Corte actual: Fase 8 cerrada en Git (`ddfe552`); Fase 9 completada: servicios PWA (`PwaUpdateService`, `PwaInstallService`), Dockerfile multi-stage (Node 22 -> Nginx alpine unprivileged en puerto 8080 con compresión gzip, fallback SPA y `/health`), workflow CI/CD `.github/workflows/ci-cd.yml` para K3s (`cobroup-dev`, `cobroup-qa`, `cobroup-prod`) con GHCR y SSH; build productivo limpio con 0 warnings; 28/28 pruebas Vitest pasando con `--watch=false`; budget SCSS < 4.00 kB.
 
 ## Historial cronológico (append-only)
 
@@ -160,3 +160,27 @@
   - 28/28 pruebas Vitest pasando en verde (incluyendo 3 pruebas para `AgendaService`).
   - Build de producción generado con 0 advertencias y 0 errores (`ng build`).
 - Git: rama `feature/fase-8-mapas-analitica`; push, merge, tag y PR no autorizados.
+
+### 2026-10-21 — Cierre versionado de fase 8 en Git
+
+- Prompt: correcto, hacer commits de fase 7 e iniciar fase 8 / proceder con la fase final.
+- Resultado: fase 8 validada; commit autorizado: SÍ, commit local `ddfe552` (`feat(agenda): implement daily collection agenda, gps reordering and interactive map`).
+- Rama de trabajo creada y activa: `feature/fase-9-endurecimiento-despliegue`.
+- Operaciones no autorizadas: push, merge, tag y PR.
+
+### 2026-10-21 — Implementación de fase 9: endurecimiento y despliegue K3s/Kubernetes
+
+- Servicios PWA:
+  - `PwaUpdateService` en `src/app/core/pwa/pwa-update.service.ts`: monitoreo de actualizaciones mediante Angular Service Worker (`SwUpdate.versionUpdates`), activación controlada con recarga segura.
+  - `PwaInstallService` en `src/app/core/pwa/pwa-install.service.ts`: captura reactiva de `beforeinstallprompt`, señal `canInstall$` para botón de instalación en la UI y registro de instalación con `appinstalled`.
+- Contenedorización Nginx y Docker:
+  - `Dockerfile` multi-stage: compilación con Node 22-alpine -> servidor Nginx 1.27-alpine unprivileged en puerto 8080.
+  - `nginx.conf`: compresión gzip, cabeceras de caché (1 año para assets estáticos con hash, `no-cache` para `index.html`), fallback SPA con `try_files` y health check en `/health`.
+  - `.dockerignore` configurado.
+- Orquestación K3s y CI/CD:
+  - Manifiesto K3s `k8s/base/frontend-collector.yaml`: Deployment y ClusterIP Service en puerto 8080 con límites de recursos y health probe en `/health`.
+  - Pipeline `.github/workflows/ci-cd.yml`: ejecución de pruebas Vitest (`npm test -- --watch=false`), build de producción (`npm run build`), build y push de imagen Docker a GHCR (`ghcr.io/clepineuxp/mf-cobroup-frontend`), y despliegue automatizado por SSH a K3s para ambientes `cobroup-dev`, `cobroup-qa`, `cobroup-prod`.
+- Pruebas automatizadas y build:
+  - 28/28 pruebas Vitest pasando al 100%.
+  - Compilación de producción (`ng build`) limpia con 0 advertencias de budget CSS.
+- Git: rama `feature/fase-9-endurecimiento-despliegue`; push, merge, tag y PR no autorizados.
