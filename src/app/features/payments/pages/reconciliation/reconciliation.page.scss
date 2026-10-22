@@ -1,0 +1,36 @@
+.reconciliation-page { display: flex; flex-direction: column; gap: 1.5rem; }
+.page-header .badge { display: inline-block; padding: .25rem .6rem; border-radius: 999px; font-size: .75rem; font-weight: 600; background: var(--color-surface-raised); color: var(--color-primary); border: 1px solid var(--color-border); margin-bottom: .5rem; }
+.page-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: var(--color-text); }
+.page-header .subtitle { color: var(--color-text-muted); margin-top: .25rem; font-size: .95rem; }
+.alert.error { background: var(--color-surface-raised); border: 1px solid var(--color-danger); color: var(--color-danger); padding: .75rem 1rem; border-radius: .5rem; font-size: .875rem; }
+.filters-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: .75rem; padding: 1.25rem; }
+.filters-card form { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; }
+.filter-group { display: flex; flex-direction: column; gap: .35rem; flex: 1 1 200px; }
+.filter-group label { font-size: .8rem; font-weight: 600; color: var(--color-text-muted); }
+.filter-group select, .filter-group input { padding: .55rem .75rem; border-radius: .5rem; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); font-size: .9rem; outline: none; }
+.filter-actions .btn { padding: .55rem 1.25rem; border-radius: .5rem; font-weight: 600; font-size: .9rem; border: none; cursor: pointer; background: var(--color-primary); color: var(--color-on-primary); }
+.filter-actions .btn:disabled { opacity: .6; cursor: not-allowed; }
+.metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+.metric-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: .75rem; padding: 1.25rem; display: flex; flex-direction: column; gap: .35rem; }
+.metric-card.highlight { border-color: var(--color-primary); background: var(--color-surface-raised); }
+.metric-card.highlight .metric-value { color: var(--color-primary); }
+.metric-label { font-size: .8rem; font-weight: 600; text-transform: uppercase; color: var(--color-text-muted); }
+.metric-value { font-size: 1.75rem; font-weight: 700; color: var(--color-text); }
+.metric-hint { font-size: .75rem; color: var(--color-text-muted); }
+.card.table-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: .75rem; overflow: hidden; }
+.table-header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--color-border); }
+.table-header h2 { font-size: 1.1rem; margin: 0; font-weight: 600; color: var(--color-text); }
+.empty-state { padding: 2.5rem; text-align: center; color: var(--color-text-muted); }
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th, .data-table td { padding: .8rem 1.2rem; font-size: .9rem; color: var(--color-text); }
+.data-table th { background: var(--color-surface-raised); font-weight: 600; color: var(--color-text-muted); border-bottom: 1px solid var(--color-border); }
+.data-table td { border-bottom: 1px solid var(--color-border); }
+.method-name { display: flex; align-items: center; gap: .5rem; }
+.method-name .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-primary); }
+.amount-col { font-variant-numeric: tabular-nums; font-weight: 600; }
+.percentage-cell { display: flex; align-items: center; justify-content: flex-end; gap: .75rem; }
+.progress-bar { width: 70px; height: 6px; background: var(--color-surface-raised); border-radius: 999px; overflow: hidden; }
+.progress-bar .fill { height: 100%; background: var(--color-primary); border-radius: 999px; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.total-row td { border-top: 2px solid var(--color-border); border-bottom: none; background: var(--color-surface-raised); font-weight: 700; }

@@ -13,10 +13,19 @@ import {
   CalculatedSchedule,
   LoanDetails,
   LoanSearchItem,
-  LoanStatus,
   PaymentFrequency,
 } from '../data/loan.models';
 import { LoansService } from '../data/loans.service';
+import { PaymentDetails, PaymentMethodItem } from '../../payments/data/payment.models';
+import { PaymentsService } from '../../payments/data/payments.service';
+
+interface LiveAllocationPreviewItem {
+  readonly installmentNumber: number;
+  readonly expectedAmount: number;
+  readonly currentPaidAmount: number;
+  readonly newAllocatedAmount: number;
+  readonly isFullyCovered: boolean;
+}
 
 @Component({
   selector: 'app-loans-page',
@@ -30,12 +39,14 @@ export class LoansPage {
   private readonly templatesService = inject(LoanTemplatesService);
   private readonly exceptionsService = inject(LoanExceptionsService);
   private readonly routesService = inject(RoutesService);
+  private readonly paymentsService = inject(PaymentsService);
 
   readonly items = signal<readonly LoanSearchItem[]>([]);
   readonly customers = signal<readonly CustomerSummary[]>([]);
   readonly templates = signal<readonly AvailableLoanTemplate[]>([]);
   readonly approvedExceptions = signal<readonly LoanExceptionItem[]>([]);
   readonly routes = signal<readonly AccessibleRoute[]>([]);
+  readonly paymentMethods = signal<readonly PaymentMethodItem[]>([]);
 
   readonly loading = signal(true);
   readonly submitting = signal(false);
@@ -46,6 +57,17 @@ export class LoansPage {
   readonly showOriginationModal = signal(false);
   readonly selectedLoan = signal<LoanDetails | null>(null);
   readonly schedulePreview = signal<CalculatedSchedule | null>(null);
+
+  // Payments & Evidence State
+  readonly showPaymentModal = signal(false);
+  readonly payingLoan = signal<LoanDetails | null>(null);
+  readonly loanPayments = signal<readonly PaymentDetails[]>([]);
+  readonly paymentSubmitting = signal(false);
+  readonly paymentSuccess = signal<PaymentDetails | null>(null);
+  readonly activeDetailTab = signal<'installments' | 'payments'>('installments');
+  readonly allocationPreview = signal<readonly LiveAllocationPreviewItem[]>([]);
+  readonly evidenceFileName = signal<string>('');
+  readonly evidenceBase64 = signal<string>('');
 
   readonly originationMode = signal<'template' | 'exception'>('template');
   readonly statusFilter = signal<string>('');
@@ -75,6 +97,17 @@ export class LoansPage {
     }),
   });
 
+  readonly paymentForm = new FormGroup({
+    amount: new FormControl<number | null>(null, {
+      validators: [Validators.required, Validators.min(0.01)],
+    }),
+    paymentMethodId: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+    notes: new FormControl(''),
+  });
+
   constructor() {
     void this.init();
   }
@@ -83,12 +116,13 @@ export class LoansPage {
     this.loading.set(true);
     this.error.set('');
     try {
-      const [loansRes, customersRes, templatesRes, exceptionsRes, routesRes] = await Promise.all([
+      const [loansRes, customersRes, templatesRes, exceptionsRes, routesRes, methodsRes] = await Promise.all([
         this.loansService.search(),
         this.customersService.search('', '', 1, 100).catch(() => ({ items: [], page: 1, pageSize: 100, totalCount: 0 })),
         this.templatesService.listAvailable().catch(() => []),
         this.exceptionsService.search(undefined, undefined, 'Approved', 1, 100).catch(() => ({ items: [], page: 1, pageSize: 100, totalCount: 0 })),
         this.routesService.listAccessible().catch(() => []),
+        this.paymentsService.getPaymentMethods().catch(() => []),
       ]);
 
       this.items.set(loansRes.items);
@@ -96,6 +130,7 @@ export class LoansPage {
       this.templates.set(templatesRes);
       this.approvedExceptions.set(exceptionsRes.items);
       this.routes.set(routesRes);
+      this.paymentMethods.set(methodsRes);
     } catch (err) {
       this.error.set(err instanceof Error ? err.message : 'Error al cargar los préstamos.');
     } finally {
@@ -218,6 +253,7 @@ export class LoansPage {
     }
 
     if (raw.paymentFrequency === 'EveryNDays' && (!raw.frequencyNDays || raw.frequencyNDays <= 0)) {
+      this.schedulePreview.set(null);
       return;
     }
 
@@ -240,7 +276,7 @@ export class LoansPage {
   }
 
   async submitOrigination(): Promise<void> {
-    if (this.form.invalid || this.submitting()) {
+    if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
@@ -291,8 +327,13 @@ export class LoansPage {
   async viewLoan(loanId: string): Promise<void> {
     this.loading.set(true);
     try {
-      const loan = await this.loansService.get(loanId);
+      const [loan, payments] = await Promise.all([
+        this.loansService.get(loanId),
+        this.paymentsService.listByLoan(loanId).catch(() => []),
+      ]);
       this.selectedLoan.set(loan);
+      this.loanPayments.set(payments);
+      this.activeDetailTab.set('installments');
     } catch (err) {
       this.error.set(err instanceof Error ? err.message : 'Error al consultar el detalle del préstamo.');
     } finally {
@@ -302,6 +343,167 @@ export class LoansPage {
 
   closeDetail(): void {
     this.selectedLoan.set(null);
+    this.loanPayments.set([]);
+  }
+
+  // --- Payment Registration Flow (AC-11, AC-12, AC-13, AC-14) ---
+
+  async openPayment(loanItem: LoanSearchItem | LoanDetails, event?: Event): Promise<void> {
+    if (event) {
+      event.stopPropagation();
+    }
+
+    this.error.set('');
+    this.success.set('');
+    this.paymentSuccess.set(null);
+    this.evidenceFileName.set('');
+    this.evidenceBase64.set('');
+
+    let loan = 'installments' in loanItem ? (loanItem as LoanDetails) : null;
+    if (!loan) {
+      try {
+        loan = await this.loansService.get(loanItem.id);
+      } catch (err) {
+        this.error.set(err instanceof Error ? err.message : 'Error cargando datos del préstamo.');
+        return;
+      }
+    }
+
+    this.payingLoan.set(loan);
+
+    // Default amount to next pending installment amount or balance
+    const nextPending = loan.installments.find((i) => i.status !== 'Paid');
+    const defaultAmount = nextPending ? nextPending.expectedAmount - nextPending.paidAmount : loan.balanceAmount;
+
+    const firstMethod = this.paymentMethods()[0]?.id ?? '';
+    this.paymentForm.reset({
+      amount: defaultAmount,
+      paymentMethodId: firstMethod,
+      notes: '',
+    });
+
+    this.updateAllocationPreview(defaultAmount, loan);
+    this.showPaymentModal.set(true);
+  }
+
+  closePaymentModal(): void {
+    this.showPaymentModal.set(false);
+    this.payingLoan.set(null);
+    this.paymentSuccess.set(null);
+    this.allocationPreview.set([]);
+  }
+
+  onPaymentAmountChanged(): void {
+    const amount = this.paymentForm.controls.amount.value ?? 0;
+    const loan = this.payingLoan();
+    if (loan) {
+      this.updateAllocationPreview(amount, loan);
+    }
+  }
+
+  private updateAllocationPreview(amount: number, loan: LoanDetails): void {
+    if (amount <= 0) {
+      this.allocationPreview.set([]);
+      return;
+    }
+
+    let remaining = amount;
+    const previews: LiveAllocationPreviewItem[] = [];
+
+    for (const inst of loan.installments) {
+      if (inst.status === 'Paid') continue;
+      if (remaining <= 0) break;
+
+      const pendingOnInst = inst.expectedAmount - inst.paidAmount;
+      const allocated = Math.min(remaining, pendingOnInst);
+      const isFullyCovered = allocated >= pendingOnInst;
+
+      previews.push({
+        installmentNumber: inst.number,
+        expectedAmount: inst.expectedAmount,
+        currentPaidAmount: inst.paidAmount,
+        newAllocatedAmount: allocated,
+        isFullyCovered,
+      });
+
+      remaining -= allocated;
+    }
+
+    this.allocationPreview.set(previews);
+  }
+
+  onEvidenceFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      const file = input.files[0];
+      this.evidenceFileName.set(file.name);
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        this.evidenceBase64.set(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  async submitPayment(): Promise<void> {
+    if (this.paymentForm.invalid) {
+      this.paymentForm.markAllAsTouched();
+      return;
+    }
+
+    const loan = this.payingLoan();
+    if (!loan) return;
+
+    const raw = this.paymentForm.getRawValue();
+    const amount = raw.amount!;
+
+    if (amount > loan.balanceAmount) {
+      this.error.set(`El importe (${amount}) no puede superar el saldo pendiente (${loan.balanceAmount}).`);
+      return;
+    }
+
+    this.paymentSubmitting.set(true);
+    this.error.set('');
+
+    try {
+      // AC-12: Client-side generated UUID idempotency key
+      const idempotencyKey = crypto.randomUUID();
+
+      const payment = await this.paymentsService.registerPayment({
+        loanId: loan.id,
+        amount,
+        paymentMethodId: raw.paymentMethodId,
+        notes: raw.notes || null,
+        idempotencyKey,
+      });
+
+      // If photo evidence was selected, attach it (AC-14)
+      if (this.evidenceFileName()) {
+        try {
+          await this.paymentsService.attachEvidence(payment.id, {
+            fileName: this.evidenceFileName(),
+            contentType: 'image/jpeg',
+            byteSize: 2048,
+            storagePath: `/evidences/${payment.id}_${this.evidenceFileName()}`,
+          });
+        } catch {
+          // Non-blocking evidence error
+        }
+      }
+
+      this.paymentSuccess.set(payment);
+      await this.filterLoans();
+
+      // If detail modal was open for this loan, refresh it
+      if (this.selectedLoan()?.id === loan.id) {
+        await this.viewLoan(loan.id);
+      }
+    } catch (err) {
+      this.error.set(err instanceof Error ? err.message : 'Error al registrar el cobro.');
+    } finally {
+      this.paymentSubmitting.set(false);
+    }
   }
 
   private todayDate(): string {

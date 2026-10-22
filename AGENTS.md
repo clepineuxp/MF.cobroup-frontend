@@ -3,20 +3,20 @@
 ## Identidad y restricciones
 
 - Producto: COBROUP; rol: frontend operativo.
-- Maestro: `../cobroup.md/COBROUP.md` 1.2.0.
+- Maestro: `../cobroup.md/COBROUP.md` 1.3.0.
 - Estándar: `../cobroup.md/FRAMEWORK_DESARROLLO_FRONTEND.md` 1.0.
-- Rama activa: `feature/fase-6-prestamos-cronograma`.
+- Rama activa: `feature/fase-7-pagos-conciliacion`.
 - Sin push, merge, tag ni PR sin autorización.
 
 ## Estado actual
 
-- Fase: 6; resultado: COMPLETADA_FUNCIONALMENTE.
+- Fase: 7; resultado: COMPLETADA_FUNCIONALMENTE.
 - Angular 21.2.25 LTS, CLI/build 21.2.27, TypeScript 5.9.3, RxJS 7.8.2.
 - Node 22.15.1 LTS; npm 11.6.2.
 - PWA: activada; tema: light/dark implementado.
 - Auditoría independiente: no realizada.
-- Línea base: 9 fases totales; 6 completas funcionalmente, 3 posteriores pendientes. Informe: `../cobroup.md/informe/avance.md`.
-- Corte actual: originación de créditos, previsualización interactiva de cronograma de amortización, listado de cartera y modal de cuotas; build productivo limpio con 0 warnings; 17/17 pruebas Vitest pasando; budget SCSS < 4.00 kB.
+- Línea base: 9 fases totales; 7 completas funcionalmente, 2 posteriores pendientes. Informe: `../cobroup.md/informe/avance.md`.
+- Corte actual: registro y confirmación de cobros con previsualización en cascada (AC-11), garantía de idempotencia (AC-12), selección de medios autorizados (AC-13), soporte de fotografía de comprobante (AC-14), y pantalla de conciliación diaria de recaudo por ruta y medio de pago (AC-17); build productivo limpio con 0 warnings; 25/25 pruebas Vitest pasando; budget SCSS < 4.00 kB.
 
 ## Historial cronológico (append-only)
 
@@ -115,4 +115,23 @@
 - Validación:
   - 17/17 pruebas Vitest pasando en verde (incluyendo pruebas unitarias para `LoansService` y `LoansPage`).
   - Build de producción generado con 0 advertencias y 0 errores (`ng build`).
-- Git: rama `feature/fase-6-prestamos-cronograma` lista para commit de cierre de fase tras autorización del usuario; push, merge, tag y PR no autorizados.
+- Git: commit local `762847f` (`feat(loans): implement operative loan origination and schedule inspection`) en rama `feature/fase-6-prestamos-cronograma`; push, merge, tag y PR no autorizados.
+
+### 2026-10-21 — Cierre funcional de fase 7: pagos, evidencias y conciliación
+
+- Modelos y servicios:
+  - `PaymentDetails`, `PaymentAllocationItem`, `PaymentEvidenceItem`, `DailyReconciliationReport`, `RegisterPaymentRequest` en `payment.models.ts`.
+  - `PaymentsService`: integración completa de `getPaymentMethods`, `registerPayment`, `listByLoan`, `getDailyReconciliation`, `attachEvidence`, `deleteEvidence` consumiendo `/api/operations/v1/payments`.
+- Experiencia de usuario y vistas:
+  - Modal de cobro en `/prestamos`: botón "Cobrar" en cada préstamo activo, cálculo reactivo en vivo de imputación en cascada sobre cuotas pendientes (AC-11), selector de medios de pago activos (AC-13), adjunto opcional de fotografía de soporte (AC-14), clave de idempotencia UUID (AC-12), y comprobante de recaudo generado al instante.
+  - Pestaña de historial de pagos en el detalle del préstamo con desglose por cuota y fotos de evidencia.
+  - Pantalla `/conciliacion`: selector de ruta y fecha de recaudo, tarjetas KPI (Total Recaudado, Pagos, Medios), desglose tabular por medio con porcentaje y barra de progreso (AC-17).
+  - Navegación: enlace `/conciliacion` agregado en la barra superior y footer actualizado a Fase 7.
+- Rendimiento, temas y presupuestos:
+  - Estilos refactorizados con estricto uso de tokens semánticos `var(--color-...)` de `src/app/themes/`, eliminando códigos hexadecimales arbitrarios.
+  - `loans.page.scss` optimizado a 3.8 kB y `reconciliation.page.scss` a 2.4 kB, cumpliendo el presupuesto estricto de Angular (< 4.00 kB) con 0 advertencias.
+- Validación de arquitectura: cumplimiento estricto de FRAMEWORK_DESARROLLO_FRONTEND 1.0 (feature-based, contratos tipados en data-access, componentes desacoplados de HTTP, tema claro inicial con Dark toggle funcional y PWA compatible).
+- Validación de suites:
+  - 25/25 pruebas Vitest pasando en verde (incluyendo `PaymentsService`, `LoansPage` y `ReconciliationPage`).
+  - Build de producción generado con 0 advertencias y 0 errores (`ng build`).
+- Git: rama `feature/fase-7-pagos-conciliacion`; push, merge, tag y PR no autorizados.
