@@ -252,3 +252,12 @@
 - Validación: 48/48 pruebas pasando en Vitest (15 suites) y compilación `ng build` exitosa en 6.7s con 0 advertencias de budget.
 - Git: rama `feature/visuals-theme`; cambios preservados en el working tree sin commit, push, merge, tag ni PR.
 
+### 2026-10-23 — Diagnóstico y corrección de visibilidad de pantalla de Login
+
+- Diagnóstico: la pantalla de login no aparecía al navegar a la ruta raíz `/` debido a un error de contexto de inyección en Angular (`NG0203: The Router token injection failed. inject() function must be called from an injection context`). En `auth.guard.ts`, `inject(Router)` se ejecutaba tras un `await auth.refreshAccessToken()`, perdiendo el contexto sincrónico de inyección de Angular cuando no había sesión previa. Esto provocaba una excepción no capturada en la navegación del enrutador, bloqueando la redirección hacia `/login` y dejando la vista `<router-outlet>` completamente vacía.
+- Solución: inyección sincrónica de `Router` (`const router = inject(Router);`) al inicio de `authGuard` antes de cualquier `await`.
+- Pruebas y validación:
+  - Creada suite de pruebas unitarias dedicada `src/app/core/auth/auth.guard.spec.ts` verificando tanto el acceso autenticado como la redirección hacia `/login` ante ausencia de sesión.
+  - 50/50 pruebas Vitest pasando al 100% (16/16 suites).
+  - Verificación end-to-end con renderizado DOM en Edge: comprobada redirección automática desde `http://localhost:5200/` hacia `http://localhost:5200/login` y renderizado íntegro de `<app-login-page>` con formulario de credenciales.
+- Git: rama `feature/visuals-theme`; cambios preservados en working tree sin commit, push, merge, tag ni PR.
