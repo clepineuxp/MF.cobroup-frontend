@@ -1,0 +1,161 @@
+@if (isOpen) {
+  <div class="modal-backdrop" (click)="close()">
+    <div class="modal-sheet" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="sheet-drag-handle"></div>
+
+      <div class="modal-header">
+        <div class="header-titles">
+          <span class="sheet-badge">Clientes</span>
+          <h2 id="modal-title" class="sheet-title">{{ draft.id ? 'Editar Cliente' : 'Nuevo Cliente' }}</h2>
+        </div>
+        <button type="button" class="btn-icon-close" (click)="close()" aria-label="Cerrar">✕</button>
+      </div>
+
+      @if (error()) {
+        <div class="alert-box error" role="alert">{{ error() }}</div>
+      }
+
+      @if (loading()) {
+        <div class="loading-state">
+          <span class="spinner"></span>
+          <p>Cargando información...</p>
+        </div>
+      } @else {
+        <form class="modal-body" (ngSubmit)="save()">
+          <div class="form-section">
+            <h3 class="section-title">Datos Personales</h3>
+            <div class="inputs-grid">
+              <label class="clean-field">
+                <span class="field-label">Ruta asignada *</span>
+                <select name="routeId" [(ngModel)]="draft.routeId" [disabled]="!!draft.id && !isAdmin()" required>
+                  <option value="">Selecciona una ruta</option>
+                  @for (route of routes(); track route.id) {
+                    <option [value]="route.id">{{ route.name }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="clean-field">
+                <span class="field-label">Nombres *</span>
+                <input name="firstNames" [(ngModel)]="draft.firstNames" maxlength="120" placeholder="Ej: Carlos Alberto" required />
+              </label>
+
+              <label class="clean-field">
+                <span class="field-label">Apellidos *</span>
+                <input name="lastNames" [(ngModel)]="draft.lastNames" maxlength="120" placeholder="Ej: Gómez Restrepo" required />
+              </label>
+
+              <label class="clean-field">
+                <span class="field-label">Comercio / Trabajo</span>
+                <input name="business" [(ngModel)]="draft.businessOrWorkName" maxlength="160" placeholder="Ej: Tienda La 45" />
+              </label>
+
+              @if (draft.id && isAdmin()) {
+                <label class="clean-field">
+                  <span class="field-label">Estado</span>
+                  <select name="status" [(ngModel)]="draft.status">
+                    <option value="Active">Activo</option>
+                    <option value="Inactive">Inactivo</option>
+                  </select>
+                </label>
+              }
+            </div>
+
+            <label class="clean-field full-width">
+              <span class="field-label">Observaciones</span>
+              <textarea name="observations" [(ngModel)]="draft.observations" maxlength="1000" rows="2" placeholder="Notas sobre el cliente o actividad..."></textarea>
+            </label>
+          </div>
+
+          <div class="form-section">
+            <div class="section-header">
+              <h3 class="section-title">Teléfonos (1–6)</h3>
+              <button type="button" class="btn-action-small" (click)="addPhone()" [disabled]="draft.phones.length >= 6">
+                + Agregar teléfono
+              </button>
+            </div>
+
+            <div class="cards-list">
+              @for (phone of draft.phones; track $index; let index = $index) {
+                <div class="card-item">
+                  <label class="clean-field flex-grow">
+                    <span class="field-label">Número</span>
+                    <input [name]="'phone-' + index" [(ngModel)]="phone.number" inputmode="tel" placeholder="Ej: 3001234567" required />
+                  </label>
+                  <label class="radio-pill" [class.selected]="phone.isPrimary">
+                    <input type="radio" name="primary-phone" [checked]="phone.isPrimary" (change)="setPrimaryPhone(index)" />
+                    <span>Principal</span>
+                  </label>
+                  <button type="button" class="btn-item-delete" (click)="removePhone(index)" [disabled]="draft.phones.length === 1" aria-label="Quitar">
+                    ✕
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-header">
+              <h3 class="section-title">Ubicaciones (1–4)</h3>
+              <button type="button" class="btn-action-small" (click)="addLocation()" [disabled]="draft.locations.length >= 4">
+                + Agregar ubicación
+              </button>
+            </div>
+
+            <div class="cards-list">
+              @for (loc of draft.locations; track $index; let index = $index) {
+                <div class="card-item column">
+                  <div class="card-item-top">
+                    <span class="loc-index">Ubicación {{ index + 1 }}</span>
+                    <div class="loc-badges">
+                      <label class="radio-pill" [class.selected]="loc.isPrimary">
+                        <input type="radio" name="primary-location" [checked]="loc.isPrimary" (change)="setPrimaryLocation(index)" />
+                        <span>Principal</span>
+                      </label>
+                      <button type="button" class="btn-item-delete" (click)="removeLocation(index)" [disabled]="draft.locations.length === 1" aria-label="Quitar">
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="inputs-grid">
+                    <label class="clean-field">
+                      <span class="field-label">Alias</span>
+                      <input [name]="'alias-' + index" [(ngModel)]="loc.alias" maxlength="120" placeholder="Ej: Casa, Negocio" />
+                    </label>
+                    <label class="clean-field">
+                      <span class="field-label">Dirección</span>
+                      <input [name]="'address-' + index" [(ngModel)]="loc.address" maxlength="300" placeholder="Ej: Cra 15 # 45-20" />
+                    </label>
+                    <label class="clean-field">
+                      <span class="field-label">Latitud</span>
+                      <input type="number" [name]="'lat-' + index" [(ngModel)]="loc.latitude" min="-90" max="90" step="0.000001" required />
+                    </label>
+                    <label class="clean-field">
+                      <span class="field-label">Longitud</span>
+                      <input type="number" [name]="'lon-' + index" [(ngModel)]="loc.longitude" min="-180" max="180" step="0.000001" required />
+                    </label>
+                  </div>
+
+                  <div class="location-footer">
+                    <span class="gps-tag">{{ loc.source === 'Gps' ? '📍 Obtenida por GPS' : '✏️ Captura manual' }}</span>
+                    <button type="button" class="btn-gps" (click)="useCurrentLocation(index)">
+                      📡 Capturar GPS actual
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn-cancel" (click)="close()">Cancelar</button>
+            <button type="submit" class="btn-submit" [disabled]="saving()">
+              {{ saving() ? 'Guardando...' : (draft.id ? 'Guardar Cambios' : 'Crear Cliente') }}
+            </button>
+          </div>
+        </form>
+      }
+    </div>
+  </div>
+}

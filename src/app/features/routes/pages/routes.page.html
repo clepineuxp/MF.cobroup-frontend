@@ -1,6 +1,8 @@
 <section aria-labelledby="routes-title">
-  <div class="heading"><div><p class="eyebrow">Alcance operativo</p><h2 id="routes-title">Mis rutas</h2></div><span class="count">{{ routes().length }}</span></div>
-  <p>Estas son las rutas activas autorizadas para tu usuario en la organización actual.</p>
+  <div class="heading">
+    <h2 id="routes-title" class="page-title">Mis rutas</h2>
+    <span class="count">{{ routes().length }}</span>
+  </div>
   @if (loading()) { <p>Cargando rutas…</p> }
   @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
   @else if (!loading() && routes().length === 0) { <p class="empty">No tienes rutas activas asignadas.</p> }

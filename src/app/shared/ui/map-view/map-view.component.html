@@ -1,68 +1,28 @@
 <div
-  #containerRef
-  class="map-container"
+  class="map-wrapper"
   [style.height]="height"
-  (mousedown)="onMouseDown($event)"
-  (mousemove)="onMouseMove($event)"
-  (mouseup)="onMouseUp()"
-  (mouseleave)="onMouseUp()"
   role="region"
   aria-label="Mapa interactivo de cobranza"
 >
-  <div class="map-grid-layer">
-    <div class="map-watermark">OpenStreetMap Tiles & Geodata</div>
-  </div>
-
-  <div class="markers-layer">
-    @for (point of points; track point.customerId) {
-      @if (point.latitude !== null && point.longitude !== null) {
-        <button
-          type="button"
-          class="marker-pin"
-          [class.selected]="selectedPointId === point.customerId || activePopupPoint()?.customerId === point.customerId"
-          [style.left.px]="getScreenX(point.longitude)"
-          [style.top.px]="getScreenY(point.latitude)"
-          [style.--pin-color]="point.markerColor"
-          (click)="selectPoint(point)"
-          [attr.aria-label]="'Cliente ' + point.customerName + ' (' + point.status + ')'"
-        >
-          <span class="pin-dot"></span>
-          <span class="pin-label">{{ point.customerName | slice:0:12 }}</span>
-        </button>
-      }
-    }
-  </div>
+  <div #containerRef class="leaflet-map-canvas"></div>
 
   <div class="map-controls">
-    <button type="button" class="btn-ctrl" (click)="zoomIn()" aria-label="Acercar mapa">+</button>
-    <button type="button" class="btn-ctrl" (click)="zoomOut()" aria-label="Alejar mapa">-</button>
-    <button type="button" class="btn-ctrl" (click)="fitToBounds()" aria-label="Centrar todos los puntos">⛶</button>
+    <button
+      type="button"
+      class="btn-ctrl btn-layer-mode"
+      [class.active]="isSatelliteMode()"
+      (click)="toggleSatelliteMode()"
+      [attr.aria-label]="layerModeLabel()"
+      [title]="layerModeLabel()"
+    >
+      {{ layerModeIcon() }}
+    </button>
+    <button type="button" class="btn-ctrl" (click)="zoomIn()" aria-label="Acercar mapa" title="Acercar">+</button>
+    <button type="button" class="btn-ctrl" (click)="zoomOut()" aria-label="Alejar mapa" title="Alejar">-</button>
+    <button type="button" class="btn-ctrl" (click)="fitToBounds()" aria-label="Centrar todos los puntos" title="Centrar">⛶</button>
   </div>
 
-  @if (activePopupPoint(); as popup) {
-    <div
-      class="map-popup"
-      [style.left.px]="getScreenX(popup.longitude)"
-      [style.top.px]="getScreenY(popup.latitude) - 80"
-    >
-      <div class="popup-header">
-        <h4>{{ popup.customerName }}</h4>
-        <button type="button" class="btn-close" (click)="closePopup()" aria-label="Cerrar detalle">✕</button>
-      </div>
-      @if (popup.businessOrWorkName) {
-        <p class="popup-sub">{{ popup.businessOrWorkName }}</p>
-      }
-      @if (popup.address) {
-        <p class="popup-address">{{ popup.address }}</p>
-      }
-      <div class="popup-finance">
-        @if (popup.overdueAmount && popup.overdueAmount > 0) {
-          <span class="badge-mora">Mora: ${{ popup.overdueAmount | number:'1.0-0' }}</span>
-        }
-        @if (popup.dueTodayAmount && popup.dueTodayAmount > 0) {
-          <span class="badge-due">Hoy: ${{ popup.dueTodayAmount | number:'1.0-0' }}</span>
-        }
-      </div>
-    </div>
-  }
+  <div class="map-watermark">
+    <span>&copy; <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a></span>
+  </div>
 </div>

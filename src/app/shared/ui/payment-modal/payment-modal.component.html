@@ -1,0 +1,162 @@
+@if (isOpen) {
+  <div class="modal-backdrop" (click)="close()">
+    <div class="modal-sheet" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="pay-modal-title">
+      <div class="sheet-drag-handle"></div>
+
+      @if (successPayment(); as receipt) {
+        <div class="receipt-view">
+          <div class="receipt-icon-wrapper">
+            <span class="receipt-icon">✓</span>
+          </div>
+          <h2 class="receipt-title">¡Cobro Registrado con Éxito!</h2>
+          <p class="receipt-subtitle">Comprobante generado y aplicado en cascada (AC-11)</p>
+
+          <div class="receipt-card">
+            <div class="receipt-row">
+              <span class="r-label">Monto Cobrado</span>
+              <strong class="r-value highlight">{{ receipt.amount | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+            </div>
+            <div class="receipt-row">
+              <span class="r-label">Medio de Pago</span>
+              <span class="r-value">{{ receipt.paymentMethodName }}</span>
+            </div>
+            <div class="receipt-row">
+              <span class="r-label">Saldo Restante</span>
+              <strong class="r-value">{{ receipt.remainingLoanBalance | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+            </div>
+            <div class="receipt-row">
+              <span class="r-label">Estado del Préstamo</span>
+              <span class="status-pill" [class.paid]="receipt.loanStatus === 'PaidOff'">
+                {{ receipt.loanStatus === 'PaidOff' ? 'Liquidado' : 'Activo' }}
+              </span>
+            </div>
+
+            <div class="receipt-allocations">
+              <span class="alloc-title">Imputación a Cuotas:</span>
+              @for (a of receipt.allocations; track a.installmentNumber) {
+                <div class="alloc-item">
+                  <span>Cuota #{{ a.installmentNumber }}</span>
+                  <strong>{{ a.amountAllocated | currency:'COP':'symbol-narrow':'1.0-0' }} {{ a.isFullyCovered ? '(Completada)' : '(Abono)' }}</strong>
+                </div>
+              }
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn-submit full" (click)="close()">
+              Aceptar y Cerrar
+            </button>
+          </div>
+        </div>
+      } @else {
+        <div class="modal-header">
+          <div class="header-titles">
+            <span class="sheet-badge">Recaudo Operativo</span>
+            <h2 id="pay-modal-title" class="sheet-title">Registrar Cobro</h2>
+            @if (loan) {
+              <p class="sheet-subtitle">
+                {{ loan.customerName }} · Saldo: <strong>{{ loan.balanceAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+              </p>
+            }
+          </div>
+          <button type="button" class="btn-icon-close" (click)="close()" aria-label="Cerrar">✕</button>
+        </div>
+
+        @if (error()) {
+          <div class="alert-box error" role="alert">{{ error() }}</div>
+        }
+
+        @if (loading()) {
+          <div class="loading-state">
+            <span class="spinner"></span>
+            <p>Cargando información de cobro...</p>
+          </div>
+        } @else if (loan) {
+          <form [formGroup]="form" (ngSubmit)="submitPayment()" class="modal-body">
+            <div class="form-section">
+              <div class="inputs-grid">
+                <label class="clean-field">
+                  <span class="field-label">Importe a Cobrar ($) *</span>
+                  <input
+                    id="paymentAmount"
+                    type="number"
+                    step="0.01"
+                    formControlName="amount"
+                    (input)="onAmountChanged()"
+                    [max]="loan.balanceAmount"
+                    placeholder="Ej: 30000"
+                  />
+                </label>
+
+                <label class="clean-field">
+                  <span class="field-label">Medio de Pago Autorizado *</span>
+                  <select id="paymentMethodId" formControlName="paymentMethodId">
+                    @for (method of paymentMethods(); track method.id) {
+                      <option [value]="method.id">{{ method.name }}</option>
+                    }
+                  </select>
+                </label>
+              </div>
+
+              <label class="clean-field">
+                <span class="field-label">Observaciones (Opcional)</span>
+                <input
+                  id="paymentNotes"
+                  type="text"
+                  formControlName="notes"
+                  placeholder="Ej: Recibo manual #104, pagado por el titular"
+                />
+              </label>
+
+              <div class="evidence-box">
+                <label class="btn-evidence">
+                  <span>📷 Adjuntar foto de evidencia (Opcional)</span>
+                  <input
+                    id="evidenceFile"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    (change)="onEvidenceFileSelected($event)"
+                  />
+                </label>
+                @if (evidenceFileName()) {
+                  <span class="file-tag">✓ Archivo: {{ evidenceFileName() }}</span>
+                }
+              </div>
+            </div>
+
+            @if (allocationPreview().length > 0) {
+              <div class="preview-card">
+                <div class="preview-header">
+                  <h4>Simulación de Aplicación en Cascada (AC-11)</h4>
+                </div>
+                <div class="installments-scroll">
+                  @for (item of allocationPreview(); track item.installmentNumber) {
+                    <div class="installment-row">
+                      <span class="inst-num">Cuota #{{ item.installmentNumber }}</span>
+                      <span class="inst-amount">Abono: {{ item.newAllocatedAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
+                      <span class="status-pill" [class.paid]="item.isFullyCovered">
+                        {{ item.isFullyCovered ? 'Queda Pagada' : 'Abono Parcial' }}
+                      </span>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+
+            <div class="modal-footer">
+              <button type="button" class="btn-cancel" (click)="close()">Cancelar</button>
+              <button
+                id="btn-confirm-payment"
+                type="submit"
+                class="btn-submit"
+                [disabled]="form.invalid || submitting()"
+              >
+                {{ submitting() ? 'Procesando cobro seguro...' : 'Confirmar Cobro' }}
+              </button>
+            </div>
+          </form>
+        }
+      }
+    </div>
+  </div>
+}

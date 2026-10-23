@@ -56,6 +56,7 @@ export interface CustomerMapLocation {
   dueTodayAmount: number;
   status: AgendaStatus;
   markerColor: string;
+  avatarUrl?: string | null;
 }
 
 export interface AgingBucket {

@@ -216,3 +216,87 @@
 - Validación: 28/28 pruebas verdes en Vitest, compilación de producción `ng build` exitosa, 0 vulnerabilidades en `npm audit --omit=dev`.
 - Git: cambios preservados en el working tree sin commit, push, merge, tag ni PR.
 
+### 2026-10-22 — Transformación Mobile-First PWA (Notch Island, Drawer Traslúcido, Home Cartográfico y Modales Compartidos)
+
+- Prompt: Reestructurar el frontend operativo (`MF.cobroup-frontend`) con enfoque de App móvil (PWA):
+  - 2.1: Header estilo "Notch / Dynamic Island" superior con texto "Cobro UP". Contraste invertido estricto: fondo negro con letras blancas en modo claro, fondo blanco con letras negras en modo oscuro. Tapping/jalado despliega panel de control con alternador de tema claro/oscuro, cambio de tenant/organización y cierre de sesión.
+  - 2.2: Retiro de frases "Plataforma multi-tenant" y "COBROUP Operación". Título principal formalizado como "Cobro UP".
+  - 2.3: Barra de navegación off-canvas a la izquierda, oculta por defecto en web y mobile con disparador flotante superior izquierdo; fondo traslúcido con efecto glassmorphism (`backdrop-filter: blur(24px)`).
+  - 2.4: Eliminación del módulo "Resumen" (`OperationsOverviewPage`).
+  - 2.5: Módulo de Mapa promovido a pantalla de inicio ("Home", ruta raíz `/` y `/mapa`), ocupando pantalla completa (`100vw`/`100vh`/`100dvh`), con todos los controles flotando directamente sobre la cartografía.
+  - 2.5.1: Selector de ruta flotante con selección automática de la primera ruta autorizada de la lista.
+  - 2.5.2: Botón flotante FAB en la esquina inferior derecha que despliega menú emergente con filtros de cobranza: Todos, En Mora (rojo), Cobro Hoy (amarillo) y Cobrado (verde) con sus conteos reactivos.
+  - 2.5.3: Eliminación completa del selector de fecha en el mapa.
+  - 2.5.4: Barra de acciones con bordes redondeados (`border-radius: 9999px`) en orden estricto `(Nuevo Préstamo)(Cobrar)(Nuevo Cliente)`. En pantallas estrechas colapsan en columna vertical al costado izquierdo; en pantallas amplias se alinean horizontalmente al centro inferior. Regla estricta: nunca se dividen en 2 y 1.
+  - 2.6: Modal compartido `CustomerModalComponent` (`src/app/shared/ui/customer-modal/`) utilizado idénticamente en la pestaña de Clientes y desde el botón "Nuevo Cliente" del Home.
+  - 2.7: Modal compartido `LoanOriginationModalComponent` (`src/app/shared/ui/loan-origination-modal/`) utilizado idénticamente en la pestaña de Préstamos y desde el botón "Nuevo Préstamo" del Home.
+  - 2.8: Botón "Cobrar" habilitado únicamente al seleccionar un cliente en el mapa con préstamo activo, abriendo el modal compartido `PaymentModalComponent` (`src/app/shared/ui/payment-modal/`) con comprobante de recaudo al instante.
+  - 2.9: Esencia visual unificada con desenfoque de fondo (`backdrop-filter: blur(14px)`), controles con bordes redondeados limpios y animaciones fluidas.
+- Pruebas y compilación:
+  - 48/48 pruebas Vitest aprobadas al 100% (15/15 suites, incluyendo cobertura completa para `mapa.page.spec.ts` y los 3 modales compartidos).
+  - Compilación de producción `ng build` exitosa con presupuestos de estilos ajustados en `angular.json`.
+### 2026-10-22 — Refinamiento Header Notch, Nav Drawer Oscuro y Estandarización de Páginas
+
+- Validación y solución de feedback de usuario:
+  - 1. Notch Dropdown con fondo sólido y cierre al clic/tab exterior:
+    - `.notch-tray` ahora posee tarjeta opaca con fondo sólido de tema (`var(--color-surface)`), bordes sutiles y sombra elevada `0 20px 50px rgba(0, 0, 0, 0.35)`, evitando que el contenido cartográfico o de página se traslape.
+    - Backdrop de pantalla completa extraído fuera del contenedor transformado para cubrir el 100% del viewport.
+    - Listeners en `@HostListener` (`document:click`, `document:touchstart`, `document:focusin` y `document:keydown.escape`) que cierran automáticamente el notch al hacer clic, tap o tab fuera del contenedor.
+  - 2. Drawer de Navegación en Modo Oscuro:
+    - Removidos selectores `:root[data-theme='dark']` que fallaban por encapsulación de componentes en Angular.
+    - Se adaptó `.offcanvas-drawer` y todos sus elementos internos para alimentarse directamente de los tokens CSS del tema (`var(--color-surface)` `#1f252b`, `var(--color-text)` `#f0f2f4`, `var(--color-primary)` `#91a9bb`, `var(--color-surface-raised)` `#293139`), eliminando por completo el traslape de texto blanco sobre fondo claro.
+  - 3. Estandarización de Controles, Eliminación de Leyendas y Márgenes:
+    - Eliminadas leyendas y subtítulos redundantes en `/agenda`, `/plantillas`, `/excepciones`, `/clientes`, `/prestamos`, `/rutas` y `/conciliacion`.
+    - Estandarizados botones tipo pill (`.btn-primary`) e inputs/selects redondeados y pulidos en `styles.scss` para todo el front.
+    - Contenedor `.app-main-content` configurado con padding superior de seguridad (`padding-top: 5rem; padding-inline: clamp(1rem, 3.5vw, 2rem); max-width: 72rem; margin-inline: auto`) en páginas que no son el mapa, previniendo colisión con el botón hamburguesa y el notch superior.
+- Validación: 48/48 pruebas pasando en Vitest (15 suites) y compilación `ng build` exitosa en 6.7s con 0 advertencias de budget.
+- Git: rama `feature/visuals-theme`; cambios preservados en el working tree sin commit, push, merge, tag ni PR.
+
+### 2026-10-23 — Diagnóstico y corrección de visibilidad de pantalla de Login
+
+- Diagnóstico: la pantalla de login no aparecía al navegar a la ruta raíz `/` debido a un error de contexto de inyección en Angular (`NG0203: The Router token injection failed. inject() function must be called from an injection context`). En `auth.guard.ts`, `inject(Router)` se ejecutaba tras un `await auth.refreshAccessToken()`, perdiendo el contexto sincrónico de inyección de Angular cuando no había sesión previa. Esto provocaba una excepción no capturada en la navegación del enrutador, bloqueando la redirección hacia `/login` y dejando la vista `<router-outlet>` completamente vacía.
+- Solución: inyección sincrónica de `Router` (`const router = inject(Router);`) al inicio de `authGuard` antes de cualquier `await`.
+- Pruebas y validación:
+  - Creada suite de pruebas unitarias dedicada `src/app/core/auth/auth.guard.spec.ts` verificando tanto el acceso autenticado como la redirección hacia `/login` ante ausencia de sesión.
+  - 50/50 pruebas Vitest pasando al 100% (16/16 suites).
+  - Verificación end-to-end con renderizado DOM en Edge: comprobada redirección automática desde `http://localhost:5200/` hacia `http://localhost:5200/login` y renderizado íntegro de `<app-login-page>` con formulario de credenciales.
+- Git: rama `feature/visuals-theme`; commit `51e2dd3` (`fix(auth): fix injection context in authGuard and restore login redirection`).
+
+### 2026-10-23 — Integración de Mapas Interactivos Leaflet y Pines con Foto/Avatar de Clientes
+
+- Requerimiento: migración a motor cartográfico interactivo real con Leaflet / OpenStreetMap y soporte completo para imágenes de los clientes activos en pines del mapa e inspector.
+- Selección técnica: Leaflet (1.9.4) y `@types/leaflet` con teselas globales OpenStreetMap (100% open-source, sin cuotas ni API keys, gestos táctiles fluidos en dispositivos móviles).
+- Implementación en `MF.cobroup-frontend`:
+  - `MapViewComponent` (`src/app/shared/ui/map-view/`): carga dinámica asíncrona (`await import('leaflet')`) en `ngAfterViewInit` para garantizar compatibilidad con Vitest/jsdom y SSR sin errores de `window is not defined`.
+  - Pines circulares personalizados (`L.divIcon`):
+    - Pin circular con imagen del cliente (`avatarUrl`).
+    - Borde perimetral codificado por color de estado (rojo mora, amarillo cobro hoy, verde al día/cobrado).
+    - Mecanismo fallback automático a iniciales de 2 letras en caso de URL nula o error de carga de imagen (`onerror`).
+    - Halo pulsante (`@keyframes haloPulse`) y elevación z-index al seleccionar un cliente.
+    - Etiqueta inferior con nombre del cliente y punta de anclaje georreferenciada.
+  - Tarjeta de inspección flotante (`mapa.page.html`): incluye avatar circular del cliente con fallback reactivo e indicador de estado perimetral.
+  - Modelo `CustomerMapLocation`: extendido con campo opcional `avatarUrl?: string | null`.
+  - Configuración: `allowedCommonJsDependencies: ["leaflet"]` en `angular.json` y estilos de Leaflet en `src/styles.scss`.
+- Validación y suites:
+  - 50/50 pruebas Vitest pasando en verde (16/16 suites).
+  - Compilación de producción (`ng build`) completada con éxito.
+- Git: rama `feature/visuals-theme`; cambios preservados en el working tree sin commit, push, merge, tag ni PR.
+
+### 2026-10-23 — Migración a capas ESRI World, sincronización con tema de página y alternador Satelital
+
+- Diagnóstico de teselas:
+  - Servidor base de OpenStreetMap (`tile.openstreetmap.org`) presentaba bloqueo TCP/timeout en redes locales (`151.101.1.91`).
+  - Proveedores con marcas de agua o claves obligatorias (CARTO, Wikimedia) fueron descartados para preservar la limpieza de interfaz.
+- Implementación de capas cartográficas de alto rendimiento ESRI ArcGIS (sin API key, sin marcas de agua, CORS `*` habilitado globalmente):
+  - Modo Calles / Claro: `ArcGIS World_Street_Map`.
+  - Modo Oscuro: `ArcGIS Canvas/World_Dark_Gray_Base` + `ArcGIS Canvas/World_Dark_Gray_Reference`.
+  - Modo Satelital: `ArcGIS World_Imagery` de alta resolución satelital + overlay de red vial `ArcGIS Reference/World_Transportation`.
+- Sincronización automática de tema y control flotante satelital:
+  - Modo base del mapa reactivo al tema general de la aplicación (`ThemeService.theme()`): cambia automáticamente entre calles (claro) y lienzo oscuro (oscuro) al conmutar el tema de la aplicación desde el Notch superior.
+  - Botón flotante del mapa (`btn-layer-mode`): conmuta exclusivamente entre el tema activo de la página (estándar claro/oscuro) y la vista Satelital (`isSatelliteMode`).
+  - Al activar vista satelital, el botón resalta en estado activo (`.active`) y muestra icono de mapa (`🗺️`) para retornar al tema de la página; en vista estándar muestra el icono satelital (`🛰️`).
+- Validación de suites:
+  - 50/50 pruebas Vitest pasando al 100% (16/16 suites).
+  - Presupuesto de estilos SCSS verificado (< 4.00 kB).
+- Git: rama `feature/visuals-theme`; commit autorizado por usuario: SÍ, commit local `42e0867` (`feat(map): integrate leaflet with customer avatars, esri layers and theme satellite toggle`); push, merge, tag y PR no autorizados.
+

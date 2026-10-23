@@ -27,9 +27,19 @@ interface LiveAllocationPreviewItem {
   readonly isFullyCovered: boolean;
 }
 
+import { LoanOriginationModalComponent } from '../../../shared/ui/loan-origination-modal/loan-origination-modal.component';
+import { PaymentModalComponent } from '../../../shared/ui/payment-modal/payment-modal.component';
+
 @Component({
   selector: 'app-loans-page',
-  imports: [ReactiveFormsModule, CurrencyPipe, DatePipe, NgClass],
+  imports: [
+    ReactiveFormsModule,
+    CurrencyPipe,
+    DatePipe,
+    NgClass,
+    LoanOriginationModalComponent,
+    PaymentModalComponent,
+  ],
   templateUrl: './loans.page.html',
   styleUrl: './loans.page.scss',
 })
@@ -321,6 +331,21 @@ export class LoansPage {
       this.error.set(err instanceof Error ? err.message : 'Error al originar el préstamo.');
     } finally {
       this.submitting.set(false);
+    }
+  }
+
+  onLoanCreatedModal(loan: LoanDetails): void {
+    this.success.set(`Préstamo originado exitosamente por ${loan.totalAmount.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}.`);
+    this.closeOrigination();
+    void this.filterLoans();
+    void this.viewLoan(loan.id);
+  }
+
+  onPaymentSuccessModal(payment: PaymentDetails): void {
+    this.paymentSuccess.set(payment);
+    void this.filterLoans();
+    if (this.payingLoan()) {
+      void this.viewLoan(this.payingLoan()!.id);
     }
   }
 
