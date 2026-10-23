@@ -67,8 +67,15 @@
     <aside class="floating-inspector-card" role="region" aria-label="Cliente seleccionado en el mapa">
       <div class="inspector-top">
         <div class="inspector-client-info">
-          <span class="status-dot" [style.background-color]="sel.markerColor"></span>
-          <div>
+          <div class="inspector-avatar" [style.--status-color]="sel.markerColor">
+            @if (sel.avatarUrl) {
+              <img [src]="sel.avatarUrl" [alt]="sel.customerName" class="avatar-img" (error)="onAvatarImgError($event)" />
+            } @else {
+              <span class="avatar-fallback">{{ getCustomerInitials(sel.customerName) }}</span>
+            }
+            <span class="status-indicator"></span>
+          </div>
+          <div class="inspector-text">
             <h3 class="inspector-name">{{ sel.customerName }}</h3>
             @if (sel.businessOrWorkName) {
               <span class="inspector-sub">{{ sel.businessOrWorkName }}</span>

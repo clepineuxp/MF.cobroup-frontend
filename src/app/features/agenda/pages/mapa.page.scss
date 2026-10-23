@@ -234,26 +234,58 @@
 .inspector-client-info {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
 }
 
-.status-dot {
-  width: 0.65rem;
-  height: 0.65rem;
+.inspector-avatar {
+  position: relative;
+  width: 2.5rem;
+  height: 2.5rem;
   border-radius: 50%;
+  border: 2.5px solid var(--status-color, var(--color-primary));
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
   flex-shrink: 0;
+  background: var(--color-surface-raised);
+
+  .avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+
+  .avatar-fallback {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: #ffffff;
+    background: linear-gradient(135deg, var(--status-color, var(--color-primary)), #0f172a);
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .status-indicator {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    background: var(--status-color, var(--color-primary));
+    border: 1.5px solid #ffffff;
+  }
 }
 
-.inspector-name {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 800;
-  color: var(--color-text);
-}
-
-.inspector-sub {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
+.inspector-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
 }
 
 .btn-close-inspector {

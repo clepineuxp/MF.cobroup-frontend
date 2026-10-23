@@ -260,4 +260,43 @@
   - Creada suite de pruebas unitarias dedicada `src/app/core/auth/auth.guard.spec.ts` verificando tanto el acceso autenticado como la redirección hacia `/login` ante ausencia de sesión.
   - 50/50 pruebas Vitest pasando al 100% (16/16 suites).
   - Verificación end-to-end con renderizado DOM en Edge: comprobada redirección automática desde `http://localhost:5200/` hacia `http://localhost:5200/login` y renderizado íntegro de `<app-login-page>` con formulario de credenciales.
-- Git: rama `feature/visuals-theme`; cambios preservados en working tree sin commit, push, merge, tag ni PR.
+- Git: rama `feature/visuals-theme`; commit `51e2dd3` (`fix(auth): fix injection context in authGuard and restore login redirection`).
+
+### 2026-10-23 — Integración de Mapas Interactivos Leaflet y Pines con Foto/Avatar de Clientes
+
+- Requerimiento: migración a motor cartográfico interactivo real con Leaflet / OpenStreetMap y soporte completo para imágenes de los clientes activos en pines del mapa e inspector.
+- Selección técnica: Leaflet (1.9.4) y `@types/leaflet` con teselas globales OpenStreetMap (100% open-source, sin cuotas ni API keys, gestos táctiles fluidos en dispositivos móviles).
+- Implementación en `MF.cobroup-frontend`:
+  - `MapViewComponent` (`src/app/shared/ui/map-view/`): carga dinámica asíncrona (`await import('leaflet')`) en `ngAfterViewInit` para garantizar compatibilidad con Vitest/jsdom y SSR sin errores de `window is not defined`.
+  - Pines circulares personalizados (`L.divIcon`):
+    - Pin circular con imagen del cliente (`avatarUrl`).
+    - Borde perimetral codificado por color de estado (rojo mora, amarillo cobro hoy, verde al día/cobrado).
+    - Mecanismo fallback automático a iniciales de 2 letras en caso de URL nula o error de carga de imagen (`onerror`).
+    - Halo pulsante (`@keyframes haloPulse`) y elevación z-index al seleccionar un cliente.
+    - Etiqueta inferior con nombre del cliente y punta de anclaje georreferenciada.
+  - Tarjeta de inspección flotante (`mapa.page.html`): incluye avatar circular del cliente con fallback reactivo e indicador de estado perimetral.
+  - Modelo `CustomerMapLocation`: extendido con campo opcional `avatarUrl?: string | null`.
+  - Configuración: `allowedCommonJsDependencies: ["leaflet"]` en `angular.json` y estilos de Leaflet en `src/styles.scss`.
+- Validación y suites:
+  - 50/50 pruebas Vitest pasando en verde (16/16 suites).
+  - Compilación de producción (`ng build`) completada con éxito.
+- Git: rama `feature/visuals-theme`; cambios preservados en el working tree sin commit, push, merge, tag ni PR.
+
+### 2026-10-23 — Migración a capas ESRI World, sincronización con tema de página y alternador Satelital
+
+- Diagnóstico de teselas:
+  - Servidor base de OpenStreetMap (`tile.openstreetmap.org`) presentaba bloqueo TCP/timeout en redes locales (`151.101.1.91`).
+  - Proveedores con marcas de agua o claves obligatorias (CARTO, Wikimedia) fueron descartados para preservar la limpieza de interfaz.
+- Implementación de capas cartográficas de alto rendimiento ESRI ArcGIS (sin API key, sin marcas de agua, CORS `*` habilitado globalmente):
+  - Modo Calles / Claro: `ArcGIS World_Street_Map`.
+  - Modo Oscuro: `ArcGIS Canvas/World_Dark_Gray_Base` + `ArcGIS Canvas/World_Dark_Gray_Reference`.
+  - Modo Satelital: `ArcGIS World_Imagery` de alta resolución satelital + overlay de red vial `ArcGIS Reference/World_Transportation`.
+- Sincronización automática de tema y control flotante satelital:
+  - Modo base del mapa reactivo al tema general de la aplicación (`ThemeService.theme()`): cambia automáticamente entre calles (claro) y lienzo oscuro (oscuro) al conmutar el tema de la aplicación desde el Notch superior.
+  - Botón flotante del mapa (`btn-layer-mode`): conmuta exclusivamente entre el tema activo de la página (estándar claro/oscuro) y la vista Satelital (`isSatelliteMode`).
+  - Al activar vista satelital, el botón resalta en estado activo (`.active`) y muestra icono de mapa (`🗺️`) para retornar al tema de la página; en vista estándar muestra el icono satelital (`🛰️`).
+- Validación de suites:
+  - 50/50 pruebas Vitest pasando al 100% (16/16 suites).
+  - Presupuesto de estilos SCSS verificado (< 4.00 kB).
+- Git: rama `feature/visuals-theme`; commit autorizado por usuario: SÍ, commit local `42e0867` (`feat(map): integrate leaflet with customer avatars, esri layers and theme satellite toggle`); push, merge, tag y PR no autorizados.
+
