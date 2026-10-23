@@ -18,9 +18,11 @@ interface CustomerDraft {
   locations: CustomerLocation[];
 }
 
+import { CustomerModalComponent } from '../../../shared/ui/customer-modal/customer-modal.component';
+
 @Component({
   selector: 'app-customers-page',
-  imports: [FormsModule],
+  imports: [FormsModule, CustomerModalComponent],
   templateUrl: './customers.page.html',
   styleUrl: './customers.page.scss',
 })
@@ -69,6 +71,11 @@ export class CustomersPage {
   }
 
   closeForm(): void { this.formOpen.set(false); }
+
+  onCustomerSaved(): void {
+    this.closeForm();
+    void this.search();
+  }
 
   addPhone(): void {
     if (this.draft.phones.length < 6) this.draft.phones.push({ number: '', isPrimary: false });

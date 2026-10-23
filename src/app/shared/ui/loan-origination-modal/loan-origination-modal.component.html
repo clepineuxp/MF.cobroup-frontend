@@ -1,0 +1,172 @@
+@if (isOpen) {
+  <div class="modal-backdrop" (click)="close()">
+    <div class="modal-sheet" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="loan-modal-title">
+      <div class="sheet-drag-handle"></div>
+
+      <div class="modal-header">
+        <div class="header-titles">
+          <span class="sheet-badge">Originación de Crédito</span>
+          <h2 id="loan-modal-title" class="sheet-title">Nuevo Préstamo</h2>
+        </div>
+        <button type="button" class="btn-icon-close" (click)="close()" aria-label="Cerrar">✕</button>
+      </div>
+
+      <div class="mode-switch-bar">
+        <button
+          type="button"
+          class="mode-btn"
+          [class.active]="originationMode() === 'template'"
+          (click)="setOriginationMode('template')"
+        >
+          Plantilla Publicada
+        </button>
+        <button
+          type="button"
+          class="mode-btn"
+          [class.active]="originationMode() === 'exception'"
+          (click)="setOriginationMode('exception')"
+        >
+          Excepción Aprobada
+        </button>
+      </div>
+
+      @if (error()) {
+        <div class="alert-box error" role="alert">{{ error() }}</div>
+      }
+
+      @if (loading()) {
+        <div class="loading-state">
+          <span class="spinner"></span>
+          <p>Cargando información de originación...</p>
+        </div>
+      } @else {
+        <form [formGroup]="form" (ngSubmit)="submitOrigination()" class="modal-body">
+          <div class="form-section">
+            <label class="clean-field">
+              <span class="field-label">Cliente activo *</span>
+              <select formControlName="customerId" (change)="onCustomerChanged($any($event.target).value)">
+                <option value="">Seleccione un cliente...</option>
+                @for (cust of customers(); track cust.id) {
+                  <option [value]="cust.id">
+                    {{ cust.firstNames }} {{ cust.lastNames }} ({{ cust.businessOrWorkName || 'Personal' }})
+                  </option>
+                }
+              </select>
+            </label>
+
+            @if (originationMode() === 'template') {
+              <label class="clean-field">
+                <span class="field-label">Plantilla de crédito *</span>
+                <select formControlName="loanTemplateId" (change)="onTemplateChanged($any($event.target).value)">
+                  <option value="">Seleccione una plantilla...</option>
+                  @for (tpl of templates(); track tpl.id) {
+                    <option [value]="tpl.id">
+                      {{ tpl.name }} (Hasta {{ tpl.maxPrincipalAmount | currency:'COP':'symbol-narrow':'1.0-0' }} · {{ tpl.maxLoanDays }} días)
+                    </option>
+                  }
+                </select>
+              </label>
+            } @else {
+              <label class="clean-field">
+                <span class="field-label">Solicitud de excepción aprobada *</span>
+                <select formControlName="exceptionRequestId" (change)="selectException($any($event.target).value)">
+                  <option value="">Seleccione una excepción...</option>
+                  @for (exc of customerExceptions; track exc.id) {
+                    <option [value]="exc.id">
+                      Excepción: {{ exc.proposedAmount | currency:'COP':'symbol-narrow':'1.0-0' }} ({{ exc.proposedDays }} días @ {{ exc.proposedPercentage }}%)
+                    </option>
+                  }
+                </select>
+              </label>
+            }
+
+            <div class="inputs-grid">
+              <label class="clean-field">
+                <span class="field-label">Monto Principal ($) *</span>
+                <input type="number" formControlName="principalAmount" (input)="calculatePreview()" placeholder="Ej: 500000" />
+              </label>
+
+              <label class="clean-field">
+                <span class="field-label">Tasa Interés (%) *</span>
+                <input type="number" formControlName="interestRate" (input)="calculatePreview()" placeholder="Ej: 15" />
+              </label>
+            </div>
+
+            <div class="inputs-grid">
+              <label class="clean-field">
+                <span class="field-label">Frecuencia de Pago *</span>
+                <select formControlName="paymentFrequency" (change)="calculatePreview()">
+                  <option value="Daily">Diario</option>
+                  <option value="Weekly">Semanal</option>
+                  <option value="EveryNDays">Cada N Días</option>
+                </select>
+              </label>
+
+              @if (form.get('paymentFrequency')?.value === 'EveryNDays') {
+                <label class="clean-field">
+                  <span class="field-label">Intervalo en Días *</span>
+                  <input type="number" formControlName="frequencyNDays" (input)="calculatePreview()" placeholder="Ej: 3" />
+                </label>
+              }
+
+              <label class="clean-field">
+                <span class="field-label">Número de Cuotas *</span>
+                <input type="number" formControlName="installmentCount" (input)="calculatePreview()" placeholder="Ej: 20" />
+              </label>
+            </div>
+
+            <label class="clean-field">
+              <span class="field-label">Fecha del Primer Pago *</span>
+              <input type="date" formControlName="startDate" (change)="calculatePreview()" />
+            </label>
+          </div>
+
+          @if (schedulePreview(); as sch) {
+            <div class="preview-card">
+              <div class="preview-header">
+                <h4>Simulación de Cronograma (AC-10 centavo exacto)</h4>
+              </div>
+
+              <div class="preview-stats">
+                <div class="stat-pill">
+                  <span class="stat-label">Total a Pagar</span>
+                  <strong class="stat-value">{{ sch.totalAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+                </div>
+                <div class="stat-pill">
+                  <span class="stat-label">Interés Total</span>
+                  <strong class="stat-value">{{ sch.interestAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+                </div>
+                <div class="stat-pill">
+                  <span class="stat-label">Vencimiento</span>
+                  <strong class="stat-value">{{ sch.dueDate }}</strong>
+                </div>
+              </div>
+
+              <div class="installments-scroll">
+                @for (inst of sch.installments; track inst.number) {
+                  <div class="installment-row">
+                    <span class="inst-num">Cuota #{{ inst.number }}</span>
+                    <span class="inst-date">{{ inst.dueDate }}</span>
+                    <span class="inst-amount">{{ inst.expectedAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          <div class="modal-footer">
+            <button type="button" class="btn-cancel" (click)="close()">Cancelar</button>
+            <button
+              id="btn-submit-loan"
+              type="submit"
+              class="btn-submit"
+              [disabled]="form.invalid || submitting()"
+            >
+              {{ submitting() ? 'Originando préstamo...' : 'Confirmar y Originar' }}
+            </button>
+          </div>
+        </form>
+      }
+    </div>
+  </div>
+}

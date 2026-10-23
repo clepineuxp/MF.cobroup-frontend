@@ -2,12 +2,11 @@
   <div class="header-row">
     <div>
       <h2 class="title">Agenda diaria de cobro</h2>
-      <p class="subtitle">Secuencia de visitas, vencimientos y estado de mora en tiempo real</p>
     </div>
     <div class="actions">
       <button
         type="button"
-        class="btn-gps"
+        class="btn-primary btn-gps"
         (click)="optimizeGps()"
         [disabled]="optimizing() || loading()"
         aria-label="Optimizar secuencia de visitas por GPS"

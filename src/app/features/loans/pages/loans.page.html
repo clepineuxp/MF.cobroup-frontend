@@ -1,10 +1,6 @@
 <div class="loans-page">
   <header class="page-heading">
-    <div>
-      <p class="eyebrow">Operación y Cartera</p>
-      <h2>Préstamos y Cobros</h2>
-      <p class="meta">Originación de crédito, recaudos con aplicación en cascada (AC-11), garantía de idempotencia (AC-12) y evidencias.</p>
-    </div>
+    <h2 class="page-title">Préstamos y Cobros</h2>
     <div class="heading-actions">
       <button id="btn-originate-loan" type="button" class="btn-primary" (click)="openOrigination()">
         + Nuevo Préstamo
@@ -87,142 +83,12 @@
     </div>
   }
 
-  <!-- Origination Modal / Panel -->
-  @if (showOriginationModal()) {
-    <div class="modal-backdrop" (click)="closeOrigination()">
-      <div class="modal-card" (click)="$event.stopPropagation()">
-        <div class="modal-header">
-          <div>
-            <p class="eyebrow">Originación de Crédito</p>
-            <h3>Nuevo Préstamo</h3>
-          </div>
-          <button type="button" class="btn-close" (click)="closeOrigination()">✕</button>
-        </div>
-
-        <div class="mode-switch">
-          <button type="button" [class.active]="originationMode() === 'template'" (click)="setOriginationMode('template')">
-            Plantilla Publicada
-          </button>
-          <button type="button" [class.active]="originationMode() === 'exception'" (click)="setOriginationMode('exception')">
-            Excepción Aprobada
-          </button>
-        </div>
-
-        <form [formGroup]="form" (ngSubmit)="submitOrigination()">
-          <label for="customerId">
-            Cliente activo *
-            <select id="customerId" formControlName="customerId" (change)="onCustomerChanged($any($event.target).value)">
-              <option value="">Seleccione un cliente...</option>
-              @for (cust of customers(); track cust.id) {
-                <option [value]="cust.id">{{ cust.firstNames }} {{ cust.lastNames }} ({{ cust.businessOrWorkName || 'Personal' }})</option>
-              }
-            </select>
-          </label>
-
-          @if (originationMode() === 'template') {
-            <label for="loanTemplateId">
-              Plantilla de crédito *
-              <select id="loanTemplateId" formControlName="loanTemplateId" (change)="onTemplateChanged($any($event.target).value)">
-                <option value="">Seleccione una plantilla...</option>
-                @for (tpl of templates(); track tpl.id) {
-                  <option [value]="tpl.id">{{ tpl.name }} (Hasta {{ tpl.maxPrincipalAmount | currency:'COP':'symbol-narrow':'1.0-0' }} · {{ tpl.maxLoanDays }} días)</option>
-                }
-              </select>
-            </label>
-          } @else {
-            <label for="exceptionRequestId">
-              Solicitud de excepción aprobada *
-              <select id="exceptionRequestId" formControlName="exceptionRequestId" (change)="selectException($any($event.target).value)">
-                <option value="">Seleccione una excepción...</option>
-                @for (exc of customerExceptions; track exc.id) {
-                  <option [value]="exc.id">Excepción: {{ exc.proposedAmount | currency:'COP':'symbol-narrow':'1.0-0' }} ({{ exc.proposedDays }} días @ {{ exc.proposedPercentage }}%)</option>
-                }
-              </select>
-            </label>
-          }
-
-          <div class="fields-row">
-            <label for="principalAmount">
-              Monto Principal *
-              <input id="principalAmount" type="number" formControlName="principalAmount" (input)="calculatePreview()" />
-            </label>
-            <label for="interestRate">
-              Tasa Interés (%) *
-              <input id="interestRate" type="number" formControlName="interestRate" (input)="calculatePreview()" />
-            </label>
-          </div>
-
-          <div class="fields-row">
-            <label for="paymentFrequency">
-              Frecuencia de Pago *
-              <select id="paymentFrequency" formControlName="paymentFrequency" (change)="calculatePreview()">
-                <option value="Daily">Diario</option>
-                <option value="Weekly">Semanal</option>
-                <option value="EveryNDays">Cada N Días</option>
-              </select>
-            </label>
-
-            @if (form.get('paymentFrequency')?.value === 'EveryNDays') {
-              <label for="frequencyNDays">
-                Intervalo en Días *
-                <input id="frequencyNDays" type="number" formControlName="frequencyNDays" (input)="calculatePreview()" />
-              </label>
-            }
-
-            <label for="installmentCount">
-              Número de Cuotas *
-              <input id="installmentCount" type="number" formControlName="installmentCount" (input)="calculatePreview()" />
-            </label>
-          </div>
-
-          <label for="startDate">
-            Fecha de Inicio del Primer Pago *
-            <input id="startDate" type="date" formControlName="startDate" (change)="calculatePreview()" />
-          </label>
-
-          @if (schedulePreview(); as sch) {
-            <div class="preview-box">
-              <h4>Previsualización de Cronograma</h4>
-              <div class="preview-summary">
-                <div>
-                  <span class="preview-lbl">Total a pagar</span>
-                  <span class="preview-val">{{ sch.totalAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
-                </div>
-                <div>
-                  <span class="preview-lbl">Interés total</span>
-                  <span class="preview-val">{{ sch.interestAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
-                </div>
-                <div>
-                  <span class="preview-lbl">Vencimiento final</span>
-                  <span class="preview-val">{{ sch.dueDate }}</span>
-                </div>
-              </div>
-
-              <div class="preview-installments">
-                <p class="preview-title">Cronograma calculado (AC-10 centavo exacto):</p>
-                <div class="installments-scroll">
-                  @for (inst of sch.installments; track inst.number) {
-                    <div class="installment-row">
-                      <span class="inst-num">Cuota #{{ inst.number }}</span>
-                      <span class="inst-date">{{ inst.dueDate }}</span>
-                      <span class="inst-amount">{{ inst.expectedAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
-                    </div>
-                  }
-                </div>
-              </div>
-            </div>
-          }
-
-          <div class="modal-footer">
-            <button type="button" class="btn-secondary" (click)="closeOrigination()">Cancelar</button>
-            <button id="btn-submit-loan" type="submit" class="btn-primary" [disabled]="form.invalid || submitting()">
-              {{ submitting() ? 'Originando préstamo...' : 'Confirmar y Originar Préstamo' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  }
+  <!-- Origination Modal / Panel (Requirement 2.7) -->
+  <app-loan-origination-modal
+    [isOpen]="showOriginationModal()"
+    (closed)="closeOrigination()"
+    (loanCreated)="onLoanCreatedModal($event)"
+  />
 
   <!-- Loan Detail Drawer / Modal -->
   @if (selectedLoan(); as loan) {
@@ -351,133 +217,11 @@
     </div>
   }
 
-  <!-- Payment Modal (AC-11, AC-12, AC-13, AC-14) -->
-  @if (showPaymentModal(); as show) {
-    <div class="modal-backdrop" (click)="closePaymentModal()">
-      <div class="modal-card payment-modal" (click)="$event.stopPropagation()">
-        @if (paymentSuccess(); as successPayment) {
-          <div class="receipt-card">
-            <div class="receipt-header">
-              <span class="receipt-icon">✓</span>
-              <h3>¡Cobro Registrado con Éxito!</h3>
-              <p class="meta">Comprobante de recaudo generado e imputado en cascada.</p>
-            </div>
-
-            <div class="receipt-body">
-              <div class="receipt-row">
-                <span>Monto Cobrado:</span>
-                <strong>{{ successPayment.amount | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
-              </div>
-              <div class="receipt-row">
-                <span>Medio de Pago:</span>
-                <span>{{ successPayment.paymentMethodName }}</span>
-              </div>
-              <div class="receipt-row">
-                <span>Saldo Restante:</span>
-                <strong class="highlight">{{ successPayment.remainingLoanBalance | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
-              </div>
-              <div class="receipt-row">
-                <span>Estado Préstamo:</span>
-                <span class="status-badge" [ngClass]="'status-' + successPayment.loanStatus.toLowerCase()">
-                  {{ successPayment.loanStatus === 'PaidOff' ? 'Liquidado' : 'Activo' }}
-                </span>
-              </div>
-
-              <div class="receipt-allocations">
-                <p class="eyebrow">Aplicación a Cuotas (AC-11):</p>
-                @for (a of successPayment.allocations; track a.installmentNumber) {
-                  <div class="receipt-alloc-row">
-                    <span>Cuota #{{ a.installmentNumber }}</span>
-                    <span>{{ a.amountAllocated | currency:'COP':'symbol-narrow':'1.0-0' }} {{ a.isFullyCovered ? '(Completada)' : '(Abono)' }}</span>
-                  </div>
-                }
-              </div>
-            </div>
-
-            <div class="modal-footer">
-              <button type="button" class="btn-primary" (click)="closePaymentModal()">Aceptar y Cerrar</button>
-            </div>
-          </div>
-        } @else if (payingLoan(); as loan) {
-          <div class="modal-header">
-            <div>
-              <p class="eyebrow">Recaudo Operativo</p>
-              <h3>Registrar Cobro · {{ loan.customerName }}</h3>
-              <p class="meta">Saldo pendiente actual: {{ loan.balanceAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</p>
-            </div>
-            <button type="button" class="btn-close" (click)="closePaymentModal()">✕</button>
-          </div>
-
-          <form [formGroup]="paymentForm" (ngSubmit)="submitPayment()">
-            <div class="fields-row">
-              <label for="paymentAmount">
-                Importe a Cobrar ($) *
-                <input
-                  id="paymentAmount"
-                  type="number"
-                  step="0.01"
-                  formControlName="amount"
-                  (input)="onPaymentAmountChanged()"
-                  [max]="loan.balanceAmount"
-                />
-              </label>
-
-              <label for="paymentMethodId">
-                Medio de Pago Autorizado *
-                <select id="paymentMethodId" formControlName="paymentMethodId">
-                  @for (method of paymentMethods(); track method.id) {
-                    <option [value]="method.id">{{ method.name }}</option>
-                  }
-                </select>
-              </label>
-            </div>
-
-            <label for="paymentNotes">
-              Observaciones (Opcional)
-              <input id="paymentNotes" type="text" formControlName="notes" placeholder="Ej: Recibo manual #104, pagado por el titular" />
-            </label>
-
-            <div class="evidence-upload-group">
-              <label for="evidenceFile">
-                Soporte Fotográfico de Evidencia (AC-14 Opcional)
-                <input id="evidenceFile" type="file" accept="image/jpeg,image/png,image/webp" (change)="onEvidenceFileSelected($event)" />
-              </label>
-              @if (evidenceFileName()) {
-                <span class="file-tag">📷 {{ evidenceFileName() }} adjunta</span>
-              }
-            </div>
-
-            @if (allocationPreview().length > 0) {
-              <div class="preview-box">
-                <h4>Simulación de Aplicación en Cascada (AC-11)</h4>
-                <div class="installments-scroll">
-                  @for (item of allocationPreview(); track item.installmentNumber) {
-                    <div class="installment-row">
-                      <span>Cuota #{{ item.installmentNumber }}</span>
-                      <span>Abono: {{ item.newAllocatedAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
-                      <span class="status-badge" [ngClass]="item.isFullyCovered ? 'status-paid' : 'status-partiallypaid'">
-                        {{ item.isFullyCovered ? 'Queda Pagada' : 'Abono Parcial' }}
-                      </span>
-                    </div>
-                  }
-                </div>
-              </div>
-            }
-
-            <div class="modal-footer">
-              <button type="button" class="btn-secondary" (click)="closePaymentModal()">Cancelar</button>
-              <button
-                id="btn-confirm-payment"
-                type="submit"
-                class="btn-primary"
-                [disabled]="paymentForm.invalid || paymentSubmitting()"
-              >
-                {{ paymentSubmitting() ? 'Procesando cobro seguro...' : 'Confirmar Cobro' }}
-              </button>
-            </div>
-          </form>
-        }
-      </div>
-    </div>
-  }
+  <!-- Payment Modal (Requirements 2.8, 2.9) -->
+  <app-payment-modal
+    [isOpen]="showPaymentModal()"
+    [loan]="payingLoan()"
+    (closed)="closePaymentModal()"
+    (paymentSuccess)="onPaymentSuccessModal($event)"
+  />
 </div>

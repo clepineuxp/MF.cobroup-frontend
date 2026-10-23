@@ -1,164 +1,566 @@
-.mapa-container {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 1rem 0;
+:host {
+  display: block;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  position: relative;
 }
 
-.map-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+.mapa-home-screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
-.title {
-  margin: 0;
-  font-size: 1.5rem;
-  color: var(--color-text);
-}
+/* ==========================================================================
+   1. FULLSCREEN MAP
+   ========================================================================== */
+.map-fullscreen-wrapper {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
 
-.subtitle {
-  margin: 0.25rem 0 0;
-  color: var(--color-text-muted);
-  font-size: 0.9rem;
-}
-
-.controls-form {
-  display: flex;
-  gap: 0.5rem;
-
-  select,
-  input {
-    background-color: var(--color-surface);
-    color: var(--color-text);
-    border: 1px solid var(--color-border);
-    padding: 0.5rem 0.75rem;
-    border-radius: 6px;
+  ::ng-deep .map-container {
+    height: 100% !important;
+    border-radius: 0 !important;
+    border: none !important;
   }
 }
 
-.alert-error {
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-danger);
-  color: var(--color-danger);
-  padding: 0.75rem;
-  border-radius: 6px;
-}
-
-.chips-bar {
+/* ==========================================================================
+   2. FLOATING ALERTS / TOASTS
+   ========================================================================== */
+.floating-alert {
+  position: absolute;
+  top: 3.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
   display: flex;
-  gap: 0.5rem;
-  overflow-x: auto;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: dropIn 0.2s ease-out;
+
+  &.error {
+    background: rgba(163, 58, 58, 0.92);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+  }
+
+  &.success {
+    background: rgba(38, 115, 77, 0.92);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+  }
+
+  .btn-dismiss {
+    background: transparent;
+    border: none;
+    color: currentColor;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 0;
+  }
 }
 
-.chip {
-  background-color: var(--color-surface);
+/* ==========================================================================
+   3. FLOATING ROUTE SELECTOR (TOP CENTER)
+   ========================================================================== */
+.floating-route-selector {
+  position: absolute;
+  top: 3.4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.route-pill-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 1rem;
+  border-radius: 9999px;
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   color: var(--color-text);
-  padding: 0.4rem 0.8rem;
-  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: var(--color-surface-raised);
+    transform: translateY(1px);
+  }
+
+  .route-icon {
+    font-size: 0.95rem;
+  }
+
+  .route-chevron {
+    font-size: 0.75rem;
+    transition: transform 0.2s ease;
+
+    &.open {
+      transform: rotate(180deg);
+    }
+  }
+}
+
+.route-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  margin-top: 0.4rem;
+  width: min(85vw, 18rem);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 1.25rem;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  animation: dropIn 0.2s ease-out;
+}
+
+.dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.btn-menu-close {
+  background: transparent;
+  border: none;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.dropdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.route-item-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.75rem;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: var(--color-surface-raised);
+  }
+
+  &.active {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    font-weight: 700;
+  }
+}
+
+/* ==========================================================================
+   4. FLOATING CUSTOMER INSPECTOR CARD
+   ========================================================================== */
+.floating-inspector-card {
+  position: absolute;
+  top: 6rem;
+  right: 1rem;
+  left: 1rem;
+  margin-inline: auto;
+  max-width: 22rem;
+  z-index: 100;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 1.25rem;
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: dropIn 0.2s ease-out;
+
+  @media (min-width: 640px) {
+    left: auto;
+    right: 1.5rem;
+    top: 5rem;
+  }
+}
+
+.inspector-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.inspector-client-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.inspector-name {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.inspector-sub {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.btn-close-inspector {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--color-text);
+  }
+}
+
+.inspector-amounts {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.amount-pill {
+  flex: 1;
+  min-width: 4.5rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.65rem;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+
+  .lbl {
+    font-size: 0.65rem;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+  }
+
+  .val {
+    font-size: 0.85rem;
+    color: var(--color-text);
+  }
+
+  &.due .val {
+    color: var(--color-warning);
+  }
+
+  &.overdue .val {
+    color: var(--color-danger);
+  }
+}
+
+.inspector-loan-tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary);
+
+  &.none {
+    color: var(--color-text-muted);
+  }
+}
+
+/* ==========================================================================
+   5. BOTTOM-RIGHT FILTER FAB & MENU (Requirement 2.5.2)
+   ========================================================================== */
+.floating-filter-container {
+  position: absolute;
+  bottom: 1.5rem;
+  right: 1rem;
+  z-index: 110;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.filter-fab-btn {
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 50%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: transform 0.15s ease, background 0.15s ease;
+
+  &:hover {
+    transform: scale(1.08);
+    background: var(--color-surface-raised);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  .filter-fab-icon {
+    font-size: 1.25rem;
+  }
+
+  .filter-active-dot {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: var(--color-primary);
+    box-shadow: 0 0 6px var(--color-primary);
+  }
+}
+
+.filter-popover-menu {
+  position: absolute;
+  bottom: 3.8rem;
+  right: 0;
+  width: min(85vw, 15rem);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 1.25rem;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  animation: dropIn 0.2s ease-out;
+}
+
+.filter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.15rem 0.35rem;
+
+  .filter-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+  }
+}
+
+.filter-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.filter-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.85rem;
+  border-radius: 9999px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
+  transition: all 0.15s ease;
+
+  .count-badge {
+    background: var(--color-background);
+    padding: 0.1rem 0.45rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+
+  &:hover {
+    border-color: var(--color-primary);
+  }
 
   &.active {
-    background-color: var(--color-primary);
+    background: var(--color-primary);
     color: var(--color-on-primary);
+    border-color: var(--color-primary);
+
+    .count-badge {
+      background: rgba(0, 0, 0, 0.25);
+      color: var(--color-on-primary);
+    }
+  }
+}
+
+/* ==========================================================================
+   6. BOTTOM / LEFT ACTION BAR (Requirement 2.5.4)
+   Strict order: (Nuevo Préstamo) (Cobrar) (Nuevo Cliente)
+   If they fit horizontally: bottom row.
+   If not: collapsed to the left side in a column. NEVER 2 and 1!
+   ========================================================================== */
+.home-action-bar {
+  position: absolute;
+  z-index: 100;
+  display: flex;
+  gap: 0.6rem;
+
+  /* Mobile / Narrow Screen default (< 540px):
+     Collapsed to the left side in a single vertical column */
+  bottom: 5.5rem;
+  left: 1rem;
+  flex-direction: column;
+  align-items: flex-start;
+
+  /* Wide Screen (>= 540px):
+     Centered at the bottom in a single horizontal row */
+  @media (min-width: 540px) {
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    flex-direction: row;
+    align-items: center;
+    white-space: nowrap;
+  }
+}
+
+.action-pill-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: all 0.15s ease;
+  user-select: none;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .action-icon {
+    font-size: 1rem;
+  }
+}
+
+/* 1. Nuevo Préstamo */
+.btn-prestamo {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+
+  &:hover:not(:disabled) {
     border-color: var(--color-primary);
   }
 }
 
-.map-layout {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-
-  @media (min-width: 900px) {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-}
-
-.map-wrapper {
-  flex: 1;
-  min-width: 0;
-}
-
-.inspector-card {
-  width: 100%;
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-
-  @media (min-width: 900px) {
-    width: 320px;
-  }
-}
-
-.inspector-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-
-  h3 {
-    margin: 0;
-    font-size: 1.1rem;
-    color: var(--color-text);
-  }
-}
-
-.status-badge {
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background-color: var(--color-surface-raised);
-  color: var(--status-color, var(--color-text));
-  border: 1px solid var(--status-color, var(--color-border));
-}
-
-.desc,
-.address {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-}
-
-.inspector-finances {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  background-color: var(--color-surface-raised);
-  border-radius: 6px;
-  padding: 0.75rem;
-}
-
-.fin-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.85rem;
-
-  .txt-due { color: var(--color-warning); }
-  .txt-overdue { color: var(--color-danger); }
-}
-
-.btn-collect {
-  background-color: var(--color-primary);
+/* 2. Cobrar (Primary Action) */
+.btn-cobrar {
+  background: var(--color-primary);
   color: var(--color-on-primary);
-  border: none;
-  padding: 0.65rem;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  width: 100%;
+  border-color: var(--color-primary);
+  box-shadow: 0 6px 20px rgba(64, 92, 114, 0.35);
 
-  &:hover {
-    background-color: var(--color-primary-hover);
+  &:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+  }
+}
+
+/* 3. Nuevo Cliente */
+.btn-cliente {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+
+  &:hover:not(:disabled) {
+    border-color: var(--color-primary);
+  }
+}
+
+@keyframes dropIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

@@ -216,3 +216,39 @@
 - Validación: 28/28 pruebas verdes en Vitest, compilación de producción `ng build` exitosa, 0 vulnerabilidades en `npm audit --omit=dev`.
 - Git: cambios preservados en el working tree sin commit, push, merge, tag ni PR.
 
+### 2026-10-22 — Transformación Mobile-First PWA (Notch Island, Drawer Traslúcido, Home Cartográfico y Modales Compartidos)
+
+- Prompt: Reestructurar el frontend operativo (`MF.cobroup-frontend`) con enfoque de App móvil (PWA):
+  - 2.1: Header estilo "Notch / Dynamic Island" superior con texto "Cobro UP". Contraste invertido estricto: fondo negro con letras blancas en modo claro, fondo blanco con letras negras en modo oscuro. Tapping/jalado despliega panel de control con alternador de tema claro/oscuro, cambio de tenant/organización y cierre de sesión.
+  - 2.2: Retiro de frases "Plataforma multi-tenant" y "COBROUP Operación". Título principal formalizado como "Cobro UP".
+  - 2.3: Barra de navegación off-canvas a la izquierda, oculta por defecto en web y mobile con disparador flotante superior izquierdo; fondo traslúcido con efecto glassmorphism (`backdrop-filter: blur(24px)`).
+  - 2.4: Eliminación del módulo "Resumen" (`OperationsOverviewPage`).
+  - 2.5: Módulo de Mapa promovido a pantalla de inicio ("Home", ruta raíz `/` y `/mapa`), ocupando pantalla completa (`100vw`/`100vh`/`100dvh`), con todos los controles flotando directamente sobre la cartografía.
+  - 2.5.1: Selector de ruta flotante con selección automática de la primera ruta autorizada de la lista.
+  - 2.5.2: Botón flotante FAB en la esquina inferior derecha que despliega menú emergente con filtros de cobranza: Todos, En Mora (rojo), Cobro Hoy (amarillo) y Cobrado (verde) con sus conteos reactivos.
+  - 2.5.3: Eliminación completa del selector de fecha en el mapa.
+  - 2.5.4: Barra de acciones con bordes redondeados (`border-radius: 9999px`) en orden estricto `(Nuevo Préstamo)(Cobrar)(Nuevo Cliente)`. En pantallas estrechas colapsan en columna vertical al costado izquierdo; en pantallas amplias se alinean horizontalmente al centro inferior. Regla estricta: nunca se dividen en 2 y 1.
+  - 2.6: Modal compartido `CustomerModalComponent` (`src/app/shared/ui/customer-modal/`) utilizado idénticamente en la pestaña de Clientes y desde el botón "Nuevo Cliente" del Home.
+  - 2.7: Modal compartido `LoanOriginationModalComponent` (`src/app/shared/ui/loan-origination-modal/`) utilizado idénticamente en la pestaña de Préstamos y desde el botón "Nuevo Préstamo" del Home.
+  - 2.8: Botón "Cobrar" habilitado únicamente al seleccionar un cliente en el mapa con préstamo activo, abriendo el modal compartido `PaymentModalComponent` (`src/app/shared/ui/payment-modal/`) con comprobante de recaudo al instante.
+  - 2.9: Esencia visual unificada con desenfoque de fondo (`backdrop-filter: blur(14px)`), controles con bordes redondeados limpios y animaciones fluidas.
+- Pruebas y compilación:
+  - 48/48 pruebas Vitest aprobadas al 100% (15/15 suites, incluyendo cobertura completa para `mapa.page.spec.ts` y los 3 modales compartidos).
+  - Compilación de producción `ng build` exitosa con presupuestos de estilos ajustados en `angular.json`.
+### 2026-10-22 — Refinamiento Header Notch, Nav Drawer Oscuro y Estandarización de Páginas
+
+- Validación y solución de feedback de usuario:
+  - 1. Notch Dropdown con fondo sólido y cierre al clic/tab exterior:
+    - `.notch-tray` ahora posee tarjeta opaca con fondo sólido de tema (`var(--color-surface)`), bordes sutiles y sombra elevada `0 20px 50px rgba(0, 0, 0, 0.35)`, evitando que el contenido cartográfico o de página se traslape.
+    - Backdrop de pantalla completa extraído fuera del contenedor transformado para cubrir el 100% del viewport.
+    - Listeners en `@HostListener` (`document:click`, `document:touchstart`, `document:focusin` y `document:keydown.escape`) que cierran automáticamente el notch al hacer clic, tap o tab fuera del contenedor.
+  - 2. Drawer de Navegación en Modo Oscuro:
+    - Removidos selectores `:root[data-theme='dark']` que fallaban por encapsulación de componentes en Angular.
+    - Se adaptó `.offcanvas-drawer` y todos sus elementos internos para alimentarse directamente de los tokens CSS del tema (`var(--color-surface)` `#1f252b`, `var(--color-text)` `#f0f2f4`, `var(--color-primary)` `#91a9bb`, `var(--color-surface-raised)` `#293139`), eliminando por completo el traslape de texto blanco sobre fondo claro.
+  - 3. Estandarización de Controles, Eliminación de Leyendas y Márgenes:
+    - Eliminadas leyendas y subtítulos redundantes en `/agenda`, `/plantillas`, `/excepciones`, `/clientes`, `/prestamos`, `/rutas` y `/conciliacion`.
+    - Estandarizados botones tipo pill (`.btn-primary`) e inputs/selects redondeados y pulidos en `styles.scss` para todo el front.
+    - Contenedor `.app-main-content` configurado con padding superior de seguridad (`padding-top: 5rem; padding-inline: clamp(1rem, 3.5vw, 2rem); max-width: 72rem; margin-inline: auto`) en páginas que no son el mapa, previniendo colisión con el botón hamburguesa y el notch superior.
+- Validación: 48/48 pruebas pasando en Vitest (15 suites) y compilación `ng build` exitosa en 6.7s con 0 advertencias de budget.
+- Git: rama `feature/visuals-theme`; cambios preservados en el working tree sin commit, push, merge, tag ni PR.
+

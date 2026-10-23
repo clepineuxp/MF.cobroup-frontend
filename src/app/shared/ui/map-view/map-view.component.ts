@@ -61,7 +61,7 @@ export class MapViewComponent implements OnChanges {
     if (changes['selectedPointId']) {
       const match = this.points.find((p) => p.customerId === this.selectedPointId);
       if (match) {
-        this.selectPoint(match);
+        this.selectPoint(match, false);
       }
     }
   }
@@ -86,13 +86,15 @@ export class MapViewComponent implements OnChanges {
     this.zoomLevel.update((z) => Math.max(z - 1, 10));
   }
 
-  selectPoint(point: MapPoint): void {
+  selectPoint(point: MapPoint, emit = true): void {
     this.activePopupPoint.set(point);
     if (point.latitude !== null && point.longitude !== null) {
       this.centerLat.set(point.latitude);
       this.centerLon.set(point.longitude);
     }
-    this.pointSelected.emit(point);
+    if (emit) {
+      this.pointSelected.emit(point);
+    }
   }
 
   closePopup(): void {
@@ -101,7 +103,7 @@ export class MapViewComponent implements OnChanges {
 
   getScreenX(lon: number | null): number {
     if (lon === null) return 0;
-    const width = 800;
+    const width = this.containerRef?.nativeElement?.clientWidth || 800;
     const scale = Math.pow(2, this.zoomLevel() - 11);
     const deltaLon = lon - this.centerLon();
     return width / 2 + deltaLon * 800 * scale;
@@ -109,7 +111,7 @@ export class MapViewComponent implements OnChanges {
 
   getScreenY(lat: number | null): number {
     if (lat === null) return 0;
-    const height = 500;
+    const height = this.containerRef?.nativeElement?.clientHeight || 500;
     const scale = Math.pow(2, this.zoomLevel() - 11);
     const deltaLat = lat - this.centerLat();
     return height / 2 - deltaLat * 1000 * scale;

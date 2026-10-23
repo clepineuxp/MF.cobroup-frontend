@@ -5,8 +5,8 @@ export const routes: Routes = [
   {
     path: '',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/operations-overview/pages/operations-overview.page').then((module) => module.OperationsOverviewPage),
-    title: 'Resumen operativo | COBROUP',
+    loadComponent: () => import('./features/agenda/pages/mapa.page').then((module) => module.MapaPage),
+    title: 'Cobro UP',
   },
   {
     path: 'rutas',

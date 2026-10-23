@@ -1,30 +1,146 @@
-<header>
-  <div>
-    <p class="eyebrow">Plataforma multi-tenant</p>
-    <h1>COBROUP Operación</h1>
-    @if (isAuthenticated()) {
-    <nav aria-label="Operación">
-      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Resumen</a>
-      <a routerLink="/agenda" routerLinkActive="active">Agenda</a>
-      <a routerLink="/mapa" routerLinkActive="active">Mapa</a>
-      <a routerLink="/rutas" routerLinkActive="active">Mis rutas</a>
-      <a routerLink="/clientes" routerLinkActive="active">Clientes</a>
-      <a routerLink="/prestamos" routerLinkActive="active">Préstamos</a>
-      <a routerLink="/conciliacion" routerLinkActive="active">Conciliación</a>
-      <a routerLink="/plantillas" routerLinkActive="active">Plantillas</a>
-      <a routerLink="/excepciones" routerLinkActive="active">Excepciones</a>
+<!-- Floating Menu Trigger (Top Left) -->
+@if (isAuthenticated()) {
+  <button
+    type="button"
+    class="floating-menu-btn"
+    (click)="toggleDrawer()"
+    [attr.aria-expanded]="drawerOpen()"
+    aria-label="Abrir menú de navegación"
+    title="Menú"
+  >
+    <span class="hamburger-icon">
+      <span class="bar"></span>
+      <span class="bar"></span>
+      <span class="bar"></span>
+    </span>
+  </button>
+}
+
+<!-- Left Off-Canvas Navigation Drawer -->
+@if (drawerOpen()) {
+  <div class="drawer-backdrop" (click)="closeDrawer()" aria-hidden="true"></div>
+}
+<aside
+  class="offcanvas-drawer"
+  [class.open]="drawerOpen()"
+  role="dialog"
+  aria-label="Navegación principal"
+  [attr.aria-hidden]="!drawerOpen()"
+>
+  <div class="drawer-header">
+    <div class="drawer-branding">
+      <span class="drawer-logo">Cobro UP</span>
+      <span class="drawer-badge">Operación</span>
+    </div>
+    <button type="button" class="btn-drawer-close" (click)="closeDrawer()" aria-label="Cerrar menú">
+      ✕
+    </button>
+  </div>
+
+  @if (isAuthenticated()) {
+    <nav class="drawer-nav" aria-label="Módulos del sistema">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" (click)="closeDrawer()">
+        <span class="nav-icon">🗺️</span>
+        <span class="nav-text">Home / Mapa</span>
+      </a>
+      <a routerLink="/agenda" routerLinkActive="active" (click)="closeDrawer()">
+        <span class="nav-icon">📅</span>
+        <span class="nav-text">Agenda diaria</span>
+      </a>
+      <a routerLink="/rutas" routerLinkActive="active" (click)="closeDrawer()">
+        <span class="nav-icon">🛣️</span>
+        <span class="nav-text">Mis rutas</span>
+      </a>
+      <a routerLink="/clientes" routerLinkActive="active" (click)="closeDrawer()">
+        <span class="nav-icon">👥</span>
+        <span class="nav-text">Clientes</span>
+      </a>
+      <a routerLink="/prestamos" routerLinkActive="active" (click)="closeDrawer()">
+        <span class="nav-icon">💰</span>
+        <span class="nav-text">Préstamos y Cobros</span>
+      </a>
+      <a routerLink="/conciliacion" routerLinkActive="active" (click)="closeDrawer()">
+        <span class="nav-icon">⚖️</span>
+        <span class="nav-text">Conciliación diaria</span>
+      </a>
+      <a routerLink="/plantillas" routerLinkActive="active" (click)="closeDrawer()">
+        <span class="nav-icon">📋</span>
+        <span class="nav-text">Plantillas de crédito</span>
+      </a>
+      <a routerLink="/excepciones" routerLinkActive="active" (click)="closeDrawer()">
+        <span class="nav-icon">⚡</span>
+        <span class="nav-text">Excepciones</span>
+      </a>
     </nav>
+
+    @if (userContext(); as user) {
+      <div class="drawer-footer">
+        <div class="drawer-user-info">
+          <span class="user-name">{{ user.displayName || user.username }}</span>
+          <span class="user-role">{{ user.role }} · {{ user.organizationCode }}</span>
+        </div>
+      </div>
     }
+  }
+</aside>
+
+<!-- Notch Backdrop Overlay (Full Viewport) -->
+@if (notchExpanded()) {
+  <div class="notch-backdrop" (click)="closeNotch()" aria-hidden="true"></div>
+}
+
+<!-- Top Notch Header ("Dynamic Island" style) -->
+<header class="app-notch-container" [class.expanded]="notchExpanded()">
+  <div class="notch-pill" (click)="toggleNotch()" role="button" [attr.aria-expanded]="notchExpanded()" tabindex="0" (keyup.enter)="toggleNotch()">
+    <div class="notch-indicator-dot"></div>
+    <h1 class="notch-title">Cobro UP</h1>
+    <span class="notch-chevron" [class.rotated]="notchExpanded()">▾</span>
+    <div class="notch-pull-handle"></div>
   </div>
-  <div class="header-actions">
-    @if (isAuthenticated()) {
-      <app-organization-switcher />
-    }
-    <app-theme-switch />
-    @if (isAuthenticated()) {
-      <button type="button" class="btn-logout" (click)="logout()" title="Cerrar sesión">Cerrar sesión</button>
-    }
-  </div>
+
+  @if (notchExpanded()) {
+    <div class="notch-tray" (click)="$event.stopPropagation()">
+      <div class="tray-header">
+        <div class="tray-org-badge">
+          @if (userContext(); as user) {
+            <span class="org-name">{{ user.organizationCode }}</span>
+            <span class="role-pill">{{ user.role }}</span>
+          } @else {
+            <span class="org-name">Cobro UP</span>
+          }
+        </div>
+        <button type="button" class="btn-tray-close" (click)="closeNotch()" aria-label="Cerrar panel">✕</button>
+      </div>
+
+      <div class="tray-content">
+        @if (isAuthenticated()) {
+          <div class="tray-section">
+            <span class="tray-section-label">Organización / Tenant</span>
+            <app-organization-switcher />
+          </div>
+        }
+
+        <div class="tray-section">
+          <span class="tray-section-label">Apariencia</span>
+          <div class="theme-switch-wrapper">
+            <app-theme-switch />
+          </div>
+        </div>
+
+        @if (isAuthenticated()) {
+          <div class="tray-section tray-logout">
+            <button type="button" class="btn-notch-logout" (click)="logout()">
+              <span>Cerrar sesión</span>
+              <span class="logout-icon">🚪</span>
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+  }
 </header>
-<main><router-outlet /></main>
-<footer>Fase 8 · Mapas, georreferenciación y analítica</footer>
+
+<!-- Main Application Content (100% viewport for Map, auto-scroll for other pages) -->
+<main class="app-main-content">
+  <router-outlet />
+</main>
