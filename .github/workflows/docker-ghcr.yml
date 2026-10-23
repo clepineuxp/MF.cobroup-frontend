@@ -33,7 +33,7 @@ jobs:
         run: npm ci
 
       - name: 4. Execute Unit Tests
-        run: npm test -- --watch=false --browsers=ChromeHeadless
+        run: npm test -- --watch=false
 
   build-and-push:
     name: Build & Push Docker Image to GHCR
