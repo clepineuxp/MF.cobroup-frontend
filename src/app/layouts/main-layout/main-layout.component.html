@@ -26,6 +26,7 @@
   role="dialog"
   aria-label="Navegación principal"
   [attr.aria-hidden]="!drawerOpen()"
+  [attr.inert]="drawerOpen() ? null : ''"
 >
   <div class="drawer-header">
     <div class="drawer-branding">
@@ -91,7 +92,7 @@
 
 <!-- Top Notch Header ("Dynamic Island" style) -->
 <header class="app-notch-container" [class.expanded]="notchExpanded()">
-  <div class="notch-pill" (click)="toggleNotch()" role="button" [attr.aria-expanded]="notchExpanded()" tabindex="0" (keyup.enter)="toggleNotch()">
+  <div class="notch-pill" (click)="toggleNotch()" role="button" [attr.aria-expanded]="notchExpanded()" tabindex="0" (keyup.enter)="toggleNotch()" (keydown.space)="$event.preventDefault()" (keyup.space)="toggleNotch()" aria-controls="notch-settings">
     <div class="notch-indicator-dot"></div>
     <h1 class="notch-title">Cobro UP</h1>
     <span class="notch-chevron" [class.rotated]="notchExpanded()">▾</span>
@@ -99,7 +100,7 @@
   </div>
 
   @if (notchExpanded()) {
-    <div class="notch-tray" (click)="$event.stopPropagation()">
+    <div id="notch-settings" class="notch-tray" (click)="$event.stopPropagation()">
       <div class="tray-header">
         <div class="tray-org-badge">
           @if (userContext(); as user) {
@@ -127,6 +128,13 @@
           </div>
         </div>
 
+        @if (pwa.enabled) {
+          <div class="tray-section">
+            <span class="tray-section-label">Aplicación</span>
+            <button type="button" class="pwa-check" [disabled]="pwa.checking()" (click)="pwa.checkForUpdate(true)">{{ pwa.checking() ? 'Buscando actualización…' : pwa.updateAvailable() ? 'Actualizar PWA' : 'Buscar actualizaciones' }}</button>
+            @if (pwa.message()) { <p class="pwa-message" role="status">{{ pwa.message() }}</p> }
+          </div>
+        }
         @if (isAuthenticated()) {
           <div class="tray-section tray-logout">
             <button type="button" class="btn-notch-logout" (click)="logout()">

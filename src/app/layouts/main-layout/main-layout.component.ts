@@ -1,3 +1,4 @@
+import { PwaUpdateService } from '../../core/pwa/pwa-update.service';
 import { CommonModule } from '@angular/common';
 import { Component, HostListener, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
@@ -27,6 +28,7 @@ export class MainLayoutComponent {
   private readonly auth = inject(AuthService);
   protected readonly themeService = inject(ThemeService);
 
+  readonly pwa = inject(PwaUpdateService);
   readonly isAuthenticated = this.auth.isAuthenticated;
   readonly userContext = this.auth.context;
 
