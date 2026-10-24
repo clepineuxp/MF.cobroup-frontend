@@ -19,3 +19,8 @@ Decisión vigente: [rangos, rutas y mensual](../../../cobroup.md/DECISION_PLANTI
 ## Actualización PWA y estilo administrativo — 2026-10-23
 
 Rama feature/update-pwa. Ambas aplicaciones notifican versiones descargadas con diálogo Actualizar ahora / Más tarde; recarga completa confirmada, búsqueda al estabilizar, cada 15 minutos, al recuperar foco/conexión y manual desde el panel superior. Sin caché de respuestas de negocio. Administración adopta navegación flotante, tarjetas y controles coherentes con operación; header operativo unido al borde al abrirse. Evidencias, pruebas y límites en AGENTS.md y [decisión de actualización](../../../cobroup.md/DECISION_ACTUALIZACION_PWA.md).
+
+
+## Tarjetas de préstamos sin desbordamiento — 2026-10-23
+
+Rama feature/loan-card-overflow desde dev. Distribución explícita de métricas, saldo en fila completa y acciones que ajustan línea; valores largos se conservan completos. Build y 4 pruebas dirigidas correctos. Evidencias y límites en AGENTS.md.

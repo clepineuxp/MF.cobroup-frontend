@@ -5,7 +5,7 @@
 - Producto: COBROUP; rol: frontend operativo.
 - Maestro: `../cobroup.md/COBROUP.md` 1.14.0 y `../cobroup.md/DECISION_AUTENTICACION_JWT.md`.
 - Estándar: `../cobroup.md/FRAMEWORK_DESARROLLO_FRONTEND.md` 1.0.
-- Rama activa: `feature/clients-page`, actualizada con `origin/dev` para resolver los conflictos del PR #15.
+- Rama activa: `feature/loan-card-overflow`, creada desde origin/dev (9adc9bb).
 - Sin push, merge, tag ni PR sin autorización.
 
 ## Estado actual
@@ -385,3 +385,15 @@
 - PWA: versión visible `1.14.0`, botón manual `Buscar actualizaciones` y estado transitorio `Consultando…`; continúan las comprobaciones automáticas al estabilizar, cada 15 minutos, con foco, visibilidad y reconexión. `ngsw.json` incluye `appData` con versión y aplicación.
 - Verificación: suite completa operativa 74/74, prueba dirigida PWA 6/6 y build productivo correctos. Se comprobó en navegador el login operativo con logo y marca en notch; el paquete final contiene SVG, PNG y appData.
 - Git: cambios preservados sin commit, push, merge, tag, PR ni despliegue para esta solicitud.
+
+
+### 2026-10-23 — Corrección de desbordamiento en tarjetas de préstamos
+
+- Solicitud: corregir montos, etiquetas y acciones superpuestos en /prestamos del frontend operativo.
+- Rama feature/loan-card-overflow desde origin/dev (9adc9bb), árbol limpio al inicio. Maestro 1.14.0 y framework frontend 1.0. Sin commit, push ni despliegue solicitados para este alcance.
+- Cambio limitado a loans.page.scss: métricas en grid de dos columnas con saldo en fila completa; etiquetas y valores en columna, min-width:0 y overflow-wrap para contenido largo. Pie y acciones con flex-wrap y separación; grilla limitada al ancho disponible, filtros adaptables. Sin truncar montos ni cambiar cálculos, API, autenticación, temas o PWA.
+- Verificación: build productivo correcto sin advertencias y 4/4 pruebas existentes de LoansPage. Navegador con fixtures locales, nombres largos y montos hasta 1.099.999.999.999: ancho contenido = ancho tarjeta (351 px), métricas y acciones dentro del borde. Revisión en claro/oscuro; captura local de evidencia. No se usaron datos reales ni se verificó en móvil instalado. Auditoría independiente no realizada. git diff --check correcto.
+
+### 2026-10-24 — Commit autorizado de tarjetas de préstamos
+
+- Solicitud expresa: hacer commit de la corrección de desbordamiento ya validada. Se conservan las pruebas y límites registrados. Sin push ni despliegue.
