@@ -6,6 +6,7 @@ import { ThemeSwitchComponent } from '../../shared/ui/theme-switch/theme-switch.
 import { OrganizationSwitcherComponent } from '../../features/organization-session/components/organization-switcher.component';
 import { AuthService } from '../../core/auth/auth.service';
 import { ThemeService } from '../../themes/theme.service';
+import { AppIconComponent } from '../../shared/ui/app-icon/app-icon.component';
 
 @Component({
   selector: 'app-main-layout',
@@ -17,6 +18,7 @@ import { ThemeService } from '../../themes/theme.service';
     RouterLinkActive,
     ThemeSwitchComponent,
     OrganizationSwitcherComponent,
+    AppIconComponent,
   ],
   templateUrl: './main-layout.component.html',
   styleUrl: './main-layout.component.scss',

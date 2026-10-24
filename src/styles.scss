@@ -108,3 +108,8 @@ button.primary {
   color: var(--color-text);
   margin: 0;
 }
+
+/* Mantiene monocromáticos los pictogramas decorativos heredados; los estados conservan su color semántico. */
+.metric-icon, .search-icon, .empty-icon, .badge-icon, .tag-icon, .detail-icon-box,
+.action-icon, .route-icon, .filter-fab-icon, .logout-icon, .gps-tag, .meta-item,
+.badge-evidence, .btn-layer-mode, .layer-toggle { filter: grayscale(1); }

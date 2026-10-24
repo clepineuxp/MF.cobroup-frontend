@@ -3,6 +3,7 @@ import { ApplicationRef, DestroyRef, Injectable, InjectionToken, NgZone, inject,
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { SwUpdate } from '@angular/service-worker';
 import { filter, take } from 'rxjs';
+import { COBROUP_APP_VERSION } from './app-version';
 
 export const PWA_RELOAD = new InjectionToken<() => void>('PWA_RELOAD', {
   providedIn: 'root', factory: () => { const document = inject(DOCUMENT); return () => document.defaultView?.location.reload(); }
@@ -15,6 +16,7 @@ export class PwaUpdateService {
   private readonly document = inject(DOCUMENT);
   private readonly destroy = inject(DestroyRef);
   readonly enabled = !!this.sw?.isEnabled;
+  readonly currentVersion = COBROUP_APP_VERSION;
   readonly updateAvailable = signal(false);
   readonly promptOpen = signal(false);
   readonly updating = signal(false);

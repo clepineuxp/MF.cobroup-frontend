@@ -1,6 +1,7 @@
 {
   "$schema": "./node_modules/@angular/service-worker/config/schema.json",
   "index": "/index.html",
+  "appData": { "version": "1.14.0", "application": "COBROUP Operación" },
   "assetGroups": [
     {
       "name": "app",

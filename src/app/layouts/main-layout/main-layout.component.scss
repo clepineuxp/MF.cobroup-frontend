@@ -106,6 +106,7 @@
   align-items: center;
   gap: 0.5rem;
 }
+.brand-mark { width: 2rem; height: 2rem; border-radius: .5rem; }
 
 .drawer-logo {
   font-size: 1.2rem;
@@ -265,6 +266,7 @@
   font-weight: 800;
   letter-spacing: -0.02em;
 }
+.notch-brand-mark { width: 1.2rem; height: 1.2rem; border-radius: .25rem; }
 
 .notch-chevron {
   font-size: 0.75rem;
@@ -433,5 +435,7 @@
 .expanded .notch-pill { width: 100%; justify-content: center; border-radius: 0; }
 .notch-tray { box-sizing: border-box; max-height: calc(100dvh - 4rem); overflow-y: auto; }
 .pwa-check { border: 1px solid var(--color-border); border-radius: .75rem; padding: .75rem; background: var(--color-primary-soft); color: var(--color-text); cursor: pointer; }
+.pwa-version-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; color: var(--color-text-muted); font-size: .82rem; }
+.pwa-version-row strong { color: var(--color-text); font-variant-numeric: tabular-nums; }
 .pwa-message { font-size: .8rem; line-height: 1.5; margin: 0; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
