@@ -1,5 +1,5 @@
 import { CommonModule, CurrencyPipe } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CustomersService } from '../../../features/customers/data/customers.service';
 import { CustomerSummary } from '../../../features/customers/data/customer.models';
@@ -41,6 +41,97 @@ export class LoanOriginationModalComponent implements OnChanges {
   readonly success = signal('');
 
   readonly originationMode = signal<'template' | 'exception'>('template');
+  readonly customerQuery = signal('');
+  readonly customerOptionsOpen = signal(false);
+  readonly customerMatches = signal<readonly CustomerSummary[]>([]);
+  readonly customerSearching = signal(false);
+  readonly customerSearchError = signal('');
+  readonly activeCustomerIndex = signal(0);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private customerSearchVersion = 0;
+  private customerSearchTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly destroyRef = inject(DestroyRef);
+
+  constructor() { this.destroyRef.onDestroy(() => this.cancelCustomerSearch()); }
+
+  private cancelCustomerSearch(): void {
+    clearTimeout(this.customerSearchTimer);
+    this.customerSearchVersion++;
+    this.customerSearching.set(false);
+    this.customerOptionsOpen.set(false);
+  }
+
+  customerLabel(customer: CustomerSummary): string { return `${customer.firstNames} ${customer.lastNames}`.trim(); }
+
+  openCustomerOptions(): void {
+    this.customerOptionsOpen.set(true);
+    this.activeCustomerIndex.set(0);
+    if (this.form.controls.customerId.value) this.customerMatches.set(this.customers());
+  }
+
+  searchCustomers(query: string): void {
+    clearTimeout(this.customerSearchTimer);
+    const version = ++this.customerSearchVersion;
+    this.customerQuery.set(query);
+    this.customerOptionsOpen.set(true);
+    this.customerSearchError.set('');
+    this.customerSearching.set(true);
+    this.activeCustomerIndex.set(0);
+    this.form.controls.customerId.setValue('');
+    this.onCustomerChanged('');
+    const normalize = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const words = normalize(query.trim()).split(/\s+/);
+    this.customerMatches.set(this.customers().filter(customer => {
+      const text = normalize(`${this.customerLabel(customer)} ${customer.businessOrWorkName || ''} ${customer.primaryPhone || ''}`);
+      return words.every(word => text.includes(word));
+    }));
+    this.customerSearchTimer = setTimeout(() => { void this.lookupCustomers(query.trim(), version); }, 250);
+  }
+
+  private async lookupCustomers(query: string, version: number): Promise<void> {
+    try {
+      const result = await this.customersService.search('', query, 1, 100);
+      if (version !== this.customerSearchVersion || this.destroyRef.destroyed) return;
+      const active = result.items.filter(customer => customer.status === 'Active');
+      this.customerMatches.set(active);
+      const cache = new Map(this.customers().map(customer => [customer.id, customer]));
+      active.forEach(customer => cache.set(customer.id, customer));
+      this.customers.set([...cache.values()]);
+      this.activeCustomerIndex.set(0);
+    } catch {
+      if (version === this.customerSearchVersion && !this.destroyRef.destroyed)
+        this.customerSearchError.set('No se pudo completar la búsqueda. Vuelve a escribir para reintentar.');
+    } finally {
+      if (version === this.customerSearchVersion && !this.destroyRef.destroyed) this.customerSearching.set(false);
+    }
+  }
+
+  selectCustomer(customer: CustomerSummary): void {
+    this.cancelCustomerSearch();
+    this.customerQuery.set(this.customerLabel(customer));
+    this.form.controls.customerId.setValue(customer.id);
+    this.onCustomerChanged(customer.id);
+    this.customerSearchError.set('');
+  }
+
+  customerKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); this.customerOptionsOpen.set(false); }
+    else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (!this.customerOptionsOpen()) { this.openCustomerOptions(); return; }
+      const count = this.customerMatches().length;
+      if (count) {
+        this.activeCustomerIndex.update(index => (index + (event.key === 'ArrowDown' ? 1 : -1) + count) % count);
+        this.host.nativeElement.querySelector<HTMLElement>('#loan-customer-option-' + this.activeCustomerIndex())?.scrollIntoView?.({ block: 'nearest' });
+      }
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      const customer = this.customerMatches()[this.activeCustomerIndex()];
+      if (this.customerOptionsOpen() && customer) this.selectCustomer(customer);
+      else this.openCustomerOptions();
+    } else if (event.key === 'Tab') this.customerOptionsOpen.set(false);
+  }
+
 
   readonly form = new FormGroup({
     customerId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
@@ -67,12 +158,15 @@ export class LoanOriginationModalComponent implements OnChanges {
   });
 
   async ngOnChanges(changes: SimpleChanges): Promise<void> {
+    if (changes['isOpen'] && !this.isOpen) this.cancelCustomerSearch();
     if (changes['isOpen'] && this.isOpen) {
       await this.initModal();
     }
   }
 
   async initModal(): Promise<void> {
+    this.cancelCustomerSearch();
+    this.customerQuery.set(''); this.customerMatches.set([]); this.customerSearchError.set('');
     this.form.reset({
       customerId: this.preselectedCustomerId || '',
       loanTemplateId: '',
@@ -98,11 +192,14 @@ export class LoanOriginationModalComponent implements OnChanges {
       ]);
 
       this.customers.set(customersRes.items.filter((c) => c.status === 'Active'));
+      this.customerMatches.set(this.customers());
       this.templates.set(templatesRes);
       this.approvedExceptions.set(exceptionsRes.items);
 
       if (this.preselectedCustomerId) {
         this.form.patchValue({ customerId: this.preselectedCustomerId });
+        const customer = this.customers().find(item => item.id === this.preselectedCustomerId);
+        if (customer) this.customerQuery.set(this.customerLabel(customer));
       }
     } catch (err) {
       this.error.set(err instanceof Error ? err.message : 'Error al cargar datos para originación.');
@@ -112,6 +209,7 @@ export class LoanOriginationModalComponent implements OnChanges {
   }
 
   close(): void {
+    this.cancelCustomerSearch();
     this.closed.emit();
   }
 
@@ -127,7 +225,7 @@ export class LoanOriginationModalComponent implements OnChanges {
 
   onCustomerChanged(customerId: string): void {
     this.schedulePreview.set(null);
-    this.form.patchValue({ loanTemplateId: '' });
+    this.form.patchValue({ loanTemplateId: '', exceptionRequestId: '' });
     if (this.originationMode() === 'exception') {
       const customerExceptions = this.approvedExceptions().filter((e) => e.customerId === customerId);
       if (customerExceptions.length > 0) {

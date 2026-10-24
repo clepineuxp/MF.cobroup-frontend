@@ -42,17 +42,23 @@
       } @else {
         <form [formGroup]="form" (ngSubmit)="submitOrigination()" class="modal-body">
           <div class="form-section">
-            <label class="clean-field">
-              <span class="field-label">Cliente activo *</span>
-              <select formControlName="customerId" (change)="onCustomerChanged($any($event.target).value)">
-                <option value="">Seleccione un cliente...</option>
-                @for (cust of customers(); track cust.id) {
-                  <option [value]="cust.id">
-                    {{ cust.firstNames }} {{ cust.lastNames }} ({{ cust.businessOrWorkName || 'Personal' }})
-                  </option>
-                }
-              </select>
-            </label>
+            <div class="customer-combobox">
+              <label class="clean-field" for="loan-customer-search"><span class="field-label">Cliente activo *</span></label>
+              <input id="loan-customer-search" type="text" role="combobox" autocomplete="off" aria-autocomplete="list" aria-controls="loan-customer-options" aria-describedby="loan-customer-help" [attr.aria-expanded]="customerOptionsOpen()" [attr.aria-activedescendant]="customerOptionsOpen() && customerMatches().length ? 'loan-customer-option-' + activeCustomerIndex() : null" [value]="customerQuery()" (input)="searchCustomers($any($event.target).value)" (focus)="openCustomerOptions()" (blur)="customerOptionsOpen.set(false)" (keydown)="customerKeydown($event)" placeholder="Buscar por nombre, comercio o teléfono…" />
+              <small id="loan-customer-help">Escribe para buscar y selecciona un cliente de la lista.</small>
+              @if (customerOptionsOpen()) {
+                <div class="customer-options" id="loan-customer-options" role="listbox" aria-label="Clientes activos" [attr.aria-busy]="customerSearching()">
+                  @for (customer of customerMatches(); track customer.id; let index = $index) {
+                    <button type="button" role="option" tabindex="-1" [id]="'loan-customer-option-' + index" [attr.aria-selected]="index === activeCustomerIndex()" [class.active]="index === activeCustomerIndex()" (pointerdown)="$event.preventDefault()" (click)="selectCustomer(customer)">
+                      <strong>{{ customerLabel(customer) }}</strong><span>{{ customer.businessOrWorkName || 'Personal' }}{{ customer.primaryPhone ? ' · ' + customer.primaryPhone : '' }}</span>
+                    </button>
+                  }
+                </div>
+                @if (customerSearching()) { <p class="customer-search-state" role="status">Buscando clientes…</p> }
+                @else if (!customerMatches().length && !customerSearchError()) { <p class="customer-search-state" role="status">No se encontraron clientes activos.</p> }
+                @if (customerSearchError()) { <p class="customer-search-state" role="alert">{{ customerSearchError() }}</p> }
+              }
+            </div>
 
             @if (originationMode() === 'template') {
               <label class="clean-field">

@@ -409,3 +409,18 @@
 ### 2026-10-24 — Commit autorizado de condiciones manuales
 
 - Solicitud expresa: hacer commit del ajuste que elimina el autorrelleno al seleccionar plantilla. Se conservan las verificaciones registradas; sin push ni despliegue.
+
+### 2026-10-24 — Selector buscable de clientes en Nuevo Préstamo
+
+- Solicitud: después de versionar el ajuste de condiciones manuales (4624fbd), permitir escribir letras en el selector de cliente para buscar.
+- Cambio: input con rol combobox y lista accesible de clientes activos, consulta local inmediata sin distinción de acentos y búsqueda al servidor con debounce de 250 ms. Usa CustomersService.search existente con página 1 y 100 resultados por consulta; permite afinar escribiendo más letras, sin limitarse al lote inicial. Busca por nombre, comercio o teléfono según el endpoint existente.
+- Interacción: clic, flechas, Enter, Escape y Tab; opción activa visible al navegar y lista con scroll interno. Se mantiene ID real en el formulario, no texto libre. Escribir otro término elimina selección anterior, plantilla y excepción dependientes; seleccionar conserva condiciones económicas manuales y habilita las plantillas de la ruta. Cliente preseleccionado muestra su nombre cuando está en el lote inicial.
+- Concurrencia: temporizador liberado al cerrar/destruir; versión de consulta ignora respuestas atrasadas tras otra búsqueda o selección. No se reabre la lista por respuestas tardías. Carga, sin resultados, fallo de red y reintento por nueva escritura. Datos consultados permanecen solo en memoria; sin nuevas dependencias ni cambios backend/auth/PWA.
+- Estilos centralizados en themes/_customer-combobox.scss con tokens existentes y sin colores nuevos.
+- Validación final: 15/15 pruebas dirigidas del modal y LoansPage (2 suites), cubriendo búsqueda sin acentos, selección DOM/teclado, campos manuales, debounce, cliente remoto fuera del lote inicial, invalidación de IDs, fallo/reintento y respuesta tardía. Build productivo correcto sin advertencias, 319.58 kB iniciales. CLI Angular local, Node v24.22.1; git diff --check correcto.
+- Navegador: fixture local 127.0.0.1:5866, escribir ana muestra Ana Pérez y Enter selecciona, filtra plantillas de su ruta y deja monto/interés/cuotas vacíos. Captura local de evidencia. Sin préstamos reales, móvil instalado ni ingress productivo; auditoría independiente no realizada.
+- Git: rama feature/loan-card-overflow conservada, con cambios previos versionados; nuevo buscador pendiente de commit. Sin push ni despliegue.
+
+### 2026-10-24 — Commit autorizado del buscador de clientes
+
+- Solicitud expresa: hacer commit del buscador de clientes en Nuevo Préstamo. Se conservan las verificaciones registradas; sin push ni despliegue.

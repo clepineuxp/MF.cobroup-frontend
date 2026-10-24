@@ -28,3 +28,7 @@ Rama feature/loan-card-overflow desde dev. Distribución explícita de métricas
 ## Condiciones de préstamo manuales — 2026-10-24
 
 Al elegir plantilla en Nuevo Préstamo no se autocompletan monto, interés ni cuotas. Se preservan valores escritos manualmente, se limpia la simulación y los campos siguen obligatorios/editables con límites de plantilla validados al guardar. Evidencias y alcance en AGENTS.md. Cambio pendiente de commit; corrección previa de tarjetas versionada en 6954e14.
+
+## Cliente buscable en originación — 2026-10-24
+
+Nuevo Préstamo incorpora combobox accesible que filtra al escribir y consulta el endpoint existente con debounce. Selección por clic/teclado y validación por ID real; cambiar texto limpia cliente/plantilla/excepción previos. Conserva captura manual de condiciones. 15 pruebas dirigidas y build correctos; navegador con fixtures locales. Detalle y límites en AGENTS.md. Ajuste previo de condiciones versionado en 4624fbd; buscador sin commit.
