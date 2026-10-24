@@ -16,7 +16,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { ThemeService } from '../../../themes/theme.service';
+import { MapLayerMode, MapLayerModeService } from './map-layer-mode.service';
 
 export interface MapPoint {
   customerId: string;
@@ -32,8 +32,6 @@ export interface MapPoint {
   loanBalance?: number;
   avatarUrl?: string | null;
 }
-
-export type MapLayerMode = 'streets' | 'dark' | 'satellite';
 
 @Component({
   selector: 'app-map-view',
@@ -52,21 +50,14 @@ export class MapViewComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   @ViewChild('containerRef') containerRef?: ElementRef<HTMLDivElement>;
 
-  private readonly themeService = inject(ThemeService, { optional: true });
+  private readonly layerModeService = inject(MapLayerModeService);
 
   readonly zoomLevel = signal(14);
   readonly centerLat = signal(4.60971);
   readonly centerLon = signal(-74.08175);
 
-  readonly isSatelliteMode = signal(false);
-
-  readonly activeLayerMode = computed<MapLayerMode>(() => {
-    if (this.isSatelliteMode()) {
-      return 'satellite';
-    }
-    const theme = this.themeService?.theme() ?? 'light';
-    return theme === 'dark' ? 'dark' : 'streets';
-  });
+  readonly isSatelliteMode = this.layerModeService.isSatelliteMode;
+  readonly activeLayerMode = this.layerModeService.activeLayerMode;
 
   readonly layerModeIcon = computed(() => {
     return this.isSatelliteMode() ? '🗺️' : '🛰️';
@@ -227,7 +218,7 @@ export class MapViewComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   toggleSatelliteMode(): void {
-    this.isSatelliteMode.update((v) => !v);
+    this.layerModeService.toggleSatelliteMode();
   }
 
   updateMarkers(): void {

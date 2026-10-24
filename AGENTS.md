@@ -332,3 +332,12 @@
 - Solicitud expresa del propietario: hacer commits del alcance implementado de GPS/mapa de clientes y edición administrativa de usuarios, con pruebas y documentación asociadas.
 - Se conservan las verificaciones y limitaciones registradas en la intervención anterior; sin nuevos cambios funcionales.
 - Commit autorizado: SÍ para este alcance. Sin push, merge, tag, PR ni despliegue.
+
+### 2026-10-24 — Selector de ubicación alineado con tema cartográfico y marcador de cliente
+
+- Solicitud: conservar primero el rediseño de la página de clientes en un commit independiente y luego mejorar el selector de ubicación para heredar las capas claro/oscuro/satélite del mapa principal, reemplazando el pin mínimo por una figura de usuario con punta de ubicación.
+- Git: rediseño del directorio de clientes comprometido de forma aislada en `9e3eebd` (`feat(customers): renovar directorio de clientes`). El selector GPS/mapa existente de `dev` se incorporó mediante cherry-pick local `1584870`, sin merge ni push.
+- Implementación: `MapLayerModeService` centraliza la preferencia satelital y combina el modo estándar con `ThemeService`; `MapViewComponent` y `LocationPickerComponent` consumen el mismo estado. El selector permite alternar satélite, muestra el modo activo, carga las mismas capas ESRI y reacciona a cambios de tema mientras está abierto.
+- Marcador: nuevo `divIcon` con silueta vectorial de usuario, cuerpo circular, flecha de anclaje, halo animado y sombra. La selección se resume en una tarjeta visual con coordenadas, en lugar del texto plano anterior.
+- Verificación: TypeScript sin errores; 64/64 pruebas Vitest aprobadas en 17 suites; build productivo correcto y sin advertencias de presupuesto. La prueba del selector cubre herencia oscura, cambio a satélite y renderizado del nuevo marcador.
+- Límite de revisión visual: el navegador local no tenía una sesión autenticada activa para abrir el formulario de clientes; no se ingresaron credenciales ni se alteraron datos. Los cambios del selector quedan en working tree sin commit, push, merge, tag ni despliegue.
