@@ -14,3 +14,8 @@ Aplicación operativa Angular/PWA. Consume únicamente contratos del backend ope
 ## Plantillas por rangos y cobro mensual — 2026-10-23
 
 Decisión vigente: [rangos, rutas y mensual](../../../cobroup.md/DECISION_PLANTILLAS_RANGOS_RUTAS.md). Monto/porcentaje mínimo y máximo inclusivos; plantillas publicadas asignadas explícitamente a la ruta del cliente, con validación del servidor. Mensual conserva el día de inicio por meses calendario. Migración administrativa preparada y pendiente de aplicación; no modifica condiciones de préstamos existentes.
+
+
+## Actualización PWA y estilo administrativo — 2026-10-23
+
+Rama feature/update-pwa. Ambas aplicaciones notifican versiones descargadas con diálogo Actualizar ahora / Más tarde; recarga completa confirmada, búsqueda al estabilizar, cada 15 minutos, al recuperar foco/conexión y manual desde el panel superior. Sin caché de respuestas de negocio. Administración adopta navegación flotante, tarjetas y controles coherentes con operación; header operativo unido al borde al abrirse. Evidencias, pruebas y límites en AGENTS.md y [decisión de actualización](../../../cobroup.md/DECISION_ACTUALIZACION_PWA.md).

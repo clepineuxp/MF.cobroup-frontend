@@ -10,6 +10,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
+      updateViaCache: 'none',
       registrationStrategy: 'registerWhenStable:30000',
     }),
   ],
