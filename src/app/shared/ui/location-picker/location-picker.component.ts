@@ -20,6 +20,8 @@ export class LocationPickerComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapContainer', { static: true }) mapContainer!: ElementRef<HTMLDivElement>;
   readonly loading = signal(true);
   readonly error = signal('');
+  readonly locatingUser = signal(false);
+  readonly locationError = signal('');
   readonly selected = signal<SelectedCoordinates | null>(null);
   private readonly layerModeService = inject(MapLayerModeService);
   readonly isSatelliteMode = this.layerModeService.isSatelliteMode;
@@ -32,8 +34,10 @@ export class LocationPickerComponent implements AfterViewInit, OnDestroy {
   private readonly loadLeaflet = inject(LEAFLET_LOADER);
   private leaflet: typeof import('leaflet') | null = null;
   private marker: Marker | null = null;
+  private markerIcon: ReturnType<typeof import('leaflet')['divIcon']> | null = null;
   private tileLayers: TileLayer[] = [];
   private disposed = false;
+  private locationRequest = 0;
   private loadTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
@@ -51,7 +55,7 @@ export class LocationPickerComponent implements AfterViewInit, OnDestroy {
       const center: [number, number] = initial ? [initial.latitude, initial.longitude] : [4.5709, -74.2973];
       this.map = L.map(this.mapContainer.nativeElement, { center, zoom: initial ? 16 : 6 });
       this.setLayerMode(this.activeLayerMode());
-      const pin = L.divIcon({
+      this.markerIcon = L.divIcon({
         className: 'location-picker-pin',
         html: `<span class="user-location-marker" aria-hidden="true">
           <span class="user-marker-halo"></span>
@@ -63,17 +67,8 @@ export class LocationPickerComponent implements AfterViewInit, OnDestroy {
         iconSize: [54, 66],
         iconAnchor: [27, 64],
       });
-      const choose = (latitude: number, longitude: number) => {
-        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
-        const coordinates = { latitude: Number(Math.max(-90, Math.min(90, latitude)).toFixed(6)), longitude: Number((((longitude + 180) % 360 + 360) % 360 - 180).toFixed(6)) };
-        this.selected.set(coordinates);
-        if (!this.marker) {
-          this.marker = L.marker([coordinates.latitude, coordinates.longitude], { draggable: true, icon: pin, autoPan: true, title: 'Ubicación seleccionada: arrastra para mover' }).addTo(this.map!);
-          this.marker.on('dragend', () => { const point = this.marker!.getLatLng(); choose(point.lat, point.lng); });
-        } else this.marker.setLatLng([coordinates.latitude, coordinates.longitude]);
-      };
-      this.map.on('click', (event: LeafletMouseEvent) => choose(event.latlng.lat, event.latlng.lng));
-      if (initial) choose(initial.latitude, initial.longitude);
+      this.map.on('click', (event: LeafletMouseEvent) => this.chooseCoordinates(event.latlng.lat, event.latlng.lng));
+      if (initial) this.chooseCoordinates(initial.latitude, initial.longitude);
       this.map.invalidateSize();
     } catch {
       if (!this.disposed) { this.loading.set(false); this.error.set('No fue posible abrir el mapa. Cierra e intenta nuevamente.'); }
@@ -93,6 +88,66 @@ export class LocationPickerComponent implements AfterViewInit, OnDestroy {
   }
 
   toggleSatelliteMode(): void { this.layerModeService.toggleSatelliteMode(); }
+
+  goToCurrentLocation(): void {
+    if (this.locatingUser()) return;
+    this.locationError.set('');
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      this.locationError.set('Este navegador no permite consultar tu ubicación.');
+      return;
+    }
+
+    const request = ++this.locationRequest;
+    this.locatingUser.set(true);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        if (this.disposed || request !== this.locationRequest) return;
+        this.locatingUser.set(false);
+        if (!Number.isFinite(coords.latitude) || !Number.isFinite(coords.longitude)) {
+          this.locationError.set('No fue posible obtener una ubicación válida.');
+          return;
+        }
+        this.chooseCoordinates(coords.latitude, coords.longitude);
+        this.map?.setView([coords.latitude, coords.longitude], 17, { animate: true });
+      },
+      (error) => {
+        if (this.disposed || request !== this.locationRequest) return;
+        this.locatingUser.set(false);
+        this.locationError.set(this.geolocationErrorMessage(error.code));
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
+    );
+  }
+
+  private chooseCoordinates(latitude: number, longitude: number): void {
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+    const coordinates = {
+      latitude: Number(Math.max(-90, Math.min(90, latitude)).toFixed(6)),
+      longitude: Number((((longitude + 180) % 360 + 360) % 360 - 180).toFixed(6)),
+    };
+    this.selected.set(coordinates);
+    if (!this.map || !this.leaflet || !this.markerIcon) return;
+    if (!this.marker) {
+      this.marker = this.leaflet.marker([coordinates.latitude, coordinates.longitude], {
+        draggable: true,
+        icon: this.markerIcon,
+        autoPan: true,
+        title: 'Ubicación seleccionada: arrastra para mover',
+      }).addTo(this.map);
+      this.marker.on('dragend', () => {
+        const point = this.marker!.getLatLng();
+        this.chooseCoordinates(point.lat, point.lng);
+      });
+    } else {
+      this.marker.setLatLng([coordinates.latitude, coordinates.longitude]);
+    }
+  }
+
+  private geolocationErrorMessage(code: number): string {
+    if (code === 1) return 'Permite el acceso a tu ubicación para centrar el mapa.';
+    if (code === 3) return 'La ubicación tardó demasiado. Intenta nuevamente.';
+    return 'No fue posible obtener tu ubicación actual.';
+  }
 
   private setLayerMode(mode: MapLayerMode): void {
     if (!this.map || !this.leaflet) return;
@@ -139,7 +194,7 @@ export class LocationPickerComponent implements AfterViewInit, OnDestroy {
     this.loadTimeout = setTimeout(() => { this.loading.set(false); this.error.set('El mapa tardó demasiado en responder. Pulsa Reintentar.'); }, 15000);
   }
   ngOnDestroy(): void {
-    this.disposed = true; this.clearTimeout(); this.map?.remove(); this.map = null; this.leaflet = null;
+    this.disposed = true; this.locationRequest++; this.clearTimeout(); this.map?.remove(); this.map = null; this.leaflet = null;
     this.dialog.nativeElement.close();
   }
 }

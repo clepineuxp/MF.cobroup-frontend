@@ -5,10 +5,14 @@ h2 { margin: 0; font-size: 1.25rem; }
 p { color: var(--color-text-muted); }
 .map-shell { position: relative; overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-background); }
 .map { height: clamp(16rem, 50dvh, 30rem); width: 100%; }
-.layer-toggle { position: absolute; top: .75rem; right: .75rem; z-index: 500; width: 2.75rem; height: 2.75rem; padding: 0; border-radius: 50%; color: var(--color-text); background: color-mix(in srgb, var(--color-surface) 88%, transparent); box-shadow: 0 .35rem 1rem rgba(0,0,0,.3); backdrop-filter: blur(10px); }
-.layer-toggle:hover { transform: translateY(-1px) scale(1.04); }
+.map-actions { position: absolute; top: .75rem; right: .75rem; z-index: 500; display: flex; gap: .5rem; }
+.map-action { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; padding: 0; border-radius: 50%; color: var(--color-text); background: color-mix(in srgb, var(--color-surface) 88%, transparent); box-shadow: 0 .35rem 1rem rgba(0,0,0,.3); backdrop-filter: blur(10px); transition: transform .18s ease, background-color .18s ease; }
+.map-action:hover { transform: translateY(-1px) scale(1.04); }
+.map-action svg { width: 1.35rem; height: 1.35rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.map-action.loading svg { animation: locationSpin 1s linear infinite; }
 .layer-toggle.active { color: var(--color-on-primary); background: var(--color-primary); border-color: var(--color-primary); }
-.layer-badge { position: absolute; top: .85rem; right: 4rem; z-index: 500; padding: .32rem .65rem; border: 1px solid var(--color-border); border-radius: 999px; color: var(--color-text); background: color-mix(in srgb, var(--color-surface) 88%, transparent); box-shadow: 0 .25rem .75rem rgba(0,0,0,.2); backdrop-filter: blur(10px); font-size: .72rem; font-weight: 800; }
+.layer-badge { position: absolute; top: 4rem; right: .85rem; z-index: 500; padding: .32rem .65rem; border: 1px solid var(--color-border); border-radius: 999px; color: var(--color-text); background: color-mix(in srgb, var(--color-surface) 88%, transparent); box-shadow: 0 .25rem .75rem rgba(0,0,0,.2); backdrop-filter: blur(10px); font-size: .72rem; font-weight: 800; }
+.location-error { margin: .7rem 0 0; padding: .55rem .7rem; border: 1px solid color-mix(in srgb, var(--color-danger, #dc2626) 35%, var(--color-border)); border-radius: var(--radius-sm); color: var(--color-danger, #dc2626); background: color-mix(in srgb, var(--color-danger, #dc2626) 8%, var(--color-surface)); font-size: .82rem; }
 .selection-card { display: flex; align-items: center; gap: .8rem; margin-block: .85rem; padding: .7rem .85rem; border: 1px solid color-mix(in srgb, var(--color-primary) 45%, var(--color-border)); border-radius: .9rem; color: var(--color-text); background: color-mix(in srgb, var(--color-primary) 9%, var(--color-surface)); }
 .selection-card > span:last-child { display: grid; gap: .12rem; min-width: 0; }
 .selection-card strong { font-size: .82rem; }
@@ -24,6 +28,7 @@ p { color: var(--color-text-muted); }
 :host ::ng-deep .user-marker-halo { position: absolute; left: 2px; top: 0; width: 50px; height: 50px; border: 2px solid var(--color-primary); border-radius: 50%; animation: markerPulse 1.8s ease-out infinite; }
 @keyframes markerArrive { from { opacity: 0; transform: translateY(-18px) scale(.65); } to { opacity: 1; transform: none; } }
 @keyframes markerPulse { 0% { opacity: .55; transform: scale(.8); } 75%,100% { opacity: 0; transform: scale(1.35); } }
+@keyframes locationSpin { to { transform: rotate(360deg); } }
 button { border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: .65rem 1rem; color: var(--color-on-primary); background: var(--color-primary); cursor: pointer; }
 button:disabled { opacity: .6; cursor: not-allowed; }
 .secondary { color: var(--color-text); background: var(--color-surface); }

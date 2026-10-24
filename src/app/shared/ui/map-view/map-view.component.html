@@ -17,10 +17,25 @@
     >
       {{ layerModeIcon() }}
     </button>
+    <button
+      type="button"
+      class="btn-ctrl btn-current-location"
+      [class.loading]="locatingUser()"
+      [disabled]="locatingUser()"
+      (click)="goToCurrentLocation()"
+      aria-label="Ir a mi ubicación actual"
+      [title]="locatingUser() ? 'Buscando tu ubicación…' : 'Ir a mi ubicación'"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><circle cx="12" cy="12" r="7"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg>
+    </button>
     <button type="button" class="btn-ctrl" (click)="zoomIn()" aria-label="Acercar mapa" title="Acercar">+</button>
     <button type="button" class="btn-ctrl" (click)="zoomOut()" aria-label="Alejar mapa" title="Alejar">-</button>
     <button type="button" class="btn-ctrl" (click)="fitToBounds()" aria-label="Centrar todos los puntos" title="Centrar">⛶</button>
   </div>
+
+  @if (locationError()) {
+    <div class="map-location-error" role="alert">{{ locationError() }}</div>
+  }
 
   <div class="map-watermark">
     <span>&copy; <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a></span>

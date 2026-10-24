@@ -3,11 +3,11 @@ import { ThemeService } from '../../../themes/theme.service';
 import { MapLayerModeService } from '../map-view/map-layer-mode.service';
 import { LEAFLET_LOADER, LocationPickerComponent } from './location-picker.component';
 
-const mocks = { mapEvents: new Map<string, (event?: unknown) => void>(), markerEvents: new Map<string, () => void>(), tileEvents: new Map<string, () => void>(), remove: vi.fn() };
+const mocks = { mapEvents: new Map<string, (event?: unknown) => void>(), markerEvents: new Map<string, () => void>(), tileEvents: new Map<string, () => void>(), remove: vi.fn(), setView: vi.fn() };
 const leaflet = {
-  map: vi.fn(() => ({ on: (event: string, handler: (event?: unknown) => void) => mocks.mapEvents.set(event, handler), invalidateSize: vi.fn(), removeLayer: vi.fn(), remove: mocks.remove })),
+  map: vi.fn(() => ({ on: (event: string, handler: (event?: unknown) => void) => mocks.mapEvents.set(event, handler), invalidateSize: vi.fn(), removeLayer: vi.fn(), remove: mocks.remove, setView: mocks.setView })),
   tileLayer: vi.fn(() => { const tile = { on: (event: string, handler: () => void) => { mocks.tileEvents.set(event, handler); return tile; }, addTo: vi.fn(), redraw: vi.fn(), bringToBack: vi.fn() }; return tile; }),
-  divIcon: vi.fn(),
+  divIcon: vi.fn(() => ({})),
   marker: vi.fn(() => { const marker = { addTo: () => marker, on: (event: string, handler: () => void) => mocks.markerEvents.set(event, handler), setLatLng: vi.fn(), getLatLng: () => ({ lat: 4.7, lng: -74.1 }) }; return marker; }),
 };
 
@@ -18,7 +18,7 @@ describe('LocationPickerComponent', () => {
     Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value: vi.fn() });
     await TestBed.configureTestingModule({ imports: [LocationPickerComponent], providers: [{ provide: LEAFLET_LOADER, useValue: () => Promise.resolve(leaflet) }] }).compileComponents();
   });
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
   it('selects by clicking the map and emits only after confirming', async () => {
     const fixture = TestBed.createComponent(LocationPickerComponent); fixture.detectChanges(); await fixture.whenStable();
@@ -62,5 +62,19 @@ describe('LocationPickerComponent', () => {
     await vi.waitFor(() => expect(leaflet.tileLayer).toHaveBeenCalledWith(expect.stringContaining('World_Imagery'), expect.anything()));
     mocks.mapEvents.get('click')?.({ latlng: { lat: 4.7, lng: -74.1 } });
     expect(leaflet.divIcon).toHaveBeenCalledWith(expect.objectContaining({ html: expect.stringContaining('user-location-marker') }));
+  });
+
+  it('uses the current browser location as the provisional selection', async () => {
+    let resolveLocation: PositionCallback = () => undefined;
+    vi.stubGlobal('navigator', {
+      geolocation: { getCurrentPosition: vi.fn((success: PositionCallback) => { resolveLocation = success; }) },
+    });
+    const fixture = TestBed.createComponent(LocationPickerComponent); fixture.detectChanges(); await fixture.whenStable();
+    fixture.componentInstance.goToCurrentLocation();
+    expect(fixture.componentInstance.locatingUser()).toBe(true);
+    resolveLocation({ coords: { latitude: 4.6512344, longitude: -74.1267894 } } as GeolocationPosition);
+    expect(fixture.componentInstance.selected()).toEqual({ latitude: 4.651234, longitude: -74.126789 });
+    expect(mocks.setView).toHaveBeenCalledWith([4.6512344, -74.1267894], 17, { animate: true });
+    expect(fixture.componentInstance.locatingUser()).toBe(false);
   });
 });

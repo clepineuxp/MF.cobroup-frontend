@@ -341,3 +341,13 @@
 - Marcador: nuevo `divIcon` con silueta vectorial de usuario, cuerpo circular, flecha de anclaje, halo animado y sombra. La selección se resume en una tarjeta visual con coordenadas, en lugar del texto plano anterior.
 - Verificación: TypeScript sin errores; 64/64 pruebas Vitest aprobadas en 17 suites; build productivo correcto y sin advertencias de presupuesto. La prueba del selector cubre herencia oscura, cambio a satélite y renderizado del nuevo marcador.
 - Límite de revisión visual: el navegador local no tenía una sesión autenticada activa para abrir el formulario de clientes; no se ingresaron credenciales ni se alteraron datos. Los cambios del selector quedan en working tree sin commit, push, merge, tag ni despliegue.
+
+### 2026-10-24 — Acceso a ubicación actual desde ambos mapas
+
+- Solicitud: guardar el ajuste visual anterior y agregar un botón para ir a la ubicación actual tanto en el selector de coordenadas como en el mapa principal.
+- Git: el ajuste previo de tema, satélite y marcador del selector quedó comprometido en `c8833cb` (`feat(map): sincronizar selector con tema y mejorar marcador`).
+- Selector: nuevo control flotante solicita geolocalización únicamente al pulsarlo, centra el mapa con zoom 17 y mueve el marcador provisional a las coordenadas obtenidas; la selección todavía requiere confirmación explícita mediante `Usar esta ubicación`.
+- Mapa principal: nuevo control flotante centra la vista en la posición actual y muestra un indicador azul pulsante independiente de los marcadores de clientes.
+- Estados: ambos controles bloquean solicitudes repetidas mientras consultan el navegador y muestran mensajes específicos para permiso denegado, timeout, ubicación inválida, indisponibilidad o navegador sin soporte. Los callbacks tardíos se descartan al destruir el componente.
+- Verificación: 67/67 pruebas Vitest aprobadas en 18 suites; compilación productiva correcta. Se añadieron pruebas de éxito GPS en ambos mapas y permiso denegado en el principal.
+- Alcance externo: no se solicitó permiso real de ubicación, no se alteraron datos ni se realizó push, merge, tag, PR o despliegue.
