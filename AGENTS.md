@@ -397,3 +397,15 @@
 ### 2026-10-24 — Commit autorizado de tarjetas de préstamos
 
 - Solicitud expresa: hacer commit de la corrección de desbordamiento ya validada. Se conservan las pruebas y límites registrados. Sin push ni despliegue.
+
+### 2026-10-24 — Captura manual de condiciones al elegir plantilla
+
+- Solicitud: después del commit de tarjetas, quitar el autorrelleno de los campos inferiores al seleccionar una plantilla al crear un préstamo.
+- Cambio: onTemplateChanged en el modal compartido y en la lógica previa de LoansPage ya no asigna máximo principal, mínimo interés ni maxLoanDays como número de cuotas. Limpia simulación/error; conserva los valores manuales existentes. Monto, interés y cuotas siguen siendo obligatorios/editables y se validan contra límites antes de guardar; frecuencia/fecha conservan los valores iniciales previos. Excepciones aprobadas conservan su comportamiento existente.
+- Interfaz: ayuda visible que explica la captura manual y el papel de la plantilla como límites permitidos. Sin cambios de API, cálculos, reglas backend, autenticación ni PWA.
+- Verificación: 11/11 pruebas dirigidas del modal y LoansPage (2 suites); cubren selección por DOM con campos vacíos/editables, obligatoriedad, preservación manual, simulación, límites y envío. Build productivo correcto sin advertencias; CLI Angular local, Node v24.22.1. No se realizaron préstamos reales ni E2E desplegado. Auditoría independiente no realizada.
+- Git: rama feature/loan-card-overflow conservada para mantener el commit 6954e14 de tarjetas y este cambio acumulado. Este nuevo alcance queda sin commit; la autorización previa correspondía a la corrección de desbordamiento. Sin push ni despliegue.
+
+### 2026-10-24 — Commit autorizado de condiciones manuales
+
+- Solicitud expresa: hacer commit del ajuste que elimina el autorrelleno al seleccionar plantilla. Se conservan las verificaciones registradas; sin push ni despliegue.

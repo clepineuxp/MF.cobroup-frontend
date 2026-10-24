@@ -213,6 +213,10 @@ describe('Operative LoansPage', () => {
     page.openOrigination();
     page.form.patchValue({ customerId: 'cust-1' });
     page.onTemplateChanged('tpl-1');
+    expect(page.form.controls.principalAmount.value).toBeNull();
+    expect(page.form.controls.installmentCount.value).toBeNull();
+    expect(page.form.controls.interestRate.value).toBeNull();
+    page.form.patchValue({ loanTemplateId: 'tpl-1', principalAmount: 500000, interestRate: 15, installmentCount: 20 });
 
     await page.calculatePreview();
     fixture.detectChanges();

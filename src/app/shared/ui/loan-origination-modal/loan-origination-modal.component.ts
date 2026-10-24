@@ -136,16 +136,9 @@ export class LoanOriginationModalComponent implements OnChanges {
     }
   }
 
-  onTemplateChanged(templateId: string): void {
-    const template = this.availableTemplates.find((t) => t.id === templateId);
-    if (template) {
-      this.form.patchValue({
-        principalAmount: template.maxPrincipalAmount,
-        installmentCount: template.maxLoanDays,
-        interestRate: template.minPercentage,
-      });
-      void this.calculatePreview();
-    }
+  onTemplateChanged(_templateId: string): void {
+    this.schedulePreview.set(null);
+    this.error.set('');
   }
 
   selectException(exceptionId: string): void {

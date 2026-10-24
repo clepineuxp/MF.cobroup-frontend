@@ -73,18 +73,37 @@ describe('LoanOriginationModalComponent', () => {
     expect(comp.templates()).toHaveLength(1);
   });
 
-  it('populates fields when a template is selected and calculates preview', async () => {
+  it('leaves required terms empty and editable when selecting a template', async () => {
     const fixture = TestBed.createComponent(LoanOriginationModalComponent);
     const comp = fixture.componentInstance;
     comp.isOpen = true;
     await comp.initModal();
+    fixture.detectChanges();
+    const selector = fixture.nativeElement.querySelector('select[formControlName="loanTemplateId"]') as HTMLSelectElement;
+    comp.form.controls.customerId.setValue('cust-1'); fixture.detectChanges();
+    selector.value = 'tpl-1'; selector.dispatchEvent(new Event('change')); fixture.detectChanges();
+    expect(comp.form.controls.loanTemplateId.value).toBe('tpl-1');
+    for (const name of ['principalAmount', 'interestRate', 'installmentCount'] as const) {
+      expect(comp.form.controls[name].value).toBeNull();
+      expect(comp.form.controls[name].hasError('required')).toBe(true);
+      const field = fixture.nativeElement.querySelector(`[formControlName="${name}"]`) as HTMLInputElement;
+      expect(field.disabled).toBe(false); expect(field.readOnly).toBe(false); expect(field.value).toBe('');
+    }
+    expect(loansService.previewSchedule).not.toHaveBeenCalled();
+    await comp.submitOrigination(); expect(loansService.originate).not.toHaveBeenCalled();
+  });
 
-    comp.form.patchValue({ customerId: 'cust-1', loanTemplateId: 'tpl-1' });
+  it('preserves manually entered terms when switching templates and previews them on input', async () => {
+    const comp = TestBed.createComponent(LoanOriginationModalComponent).componentInstance;
+    await comp.initModal();
+    comp.form.patchValue({ customerId: 'cust-1', loanTemplateId: 'tpl-1', principalAmount: 500000, interestRate: 12.5, installmentCount: 15 });
+    await comp.calculatePreview(); expect(comp.schedulePreview()).toBeTruthy();
+    loansService.previewSchedule.mockClear();
     comp.onTemplateChanged('tpl-1');
-
-    expect(comp.form.controls.principalAmount.value).toBe(1000000);
-    expect(comp.form.controls.installmentCount.value).toBe(20);
-    expect(comp.form.controls.interestRate.value).toBe(10);
+    expect(comp.form.getRawValue()).toMatchObject({ principalAmount: 500000, interestRate: 12.5, installmentCount: 15 });
+    expect(comp.schedulePreview()).toBeNull(); expect(loansService.previewSchedule).not.toHaveBeenCalled();
+    await comp.calculatePreview();
+    expect(loansService.previewSchedule).toHaveBeenCalledWith(expect.objectContaining({ principalAmount: 500000, interestRate: 12.5, installmentCount: 15 }));
   });
 
   it('filters templates by customer route and resets selection when changing customers', async () => {

@@ -24,3 +24,7 @@ Rama feature/update-pwa. Ambas aplicaciones notifican versiones descargadas con 
 ## Tarjetas de préstamos sin desbordamiento — 2026-10-23
 
 Rama feature/loan-card-overflow desde dev. Distribución explícita de métricas, saldo en fila completa y acciones que ajustan línea; valores largos se conservan completos. Build y 4 pruebas dirigidas correctos. Evidencias y límites en AGENTS.md.
+
+## Condiciones de préstamo manuales — 2026-10-24
+
+Al elegir plantilla en Nuevo Préstamo no se autocompletan monto, interés ni cuotas. Se preservan valores escritos manualmente, se limpia la simulación y los campos siguen obligatorios/editables con límites de plantilla validados al guardar. Evidencias y alcance en AGENTS.md. Cambio pendiente de commit; corrección previa de tarjetas versionada en 6954e14.

@@ -66,6 +66,7 @@
                   }
                 </select>
               </label>
+              <p>Ingresa el monto, el interés y el número de cuotas. La plantilla solo define los límites permitidos.</p>
               @if (!form.controls.customerId.value) { <p>Selecciona primero un cliente para ver las plantillas de su ruta.</p> }
               @else if (availableTemplates.length === 0) { <p>No hay plantillas publicadas asignadas a la ruta de este cliente.</p> }
             } @else {
