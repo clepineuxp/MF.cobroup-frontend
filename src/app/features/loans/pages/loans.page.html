@@ -45,7 +45,7 @@
           <div class="card-header">
             <div>
               <h3>{{ loan.customerName }}</h3>
-              <span class="frequency-badge">{{ loan.paymentFrequency }} · {{ loan.installmentCount }} cuotas</span>
+              <span class="frequency-badge">{{ loan.paymentFrequency === 'Monthly' ? 'Mensual' : loan.paymentFrequency }} · {{ loan.installmentCount }} cuotas</span>
             </div>
             <span class="status-badge" [ngClass]="'status-' + loan.status.toLowerCase()">
               {{ loan.status === 'Active' ? 'Activo' : (loan.status === 'PaidOff' ? 'Liquidado' : 'Cancelado') }}

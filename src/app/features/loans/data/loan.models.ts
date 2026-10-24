@@ -1,4 +1,4 @@
-export type PaymentFrequency = 'Daily' | 'Weekly' | 'EveryNDays';
+export type PaymentFrequency = 'Daily' | 'Weekly' | 'EveryNDays' | 'Monthly';
 export type LoanStatus = 'Active' | 'PaidOff' | 'Cancelled';
 export type InstallmentStatus = 'Pending' | 'PartiallyPaid' | 'Paid';
 

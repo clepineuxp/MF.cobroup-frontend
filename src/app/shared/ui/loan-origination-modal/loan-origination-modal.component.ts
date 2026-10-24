@@ -93,7 +93,7 @@ export class LoanOriginationModalComponent implements OnChanges {
     try {
       const [customersRes, templatesRes, exceptionsRes] = await Promise.all([
         this.customersService.search('', '', 1, 100).catch(() => ({ items: [], page: 1, pageSize: 100, totalCount: 0 })),
-        this.templatesService.listAvailable().catch(() => []),
+        this.templatesService.listAvailable(),
         this.exceptionsService.search(undefined, undefined, 'Approved', 1, 100).catch(() => ({ items: [], page: 1, pageSize: 100, totalCount: 0 })),
       ]);
 
@@ -127,6 +127,7 @@ export class LoanOriginationModalComponent implements OnChanges {
 
   onCustomerChanged(customerId: string): void {
     this.schedulePreview.set(null);
+    this.form.patchValue({ loanTemplateId: '' });
     if (this.originationMode() === 'exception') {
       const customerExceptions = this.approvedExceptions().filter((e) => e.customerId === customerId);
       if (customerExceptions.length > 0) {
@@ -136,12 +137,12 @@ export class LoanOriginationModalComponent implements OnChanges {
   }
 
   onTemplateChanged(templateId: string): void {
-    const template = this.templates().find((t) => t.id === templateId);
+    const template = this.availableTemplates.find((t) => t.id === templateId);
     if (template) {
       this.form.patchValue({
         principalAmount: template.maxPrincipalAmount,
         installmentCount: template.maxLoanDays,
-        interestRate: template.allowedPercentages[0] ?? 10,
+        interestRate: template.minPercentage,
       });
       void this.calculatePreview();
     }
@@ -158,6 +159,23 @@ export class LoanOriginationModalComponent implements OnChanges {
       });
       void this.calculatePreview();
     }
+  }
+
+  get availableTemplates(): readonly AvailableLoanTemplate[] {
+    const customer = this.customers().find(item => item.id === this.form.controls.customerId.value);
+    return customer ? this.templates().filter(template => template.routeIds.includes(customer.routeId)) : [];
+  }
+
+  get templateLimitsError(): string {
+    if (this.originationMode() !== 'template') return '';
+    const raw = this.form.getRawValue();
+    const template = this.availableTemplates.find(item => item.id === raw.loanTemplateId);
+    if (!template) return 'Selecciona una plantilla disponible para la ruta del cliente.';
+    if (raw.principalAmount !== null && (raw.principalAmount < template.minPrincipalAmount || raw.principalAmount > template.maxPrincipalAmount))
+      return 'El monto debe estar entre el mínimo y el máximo de la plantilla.';
+    if (raw.interestRate !== null && (raw.interestRate < template.minPercentage || raw.interestRate > template.maxPercentage))
+      return 'El interés debe estar entre el mínimo y el máximo de la plantilla.';
+    return '';
   }
 
   get customerExceptions(): readonly LoanExceptionItem[] {
@@ -183,7 +201,7 @@ export class LoanOriginationModalComponent implements OnChanges {
         principalAmount: raw.principalAmount,
         interestRate: raw.interestRate,
         paymentFrequency: raw.paymentFrequency,
-        frequencyNDays: raw.frequencyNDays,
+        frequencyNDays: raw.paymentFrequency === 'EveryNDays' ? raw.frequencyNDays : null,
         installmentCount: raw.installmentCount,
         startDate: raw.startDate,
       });
@@ -214,6 +232,10 @@ export class LoanOriginationModalComponent implements OnChanges {
       return;
     }
 
+    if (this.templateLimitsError) {
+      this.error.set(this.templateLimitsError);
+      return;
+    }
     this.submitting.set(true);
     this.error.set('');
     this.success.set('');
@@ -225,7 +247,7 @@ export class LoanOriginationModalComponent implements OnChanges {
         principalAmount: raw.principalAmount!,
         interestRate: raw.interestRate!,
         paymentFrequency: raw.paymentFrequency,
-        frequencyNDays: raw.frequencyNDays,
+        frequencyNDays: raw.paymentFrequency === 'EveryNDays' ? raw.frequencyNDays : null,
         installmentCount: raw.installmentCount!,
         loanTemplateId: mode === 'template' ? raw.loanTemplateId : null,
         loanTemplateVersion: mode === 'template' ? template?.version ?? null : null,
