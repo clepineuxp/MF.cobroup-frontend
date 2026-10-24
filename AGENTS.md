@@ -5,7 +5,7 @@
 - Producto: COBROUP; rol: frontend operativo.
 - Maestro: `../cobroup.md/COBROUP.md` 1.14.0 y `../cobroup.md/DECISION_AUTENTICACION_JWT.md`.
 - Estándar: `../cobroup.md/FRAMEWORK_DESARROLLO_FRONTEND.md` 1.0.
-- Rama activa: `feature/update-pwa`, existente y limpia al iniciar esta intervención; rama feature del usuario conservada.
+- Rama activa: `feature/clients-page`, actualizada con `origin/dev` para resolver los conflictos del PR #15.
 - Sin push, merge, tag ni PR sin autorización.
 
 ## Estado actual
@@ -333,6 +333,24 @@
 - Se conservan las verificaciones y limitaciones registradas en la intervención anterior; sin nuevos cambios funcionales.
 - Commit autorizado: SÍ para este alcance. Sin push, merge, tag, PR ni despliegue.
 
+### 2026-10-24 — Selector de ubicación alineado con tema cartográfico y marcador de cliente
+
+- Solicitud: conservar primero el rediseño de la página de clientes en un commit independiente y luego mejorar el selector de ubicación para heredar las capas claro/oscuro/satélite del mapa principal, reemplazando el pin mínimo por una figura de usuario con punta de ubicación.
+- Git: rediseño del directorio de clientes comprometido de forma aislada en `9e3eebd` (`feat(customers): renovar directorio de clientes`). El selector GPS/mapa existente de `dev` se incorporó mediante cherry-pick local `1584870`, sin merge ni push.
+- Implementación: `MapLayerModeService` centraliza la preferencia satelital y combina el modo estándar con `ThemeService`; `MapViewComponent` y `LocationPickerComponent` consumen el mismo estado. El selector permite alternar satélite, muestra el modo activo, carga las mismas capas ESRI y reacciona a cambios de tema mientras está abierto.
+- Marcador: nuevo `divIcon` con silueta vectorial de usuario, cuerpo circular, flecha de anclaje, halo animado y sombra. La selección se resume en una tarjeta visual con coordenadas, en lugar del texto plano anterior.
+- Verificación: TypeScript sin errores; 64/64 pruebas Vitest aprobadas en 17 suites; build productivo correcto y sin advertencias de presupuesto. La prueba del selector cubre herencia oscura, cambio a satélite y renderizado del nuevo marcador.
+- Límite de revisión visual: el navegador local no tenía una sesión autenticada activa para abrir el formulario de clientes; no se ingresaron credenciales ni se alteraron datos. Los cambios del selector quedan en working tree sin commit, push, merge, tag ni despliegue.
+
+### 2026-10-24 — Acceso a ubicación actual desde ambos mapas
+
+- Solicitud: guardar el ajuste visual anterior y agregar un botón para ir a la ubicación actual tanto en el selector de coordenadas como en el mapa principal.
+- Git: el ajuste previo de tema, satélite y marcador del selector quedó comprometido en `c8833cb` (`feat(map): sincronizar selector con tema y mejorar marcador`).
+- Selector: nuevo control flotante solicita geolocalización únicamente al pulsarlo, centra el mapa con zoom 17 y mueve el marcador provisional a las coordenadas obtenidas; la selección todavía requiere confirmación explícita mediante `Usar esta ubicación`.
+- Mapa principal: nuevo control flotante centra la vista en la posición actual y muestra un indicador azul pulsante independiente de los marcadores de clientes.
+- Estados: ambos controles bloquean solicitudes repetidas mientras consultan el navegador y muestran mensajes específicos para permiso denegado, timeout, ubicación inválida, indisponibilidad o navegador sin soporte. Los callbacks tardíos se descartan al destruir el componente.
+- Verificación: 67/67 pruebas Vitest aprobadas en 18 suites; compilación productiva correcta. Se añadieron pruebas de éxito GPS en ambos mapas y permiso denegado en el principal.
+- Alcance externo: no se solicitó permiso real de ubicación, no se alteraron datos ni se realizó push, merge, tag, PR o despliegue.
 
 ### 2026-10-23 — Actualización PWA y coherencia visual
 
@@ -350,3 +368,11 @@
 - Solicitud expresa del usuario: hacer los commits del alcance de actualización PWA, coherencia visual administrativa y header operativo, con pruebas y documentación asociadas.
 - Se conservan las verificaciones registradas; sin nuevos cambios funcionales. Commit autorizado: SÍ. Sin push, merge, tag, PR ni despliegue.
 
+### 2026-10-24 — Resolución de conflictos del PR #15 contra dev
+
+- Solicitud expresa: resolver los conflictos de `feature/clients-page` con `dev` preservando funcionales ambos features.
+- Integración: se incorporó `origin/dev` (`66225a2`) mediante merge local. Los cambios PWA, header, configuración, nginx y tokens visuales de `dev` se conservaron completos.
+- Resolución del selector: los cinco conflictos add/add correspondían al mismo selector GPS incorporado por historiales distintos. Se conservó la versión evolucionada de esta rama porque incluye todo el contrato de `dev` (selección, arrastre, confirmación, estados de teselas y reintento), además de tema claro/oscuro, satélite, marcador de usuario y acceso a ubicación actual.
+- Documentación: `AGENTS.md` conserva tanto el registro PWA de `dev` como los registros del directorio de clientes y las mejoras cartográficas de la rama.
+- Verificación combinada: 74/74 pruebas Vitest aprobadas en 20 suites y build productivo correcto, sin conflictos ni marcadores pendientes.
+- Git remoto: actualización de la rama del PR autorizada por la solicitud de resolver los conflictos; no se fusionó el PR a `dev` ni se realizó despliegue.

@@ -16,7 +16,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { ThemeService } from '../../../themes/theme.service';
+import { MapLayerMode, MapLayerModeService } from './map-layer-mode.service';
 
 export interface MapPoint {
   customerId: string;
@@ -32,8 +32,6 @@ export interface MapPoint {
   loanBalance?: number;
   avatarUrl?: string | null;
 }
-
-export type MapLayerMode = 'streets' | 'dark' | 'satellite';
 
 @Component({
   selector: 'app-map-view',
@@ -52,21 +50,16 @@ export class MapViewComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   @ViewChild('containerRef') containerRef?: ElementRef<HTMLDivElement>;
 
-  private readonly themeService = inject(ThemeService, { optional: true });
+  private readonly layerModeService = inject(MapLayerModeService);
 
   readonly zoomLevel = signal(14);
   readonly centerLat = signal(4.60971);
   readonly centerLon = signal(-74.08175);
+  readonly locatingUser = signal(false);
+  readonly locationError = signal('');
 
-  readonly isSatelliteMode = signal(false);
-
-  readonly activeLayerMode = computed<MapLayerMode>(() => {
-    if (this.isSatelliteMode()) {
-      return 'satellite';
-    }
-    const theme = this.themeService?.theme() ?? 'light';
-    return theme === 'dark' ? 'dark' : 'streets';
-  });
+  readonly isSatelliteMode = this.layerModeService.isSatelliteMode;
+  readonly activeLayerMode = this.layerModeService.activeLayerMode;
 
   readonly layerModeIcon = computed(() => {
     return this.isSatelliteMode() ? '🗺️' : '🛰️';
@@ -84,6 +77,9 @@ export class MapViewComponent implements AfterViewInit, OnChanges, OnDestroy {
   private markerMap = new Map<string, any>();
   private leafletModule: any = null;
   private resizeObserver: ResizeObserver | null = null;
+  private userLocationMarker: any = null;
+  private locationRequest = 0;
+  private destroyed = false;
 
   constructor() {
     effect(() => {
@@ -108,6 +104,8 @@ export class MapViewComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
+    this.locationRequest++;
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
@@ -227,7 +225,65 @@ export class MapViewComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   toggleSatelliteMode(): void {
-    this.isSatelliteMode.update((v) => !v);
+    this.layerModeService.toggleSatelliteMode();
+  }
+
+  goToCurrentLocation(): void {
+    if (this.locatingUser()) return;
+    this.locationError.set('');
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      this.locationError.set('Este navegador no permite consultar tu ubicación.');
+      return;
+    }
+
+    const request = ++this.locationRequest;
+    this.locatingUser.set(true);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        if (this.destroyed || request !== this.locationRequest) return;
+        this.locatingUser.set(false);
+        if (!Number.isFinite(coords.latitude) || !Number.isFinite(coords.longitude)) {
+          this.locationError.set('No fue posible obtener una ubicación válida.');
+          return;
+        }
+        this.centerLat.set(coords.latitude);
+        this.centerLon.set(coords.longitude);
+        this.zoomLevel.set(17);
+        this.map?.setView([coords.latitude, coords.longitude], 17, { animate: true });
+        this.showUserLocation(coords.latitude, coords.longitude);
+      },
+      (error) => {
+        if (this.destroyed || request !== this.locationRequest) return;
+        this.locatingUser.set(false);
+        this.locationError.set(this.geolocationErrorMessage(error.code));
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
+    );
+  }
+
+  private showUserLocation(latitude: number, longitude: number): void {
+    if (!this.map || !this.leafletModule) return;
+    if (this.userLocationMarker) {
+      this.userLocationMarker.setLatLng([latitude, longitude]);
+      return;
+    }
+    const icon = this.leafletModule.divIcon({
+      className: 'current-location-container',
+      html: '<span class="current-location-pulse"></span><span class="current-location-dot"></span>',
+      iconSize: [30, 30],
+      iconAnchor: [15, 15],
+    });
+    this.userLocationMarker = this.leafletModule.marker([latitude, longitude], {
+      icon,
+      interactive: false,
+      zIndexOffset: 2000,
+    }).addTo(this.map);
+  }
+
+  private geolocationErrorMessage(code: number): string {
+    if (code === 1) return 'Permite el acceso a tu ubicación para centrar el mapa.';
+    if (code === 3) return 'La ubicación tardó demasiado. Intenta nuevamente.';
+    return 'No fue posible obtener tu ubicación actual.';
   }
 
   updateMarkers(): void {

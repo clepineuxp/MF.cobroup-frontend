@@ -2,8 +2,40 @@
   <header><div><h2 id="location-picker-title">Seleccionar ubicación</h2><p>Mueve el mapa y toca el punto deseado, o arrastra el pin.</p></div><button type="button" (click)="cancel()" aria-label="Cerrar mapa" autofocus>✕</button></header>
   @if (loading()) { <p role="status">Cargando mapa…</p> }
   @if (error()) { <div role="alert"><p>{{ error() }}</p><button type="button" (click)="retry()">Reintentar</button></div> }
-  <div #mapContainer class="map" aria-label="Mapa para elegir la ubicación del cliente"></div>
-  @if (selected(); as point) { <p role="status">Punto seleccionado: {{ point.latitude }}, {{ point.longitude }}</p> }
-  @else { <p>Toca el mapa para colocar el pin.</p> }
+  <div class="map-shell" [attr.data-layer-mode]="activeLayerMode()">
+    <div #mapContainer class="map" aria-label="Mapa para elegir la ubicación del cliente"></div>
+    <div class="map-actions">
+      <button
+        type="button"
+        class="map-action current-location"
+        [class.loading]="locatingUser()"
+        [disabled]="locatingUser()"
+        (click)="goToCurrentLocation()"
+        aria-label="Ir a mi ubicación actual"
+        [title]="locatingUser() ? 'Buscando tu ubicación…' : 'Ir a mi ubicación'"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><circle cx="12" cy="12" r="7"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg>
+      </button>
+      <button
+        type="button"
+        class="map-action layer-toggle"
+        [class.active]="isSatelliteMode()"
+        (click)="toggleSatelliteMode()"
+        [attr.aria-label]="layerModeLabel()"
+        [title]="layerModeLabel()"
+      >{{ layerModeIcon() }}</button>
+    </div>
+    <span class="layer-badge">{{ activeLayerMode() === 'satellite' ? 'Satélite' : activeLayerMode() === 'dark' ? 'Oscuro' : 'Calles' }}</span>
+  </div>
+  @if (locationError()) { <p class="location-error" role="alert">{{ locationError() }}</p> }
+  @if (selected(); as point) {
+    <div class="selection-card" role="status">
+      <span class="selection-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4.8 20c.8-4.1 3.2-6.2 7.2-6.2s6.4 2.1 7.2 6.2"></path></svg>
+      </span>
+      <span><strong>Ubicación del cliente</strong><small>{{ point.latitude }}, {{ point.longitude }}</small></span>
+    </div>
+  }
+  @else { <p class="selection-help">Toca el mapa para colocar el marcador del cliente.</p> }
   <footer><button type="button" class="secondary" (click)="cancel()">Cancelar</button><button type="button" [disabled]="!selected() || loading() || !!error()" (click)="confirm()">Usar esta ubicación</button></footer>
 </dialog>
