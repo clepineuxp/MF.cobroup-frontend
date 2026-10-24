@@ -32,3 +32,7 @@ Al elegir plantilla en Nuevo Préstamo no se autocompletan monto, interés ni cu
 ## Cliente buscable en originación — 2026-10-24
 
 Nuevo Préstamo incorpora combobox accesible que filtra al escribir y consulta el endpoint existente con debounce. Selección por clic/teclado y validación por ID real; cambiar texto limpia cliente/plantilla/excepción previos. Conserva captura manual de condiciones. 15 pruebas dirigidas y build correctos; navegador con fixtures locales. Detalle y límites en AGENTS.md. Ajuste previo de condiciones versionado en 4624fbd; buscador sin commit.
+
+## Nombre completo y Alias Cliente — 2026-10-24
+
+Modal de creación/edición de clientes: un único campo Nombre completo y etiqueta Alias Cliente. Se conservan campos técnicos de la API, datos anteriores y separación original del nombre al guardar sin cambios. Se mantiene validación de nombre/apellido del contrato vigente. 16 pruebas dirigidas y build aprobados; alcance y límites en AGENTS.md. Buscador previo versionado en 09929b4; este cambio pendiente de commit.

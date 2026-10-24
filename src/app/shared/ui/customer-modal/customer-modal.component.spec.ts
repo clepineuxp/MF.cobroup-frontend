@@ -84,8 +84,7 @@ describe('CustomerModalComponent', () => {
     await comp.initModal();
 
     comp.draft.routeId = 'route-1';
-    comp.draft.firstNames = 'Laura';
-    comp.draft.lastNames = 'Mejía';
+    comp.fullName = 'Laura Mejía';
     comp.draft.phones[0].number = '3001234567';
     comp.draft.locations[0].latitude = 4.7;
     comp.draft.locations[0].longitude = -74.1;
@@ -169,7 +168,44 @@ describe('CustomerModalComponent', () => {
     vi.stubGlobal('navigator', { userAgent: 'Vitest' });
     const comp = TestBed.createComponent(CustomerModalComponent).componentInstance; comp.isOpen = true; await comp.initModal();
     comp.useCurrentLocation(0); expect(comp.gpsError()).toContain('no ofrece GPS'); expect(comp.gpsIndex()).toBeNull();
-    comp.draft.routeId = 'route-1'; comp.draft.firstNames = 'Ana'; comp.draft.lastNames = 'Pérez'; comp.draft.phones[0].number = '3001234567';
+    comp.draft.routeId = 'route-1'; comp.fullName = 'Ana Pérez'; comp.draft.phones[0].number = '3001234567';
     await comp.save(); expect(customersService.create).not.toHaveBeenCalled(); expect(comp.error()).toContain('coordenadas válidas');
+  });
+
+  it('renders one full-name field and the customer alias label', async () => {
+    const fixture = TestBed.createComponent(CustomerModalComponent); const comp = fixture.componentInstance;
+    comp.isOpen = true; await comp.initModal(); await fixture.whenStable();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('input[name="fullName"]')).toBeTruthy();
+    expect(root.querySelector('input[name="firstNames"]')).toBeNull();
+    expect(root.querySelector('input[name="lastNames"]')).toBeNull();
+    expect(root.textContent).toContain('Alias Cliente'); expect(root.textContent).not.toContain('Comercio / Trabajo');
+  });
+
+  it('preserves existing compound names and alias when editing without renaming', async () => {
+    const fixture = TestBed.createComponent(CustomerModalComponent); const comp = fixture.componentInstance;
+    customersService.get.mockResolvedValueOnce({ ...(await customersService.get()), firstNames: 'Carlos Alberto', lastNames: 'Gómez Restrepo' });
+    comp.customerId = 'cust-1'; comp.isOpen = true; await comp.initModal();
+    expect(comp.fullName).toBe('Carlos Alberto Gómez Restrepo');
+    comp.draft.observations = 'Nueva nota'; await comp.save();
+    expect(customersService.update).toHaveBeenCalledWith('cust-1', expect.objectContaining({ firstNames: 'Carlos Alberto', lastNames: 'Gómez Restrepo', businessOrWorkName: 'Ferretería' }));
+  });
+
+  it('saves every word of an edited full name and the alias through the existing API', async () => {
+    const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
+    comp.customerId = 'cust-1'; comp.isOpen = true; await comp.initModal();
+    comp.fullName = '  Ana   María de la Cruz  '; comp.draft.businessOrWorkName = '  Doña Ana  ';
+    await comp.save();
+    const request = customersService.update.mock.calls[0][1];
+    expect(`${request.firstNames} ${request.lastNames}`).toBe('Ana María de la Cruz');
+    expect(request.businessOrWorkName).toBe('Doña Ana');
+  });
+
+  it('requires the full name and rejects incomplete or oversized names before sending', async () => {
+    const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
+    comp.isOpen = true; await comp.initModal();
+    await comp.save(); expect(comp.error()).toContain('nombre completo');
+    comp.fullName = 'Ana'; await comp.save(); expect(customersService.create).not.toHaveBeenCalled();
+    comp.fullName = 'A'.repeat(121) + ' Pérez'; await comp.save(); expect(customersService.create).not.toHaveBeenCalled();
   });
 });

@@ -424,3 +424,17 @@
 ### 2026-10-24 — Commit autorizado del buscador de clientes
 
 - Solicitud expresa: hacer commit del buscador de clientes en Nuevo Préstamo. Se conservan las verificaciones registradas; sin push ni despliegue.
+
+### 2026-10-24 — Nombre completo y alias en formulario de cliente
+
+- Solicitud: después del commit del buscador (09929b4), cambiar Comercio / Trabajo por Alias Cliente y reemplazar Nombres/Apellidos por un único Nombre completo en el modal mostrado.
+- Interfaz: mismo formulario compartido de creación/edición usa un único input fullName obligatorio y Alias Cliente opcional con ejemplo Don Carlos. Se conserva el campo técnico businessOrWorkName y sus datos existentes, sin migración ni cambios de contrato.
+- Compatibilidad: el nombre cargado concatena firstNames/lastNames; si no se cambia conserva su separación original, incluidos nombres/apellidos compuestos. Al crear/renombrar se normalizan espacios y se adapta el texto a los dos campos vigentes sin perder/duplicar palabras. Se conserva la obligación actual de al menos un nombre y apellido y los límites de 120 caracteres por campo de la API; no se asignan apellidos ficticios. Es una unificación de captura, no una modificación del modelo backend.
+- Se mantienen ruta, teléfonos, coordenadas, estado, permisos y comportamiento de GPS/mapa. Sin dependencias nuevas ni cambios en PWA o autenticación.
+- Validación: 16/16 pruebas dirigidas del modal y página de clientes (2 suites); cubren único campo y etiqueta, alta, edición preservando nombres compuestos/alias, renombrado sin pérdida de palabras, campos incompletos/largos y regresiones de GPS/mapa. Build productivo correcto sin advertencias. CLI Angular local con Node v24.22.1; git diff --check correcto. No se crearon clientes reales ni se verificó por ingress. Auditoría independiente no realizada.
+- Git: feature/loan-card-overflow conservada con los commits previos; este nuevo ajuste queda sin commit. Sin push ni despliegue.
+
+### 2026-10-24 — Commit autorizado de nombre completo y alias
+
+- Solicitud expresa del usuario: hacer commit del formulario con Nombre completo y Alias Cliente, incluyendo pruebas y documentación asociada.
+- Se conservan las verificaciones registradas, sin nuevos cambios funcionales. Commit autorizado: SÍ. Sin push, merge, tag, PR ni despliegue.
