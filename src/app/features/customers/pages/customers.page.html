@@ -1,9 +1,30 @@
-<section aria-labelledby="customers-title">
-  <div class="heading">
-    <h2 id="customers-title" class="page-title">Clientes</h2>
-    <button type="button" class="btn-primary" (click)="openCreate()" [disabled]="routes().length === 0">+ Nuevo cliente</button>
-  </div>
+<section class="customers-page" aria-labelledby="customers-title">
+  <!-- Header Row -->
+  <header class="page-heading">
+    <div class="heading-info">
+      <div class="eyebrow">
+        <span class="eyebrow-dot"></span>
+        <span>GESTIÓN COMERCIAL</span>
+      </div>
+      <h2 id="customers-title" class="page-title">Directorio de Clientes</h2>
+      <p class="page-subtitle">Administra los clientes asignados, sus rutas, ubicaciones de cobro y datos de contacto.</p>
+    </div>
+    <div class="heading-actions">
+      <button
+        id="btn-create-customer"
+        type="button"
+        class="btn-primary btn-create"
+        (click)="openCreate()"
+        [disabled]="routes().length === 0"
+        title="Registrar un nuevo cliente en tus rutas"
+      >
+        <span class="btn-icon" aria-hidden="true">+</span>
+        <span>Nuevo cliente</span>
+      </button>
+    </div>
+  </header>
 
+  <!-- Customer Modal for Create/Edit -->
   <app-customer-modal
     [isOpen]="formOpen()"
     [customerId]="draft.id"
@@ -12,17 +33,284 @@
     (customerSaved)="onCustomerSaved()"
   />
 
-  <form class="filters" (ngSubmit)="search()">
-    <label>Ruta<select name="filterRoute" [(ngModel)]="filterRouteId"><option value="">Todas mis rutas</option>@for (route of routes(); track route.id) { <option [value]="route.id">{{ route.name }}</option> }</select></label>
-    <label>Buscar<input name="search" [(ngModel)]="searchTerm" placeholder="Nombre, comercio o teléfono"></label>
-    <button type="submit" class="primary">Buscar</button>
-  </form>
-  @if (success()) { <p class="success" role="status">{{ success() }}</p> }
-  @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
-  @if (loading()) { <p>Cargando clientes…</p> }
-  @else if (customers().length === 0) { <p class="empty">No hay clientes visibles con los filtros actuales.</p> }
-  @else {
-    <p class="result-count">{{ totalCount() }} cliente(s)</p>
-    <div class="grid">@for (customer of customers(); track customer.id) { <article><div class="card-heading"><div><h3>{{ customer.firstNames }} {{ customer.lastNames }}</h3><span>{{ routeName(customer.routeId) }}</span></div><span class="status" [class.inactive]="customer.status === 'Inactive'">{{ customer.status === 'Active' ? 'Activo' : 'Inactivo' }}</span></div>@if (customer.businessOrWorkName) { <p>{{ customer.businessOrWorkName }}</p> }<dl><div><dt>Teléfono</dt><dd>{{ customer.primaryPhone }}</dd></div><div><dt>Ubicación principal</dt><dd>{{ customer.primaryLatitude }}, {{ customer.primaryLongitude }}</dd></div></dl><button type="button" class="quiet" (click)="openEdit(customer.id)">Ver y editar</button></article> }</div>
+  <!-- Metric / Summary KPI Cards -->
+  <div class="summary-grid" role="region" aria-label="Resumen de métricas de clientes">
+    <div class="metric-card">
+      <div class="metric-icon total">👥</div>
+      <div class="metric-body">
+        <span class="label">Total Clientes</span>
+        <strong class="value">{{ totalCount() }}</strong>
+        <span class="sub">Registrados</span>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon active">🟢</div>
+      <div class="metric-body">
+        <span class="label">Clientes Activos</span>
+        <strong class="value text-success">{{ activeCount() }}</strong>
+        <span class="sub">Habilitados para crédito</span>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon inactive">⏸️</div>
+      <div class="metric-body">
+        <span class="label">Clientes Inactivos</span>
+        <strong class="value text-warning">{{ inactiveCount() }}</strong>
+        <span class="sub">Sin cartera vigente</span>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon routes">🛣️</div>
+      <div class="metric-body">
+        <span class="label">Rutas Asignadas</span>
+        <strong class="value text-primary">{{ routes().length }}</strong>
+        <span class="sub">Zonas disponibles</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters & Search Toolbar Card -->
+  <section class="filters-card" aria-label="Filtros de búsqueda">
+    <form class="filters-form" (ngSubmit)="search()">
+      <div class="field field-route">
+        <label for="filter-route">Ruta autorizada</label>
+        <div class="select-wrapper">
+          <select id="filter-route" name="filterRoute" [(ngModel)]="filterRouteId" (change)="search()">
+            <option value="">Todas mis rutas ({{ routes().length }})</option>
+            @for (route of routes(); track route.id) {
+              <option [value]="route.id">{{ route.name }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <div class="field field-search">
+        <label for="filter-search">Buscar cliente</label>
+        <div class="search-input-wrapper">
+          <span class="search-icon" aria-hidden="true">🔍</span>
+          <input
+            id="filter-search"
+            type="search"
+            name="search"
+            [(ngModel)]="searchTerm"
+            placeholder="Buscar por nombre, comercio o teléfono..."
+            autocomplete="off"
+          />
+          @if (searchTerm) {
+            <button
+              type="button"
+              class="btn-clear-search"
+              (click)="clearSearch()"
+              title="Limpiar búsqueda"
+              aria-label="Limpiar búsqueda"
+            >✕</button>
+          }
+        </div>
+      </div>
+
+      <div class="field-actions">
+        <button type="submit" class="btn-search" [disabled]="loading()">
+          <span>Buscar</span>
+        </button>
+      </div>
+    </form>
+
+    <!-- Quick Status Filter Pills -->
+    <div class="status-pills-row">
+      <span class="pills-label">Filtrar por estado:</span>
+      <div class="status-pills">
+        <button
+          type="button"
+          class="pill-btn"
+          [class.active]="statusFilter() === 'all'"
+          (click)="setStatusFilter('all')"
+        >
+          Todos <span class="pill-count">{{ customers().length }}</span>
+        </button>
+        <button
+          type="button"
+          class="pill-btn pill-active"
+          [class.active]="statusFilter() === 'Active'"
+          (click)="setStatusFilter('Active')"
+        >
+          <span class="dot dot-success"></span>
+          Activos <span class="pill-count">{{ activeCount() }}</span>
+        </button>
+        <button
+          type="button"
+          class="pill-btn pill-inactive"
+          [class.active]="statusFilter() === 'Inactive'"
+          (click)="setStatusFilter('Inactive')"
+        >
+          <span class="dot dot-warning"></span>
+          Inactivos <span class="pill-count">{{ inactiveCount() }}</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Alerts -->
+  @if (success()) {
+    <div class="alert alert-success" role="status">
+      <span class="alert-icon">✓</span>
+      <span>{{ success() }}</span>
+    </div>
+  }
+  @if (error()) {
+    <div class="alert alert-danger" role="alert">
+      <span class="alert-icon">⚠️</span>
+      <span>{{ error() }}</span>
+    </div>
+  }
+
+  <!-- Loading State: Shimmer Skeletons -->
+  @if (loading()) {
+    <div class="loading-grid" aria-busy="true" aria-label="Cargando clientes">
+      @for (i of [1, 2, 3]; track i) {
+        <div class="skeleton-card">
+          <div class="skeleton-header">
+            <div class="skeleton-avatar"></div>
+            <div class="skeleton-meta">
+              <div class="skeleton-line skeleton-title"></div>
+              <div class="skeleton-line skeleton-badge"></div>
+            </div>
+          </div>
+          <div class="skeleton-body">
+            <div class="skeleton-line skeleton-row"></div>
+            <div class="skeleton-line skeleton-row short"></div>
+          </div>
+          <div class="skeleton-footer"></div>
+        </div>
+      }
+    </div>
+  } @else if (filteredCustomers().length === 0) {
+    <!-- Empty State -->
+    <div class="empty-state">
+      <div class="empty-icon-wrap">
+        <span class="empty-icon">👥</span>
+      </div>
+      <h3 class="empty-title">No se encontraron clientes</h3>
+      <p class="empty-desc">
+        @if (searchTerm || filterRouteId || statusFilter() !== 'all') {
+          No hay resultados para los criterios o filtros seleccionados. Intenta cambiar la búsqueda.
+        } @else {
+          Aún no tienes clientes registrados en tus rutas. Comienza agregando tu primer cliente.
+        }
+      </p>
+      <div class="empty-actions">
+        @if (searchTerm || filterRouteId || statusFilter() !== 'all') {
+          <button type="button" class="btn-secondary" (click)="clearSearch(); filterRouteId = ''; setStatusFilter('all'); search()">
+            Limpiar filtros
+          </button>
+        }
+        <button type="button" class="btn-primary" (click)="openCreate()" [disabled]="routes().length === 0">
+          + Nuevo cliente
+        </button>
+      </div>
+    </div>
+  } @else {
+    <!-- Results Header -->
+    <div class="results-header">
+      <p class="result-count">
+        Mostrando <strong>{{ filteredCustomers().length }}</strong> de <strong>{{ totalCount() }}</strong> clientes registrados
+      </p>
+    </div>
+
+    <!-- Customer Cards Grid -->
+    <div class="customers-grid">
+      @for (customer of filteredCustomers(); track customer.id) {
+        <article class="customer-card" [class.is-inactive]="customer.status === 'Inactive'">
+          <!-- Top Card Row: Avatar, Name & Route, Status Pill -->
+          <div class="card-header">
+            <div
+              class="customer-avatar"
+              [style.background]="getAvatarGradient(customer.firstNames + ' ' + customer.lastNames)"
+              aria-hidden="true"
+            >
+              {{ getInitials(customer.firstNames, customer.lastNames) }}
+            </div>
+
+            <div class="customer-title-block">
+              <h3 class="customer-name" title="{{ customer.firstNames }} {{ customer.lastNames }}">
+                {{ customer.firstNames }} {{ customer.lastNames }}
+              </h3>
+              <div class="route-badge" title="Ruta asignada">
+                <span class="badge-icon">📍</span>
+                <span class="badge-text">{{ routeName(customer.routeId) }}</span>
+              </div>
+            </div>
+
+            <div class="status-indicator">
+              <span class="status-pill" [class.inactive]="customer.status === 'Inactive'">
+                <span class="status-dot"></span>
+                <span>{{ customer.status === 'Active' ? 'Activo' : 'Inactivo' }}</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Business or Trade Tag -->
+          @if (customer.businessOrWorkName) {
+            <div class="business-row">
+              <span class="business-tag">
+                <span class="tag-icon">💼</span>
+                <span class="tag-name">{{ customer.businessOrWorkName }}</span>
+              </span>
+            </div>
+          }
+
+          <!-- Details: Phone and Location with Action Hints -->
+          <div class="card-details">
+            <!-- Phone Link -->
+            <a
+              [href]="getTelUrl(customer.primaryPhone)"
+              class="detail-item detail-clickable phone-item"
+              [class.disabled]="!customer.primaryPhone"
+              title="Llamar al cliente"
+            >
+              <div class="detail-icon-box">📞</div>
+              <div class="detail-text">
+                <span class="detail-label">Teléfono principal</span>
+                <strong class="detail-value phone-number">{{ customer.primaryPhone || 'Sin teléfono' }}</strong>
+              </div>
+              <span class="action-tag">Llamar ↗</span>
+            </a>
+
+            <!-- GPS Location Link -->
+            <a
+              [href]="getMapUrl(customer.primaryLatitude, customer.primaryLongitude)"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="detail-item detail-clickable map-item"
+              title="Abrir coordenadas en Google Maps"
+            >
+              <div class="detail-icon-box">🗺️</div>
+              <div class="detail-text">
+                <span class="detail-label">Ubicación GPS</span>
+                <strong class="detail-value coords">
+                  {{ customer.primaryLatitude | number:'1.4-4' }}, {{ customer.primaryLongitude | number:'1.4-4' }}
+                </strong>
+              </div>
+              <span class="action-tag">Ver mapa ↗</span>
+            </a>
+          </div>
+
+          <!-- Card Actions Footer -->
+          <div class="card-footer">
+            <button
+              type="button"
+              class="btn-card-edit"
+              (click)="openEdit(customer.id)"
+              title="Ver ficha completa y editar cliente"
+            >
+              <span class="action-icon">✏️</span>
+              <span>Ver y editar</span>
+            </button>
+          </div>
+        </article>
+      }
+    </div>
   }
 </section>

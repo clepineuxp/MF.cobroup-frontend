@@ -1,3 +1,4 @@
+import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -5,6 +6,7 @@ import { AccessibleRoute } from '../../routes/data/route.models';
 import { RoutesService } from '../../routes/data/routes.service';
 import { CustomerDetails, CustomerLocation, CustomerPhone, CustomerStatus, CustomerSummary, CustomerWriteRequest } from '../data/customer.models';
 import { CustomersService } from '../data/customers.service';
+import { CustomerModalComponent } from '../../../shared/ui/customer-modal/customer-modal.component';
 
 interface CustomerDraft {
   id: string | null;
@@ -18,11 +20,9 @@ interface CustomerDraft {
   locations: CustomerLocation[];
 }
 
-import { CustomerModalComponent } from '../../../shared/ui/customer-modal/customer-modal.component';
-
 @Component({
   selector: 'app-customers-page',
-  imports: [FormsModule, CustomerModalComponent],
+  imports: [CommonModule, FormsModule, CustomerModalComponent],
   templateUrl: './customers.page.html',
   styleUrl: './customers.page.scss',
 })
@@ -39,11 +39,68 @@ export class CustomersPage {
   readonly formOpen = signal(false);
   readonly totalCount = signal(0);
   readonly isAdmin = computed(() => this.auth.context()?.role === 'Admin');
+
+  readonly statusFilter = signal<'all' | 'Active' | 'Inactive'>('all');
+  readonly activeCount = computed(() => this.customers().filter((c) => c.status === 'Active').length);
+  readonly inactiveCount = computed(() => this.customers().filter((c) => c.status === 'Inactive').length);
+  readonly filteredCustomers = computed(() => {
+    const filter = this.statusFilter();
+    const list = this.customers();
+    if (filter === 'all') return list;
+    return list.filter((c) => c.status === filter);
+  });
+
   filterRouteId = '';
   searchTerm = '';
   draft = this.emptyDraft();
 
   constructor() { void this.initialize(); }
+
+  setStatusFilter(status: 'all' | 'Active' | 'Inactive'): void {
+    this.statusFilter.set(status);
+  }
+
+  clearSearch(): void {
+    this.searchTerm = '';
+    void this.search();
+  }
+
+  getInitials(firstNames?: string, lastNames?: string): string {
+    const f = (firstNames || '').trim().charAt(0);
+    const l = (lastNames || '').trim().charAt(0);
+    return (f + l).toUpperCase() || 'CL';
+  }
+
+  getAvatarGradient(seed: string): string {
+    const gradients = [
+      'linear-gradient(135deg, #2563eb, #1d4ed8)', // Blue
+      'linear-gradient(135deg, #059669, #047857)', // Emerald
+      'linear-gradient(135deg, #7c3aed, #6d28d9)', // Violet
+      'linear-gradient(135deg, #d97706, #b45309)', // Amber
+      'linear-gradient(135deg, #db2777, #be185d)', // Pink
+      'linear-gradient(135deg, #0891b2, #0e7490)', // Cyan
+      'linear-gradient(135deg, #4f46e5, #4338ca)', // Indigo
+      'linear-gradient(135deg, #0d9488, #0f766e)', // Teal
+    ];
+    let hash = 0;
+    const str = seed || 'CobroUP';
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const idx = Math.abs(hash) % gradients.length;
+    return gradients[idx];
+  }
+
+  getMapUrl(lat: number, lng: number): string {
+    if (!lat && !lng) return 'https://www.google.com/maps';
+    return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  }
+
+  getTelUrl(phone?: string): string {
+    if (!phone) return '#';
+    const cleaned = phone.replace(/[^0-9+]/g, '');
+    return `tel:${cleaned}`;
+  }
 
   async search(): Promise<void> {
     this.loading.set(true); this.error.set('');
