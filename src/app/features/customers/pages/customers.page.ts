@@ -9,6 +9,7 @@ import { CustomersService } from '../data/customers.service';
 import { CustomerModalComponent } from '../../../shared/ui/customer-modal/customer-modal.component';
 
 interface CustomerDraft {
+  identification: string;
   id: string | null;
   routeId: string;
   firstNames: string;
@@ -178,6 +179,7 @@ export class CustomersPage {
     this.saving.set(true); this.error.set(''); this.success.set('');
     const request: CustomerWriteRequest = {
       routeId: this.draft.routeId,
+      identification: this.draft.identification.trim(),
       firstNames: this.draft.firstNames.trim(),
       lastNames: this.draft.lastNames.trim(),
       businessOrWorkName: this.draft.businessOrWorkName.trim() || null,
@@ -218,7 +220,7 @@ export class CustomersPage {
   }
 
   private emptyDraft(): CustomerDraft {
-    return { id: null, routeId: '', firstNames: '', lastNames: '', businessOrWorkName: '', observations: '', status: 'Active',
+    return { identification: '', id: null, routeId: '', firstNames: '', lastNames: '', businessOrWorkName: '', observations: '', status: 'Active',
       phones: [{ number: '', isPrimary: true }], locations: [this.emptyLocation(true)] };
   }
 
@@ -227,7 +229,7 @@ export class CustomersPage {
   }
 
   private fromDetails(customer: CustomerDetails): CustomerDraft {
-    return { id: customer.id, routeId: customer.routeId, firstNames: customer.firstNames, lastNames: customer.lastNames,
+    return { identification: customer.identification, id: customer.id, routeId: customer.routeId, firstNames: customer.firstNames, lastNames: customer.lastNames,
       businessOrWorkName: customer.businessOrWorkName ?? '', observations: customer.observations ?? '', status: customer.status,
       phones: customer.phones.map((phone) => ({ ...phone })), locations: customer.locations.map((location) => ({ ...location })) };
   }

@@ -18,6 +18,7 @@ export interface CustomerLocation {
 }
 
 export interface CustomerSummary {
+  readonly identification: string;
   readonly id: string;
   readonly routeId: string;
   readonly firstNames: string;
@@ -31,6 +32,7 @@ export interface CustomerSummary {
 }
 
 export interface CustomerDetails {
+  readonly identification: string;
   readonly id: string;
   readonly routeId: string;
   readonly firstNames: string;
@@ -52,6 +54,7 @@ export interface CustomerPage {
 }
 
 export interface CustomerWriteRequest {
+  readonly identification: string;
   readonly routeId: string;
   readonly firstNames: string;
   readonly lastNames: string;
