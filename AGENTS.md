@@ -3,9 +3,9 @@
 ## Identidad y restricciones
 
 - Producto: COBROUP; rol: frontend operativo.
-- Maestro: `../cobroup.md/COBROUP.md` 1.7.0 y `../cobroup.md/DECISION_AUTENTICACION_JWT.md`.
+- Maestro: `../cobroup.md/COBROUP.md` 1.13.0 y `../cobroup.md/DECISION_AUTENTICACION_JWT.md`.
 - Estándar: `../cobroup.md/FRAMEWORK_DESARROLLO_FRONTEND.md` 1.0.
-- Rama activa: `feature/fase-9-endurecimiento-despliegue`.
+- Rama activa: `feature/clientes-gps-mapa`, creada desde `origin/dev` por la instrucción vigente del usuario.
 - Sin push, merge, tag ni PR sin autorización.
 
 ## Estado actual
@@ -316,3 +316,19 @@
 - Alcance: rangos de crédito, asignación a rutas, cuotas mensuales, migración y documentación; ambas interfaces incluyen la compatibilidad de importación de Leaflet del mapa.
 - Validación registrada: 278 pruebas aprobadas y compilaciones correctas; sin nuevos cambios funcionales posteriores.
 - Commit autorizado: SÍ. Sin push ni despliegue; migración administrativa pendiente de aplicación.
+
+### 2026-10-23 — GPS y selección de ubicación en mapa para clientes
+
+- Solicitud: usar ubicación actual, bloquear continuación mientras responde GPS, mostrar carga/éxito/error y permitir seleccionar en mapa emergente.
+- Rama: feature/clientes-gps-mapa creada desde origin/dev (7abab8b), según instrucción vigente; árbol limpio al inicio. Maestro 1.13.0 y framework frontend 1.0.
+- Cambios: CustomerModalComponent conserva borrador por referencia durante GPS, muestra Cargando GPS y resultado, bloquea guardado/repeticiones/cambios de ubicaciones y descarta callbacks tardíos al cerrar/reabrir. Timeout del navegador y watchdog de 12 s; errores de permiso/disponibilidad/tiempo. Ubicaciones nuevas sin coordenadas ficticias; validación finita/rangos y origen Manual al editar coordenadas.
+- Mapa: componente genérico LocationPicker con diálogo nativo, Leaflet/ESRI existentes, click, zoom/pan, pin arrastrable y confirmación/cancelación. Selección provisional; no altera alias/dirección/principal. Loading/error/reintento de teselas y limpieza al destruir. Loader externo inyectable para pruebas aisladas.
+- Verificación: suite completa Vitest 63/63 en 17 suites; build de producción correcto sin advertencias de presupuesto. Pruebas cubren bloqueo, GPS éxito/permiso/timeout/ausencia, respuestas tardías, coordenadas vacías, mapa provisional, cancelación, click/arrastre y carga fallida.
+- Límites: GPS y tiles se simularon en las pruebas; no se verificó en dispositivo real ni se creó/modificó ningún cliente desplegado. La pantalla administrativa de clientes actualmente consulta/asigna, no captura coordenadas; el formulario afectado es el operativo reutilizado en clientes y préstamos.
+- Sin cambios de esquema/backend operativo. Auditoría independiente no realizada. Commit autorizado: NO para esta solicitud; sin push ni despliegue.
+
+### 2026-10-23 — Commit autorizado de ubicación y edición de usuarios
+
+- Solicitud expresa del propietario: hacer commits del alcance implementado de GPS/mapa de clientes y edición administrativa de usuarios, con pruebas y documentación asociadas.
+- Se conservan las verificaciones y limitaciones registradas en la intervención anterior; sin nuevos cambios funcionales.
+- Commit autorizado: SÍ para este alcance. Sin push, merge, tag, PR ni despliegue.

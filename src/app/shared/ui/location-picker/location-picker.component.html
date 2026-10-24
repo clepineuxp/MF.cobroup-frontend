@@ -1,0 +1,9 @@
+<dialog #dialog aria-labelledby="location-picker-title" (cancel)="cancel($event)">
+  <header><div><h2 id="location-picker-title">Seleccionar ubicación</h2><p>Mueve el mapa y toca el punto deseado, o arrastra el pin.</p></div><button type="button" (click)="cancel()" aria-label="Cerrar mapa" autofocus>✕</button></header>
+  @if (loading()) { <p role="status">Cargando mapa…</p> }
+  @if (error()) { <div role="alert"><p>{{ error() }}</p><button type="button" (click)="retry()">Reintentar</button></div> }
+  <div #mapContainer class="map" aria-label="Mapa para elegir la ubicación del cliente"></div>
+  @if (selected(); as point) { <p role="status">Punto seleccionado: {{ point.latitude }}, {{ point.longitude }}</p> }
+  @else { <p>Toca el mapa para colocar el pin.</p> }
+  <footer><button type="button" class="secondary" (click)="cancel()">Cancelar</button><button type="button" [disabled]="!selected() || loading() || !!error()" (click)="confirm()">Usar esta ubicación</button></footer>
+</dialog>

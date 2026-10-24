@@ -97,7 +97,7 @@
           <div class="form-section">
             <div class="section-header">
               <h3 class="section-title">Ubicaciones (1–4)</h3>
-              <button type="button" class="btn-action-small" (click)="addLocation()" [disabled]="draft.locations.length >= 4">
+              <button type="button" class="btn-action-small" (click)="addLocation()" [disabled]="draft.locations.length >= 4 || gpsIndex() !== null">
                 + Agregar ubicación
               </button>
             </div>
@@ -112,7 +112,7 @@
                         <input type="radio" name="primary-location" [checked]="loc.isPrimary" (change)="setPrimaryLocation(index)" />
                         <span>Principal</span>
                       </label>
-                      <button type="button" class="btn-item-delete" (click)="removeLocation(index)" [disabled]="draft.locations.length === 1" aria-label="Quitar">
+                      <button type="button" class="btn-item-delete" (click)="removeLocation(index)" [disabled]="draft.locations.length === 1 || gpsIndex() !== null" aria-label="Quitar">
                         ✕
                       </button>
                     </div>
@@ -129,18 +129,19 @@
                     </label>
                     <label class="clean-field">
                       <span class="field-label">Latitud</span>
-                      <input type="number" [name]="'lat-' + index" [(ngModel)]="loc.latitude" min="-90" max="90" step="0.000001" required />
+                      <input type="number" [name]="'lat-' + index" [(ngModel)]="loc.latitude" [disabled]="gpsIndex() !== null" (ngModelChange)="loc.source = 'Manual'" min="-90" max="90" step="0.000001" required />
                     </label>
                     <label class="clean-field">
                       <span class="field-label">Longitud</span>
-                      <input type="number" [name]="'lon-' + index" [(ngModel)]="loc.longitude" min="-180" max="180" step="0.000001" required />
+                      <input type="number" [name]="'lon-' + index" [(ngModel)]="loc.longitude" [disabled]="gpsIndex() !== null" (ngModelChange)="loc.source = 'Manual'" min="-180" max="180" step="0.000001" required />
                     </label>
                   </div>
 
                   <div class="location-footer">
                     <span class="gps-tag">{{ loc.source === 'Gps' ? '📍 Obtenida por GPS' : '✏️ Captura manual' }}</span>
-                    <button type="button" class="btn-gps" (click)="useCurrentLocation(index)">
-                      📡 Capturar GPS actual
+                    <button type="button" class="btn-gps" (click)="openMap(index)" [disabled]="gpsIndex() !== null || saving()">Seleccionar en mapa</button>
+                    <button type="button" class="btn-gps" (click)="useCurrentLocation(index)" [disabled]="gpsIndex() !== null || saving()" [attr.aria-busy]="gpsIndex() === index">
+                      {{ gpsIndex() === index ? 'Cargando GPS…' : 'Usar ubicación actual' }}
                     </button>
                   </div>
                 </div>
@@ -148,14 +149,20 @@
             </div>
           </div>
 
+          @if (gpsIndex() !== null) { <p role="status">Cargando GPS… Espera la respuesta para continuar.</p> }
+          @if (gpsMessage()) { <p role="status">{{ gpsMessage() }}</p> }
+          @if (gpsError()) { <p class="alert-box error" role="alert">{{ gpsError() }}</p> }
           <div class="modal-footer">
             <button type="button" class="btn-cancel" (click)="close()">Cancelar</button>
-            <button type="submit" class="btn-submit" [disabled]="saving()">
-              {{ saving() ? 'Guardando...' : (draft.id ? 'Guardar Cambios' : 'Crear Cliente') }}
+            <button type="submit" class="btn-submit" [disabled]="saving() || gpsIndex() !== null || !!mapLocation()">
+              {{ gpsIndex() !== null ? 'Cargando GPS…' : saving() ? 'Guardando...' : (draft.id ? 'Guardar Cambios' : 'Crear Cliente') }}
             </button>
           </div>
         </form>
       }
     </div>
   </div>
+  @if (mapLocation()) {
+    <app-location-picker [initial]="initialMapCoordinates()" (confirmed)="confirmMap($event)" (closed)="mapLocation.set(null)" />
+  }
 }

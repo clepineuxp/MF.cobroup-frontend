@@ -2,6 +2,8 @@
 
 Aplicación operativa Angular/PWA. Consume únicamente contratos del backend operativo. La autorización real siempre reside en servidor.
 
+- Ubicación del cliente: GPS voluntario con carga/bloqueo de guardado, resultado y timeout; mapa emergente con pin movible y confirmación/cancelación. Sin coordenadas predeterminadas inventadas. [Decisión vigente](../../../cobroup.md/DECISION_UBICACION_CLIENTES_EDICION_USUARIOS.md).
+
 - Fase 3: shell responsive, sesión multi-organización y lectura de rutas activas autorizadas mediante el backend operativo. La identidad JWT está reabierta para revalidación.
 - Roles previstos: `ADMIN`, `SUPERVISOR`, `COLLECTOR`; tenant y rutas proceden de identidad validada.
 - Offline: solo shell estático; sin datos privados ni escrituras financieras cacheadas.

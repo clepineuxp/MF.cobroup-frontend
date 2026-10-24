@@ -1,0 +1,10 @@
+dialog { width: min(54rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); overflow-y: auto; padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-raised); }
+dialog::backdrop { background: var(--color-text); opacity: .5; }
+header, footer { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
+h2 { margin: 0; font-size: 1.25rem; }
+p { color: var(--color-text-muted); }
+.map { height: clamp(16rem, 50dvh, 30rem); width: 100%; border-radius: var(--radius-sm); background: var(--color-background); }
+button { border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: .65rem 1rem; color: var(--color-on-primary); background: var(--color-primary); cursor: pointer; }
+button:disabled { opacity: .6; cursor: not-allowed; }
+.secondary { color: var(--color-text); background: var(--color-surface); }
+@media (max-width: 32rem) { footer { flex-wrap: wrap; } footer button { flex: 1; } }
