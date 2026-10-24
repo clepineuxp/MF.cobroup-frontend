@@ -21,7 +21,7 @@
   border-radius: 50%;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 4px 14px var(--color-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -64,7 +64,7 @@
 .drawer-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.4);
+  background: var(--color-overlay);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   z-index: 940;
@@ -81,7 +81,7 @@
   background-color: var(--color-surface);
   color: var(--color-text);
   border-right: 1px solid var(--color-border);
-  box-shadow: 8px 0 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 8px 0 32px var(--color-overlay);
   display: flex;
   flex-direction: column;
   transform: translateX(-100%);
@@ -178,7 +178,7 @@
       background: var(--color-primary);
       color: var(--color-on-primary);
       font-weight: 700;
-      box-shadow: 0 3px 10px rgba(64, 92, 114, 0.25);
+      box-shadow: 0 3px 10px var(--color-overlay);
     }
   }
 }
@@ -223,7 +223,7 @@
 .notch-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
+  background: var(--color-overlay);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   z-index: 998;
@@ -241,65 +241,18 @@
   border-radius: 0 0 1.25rem 1.25rem;
   cursor: pointer;
   user-select: none;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 4px 18px var(--color-overlay);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 
   &:hover {
-    transform: translateY(2px);
+    padding-bottom: .8rem;
   }
 }
 
-/* In Light Theme: Black Notch with White Text */
-:host([data-theme='light']) .notch-pill,
-:host:not([data-theme='dark']) .notch-pill {
-  background-color: #0f172a;
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-top: none;
-
-  .notch-title {
-    color: #ffffff;
-  }
-
-  .notch-indicator-dot {
-    background-color: #10b981;
-    box-shadow: 0 0 8px #10b981;
-  }
-
-  .notch-chevron {
-    color: rgba(255, 255, 255, 0.75);
-  }
-
-  .notch-pull-handle {
-    background-color: rgba(255, 255, 255, 0.35);
-  }
-}
-
-/* In Dark Theme: White/Light Notch with Black Text */
-:host([data-theme='dark']) .notch-pill {
-  background-color: #ffffff;
-  color: #0f172a;
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  border-top: none;
-
-  .notch-title {
-    color: #0f172a;
-  }
-
-  .notch-indicator-dot {
-    background-color: #059669;
-    box-shadow: 0 0 8px #059669;
-  }
-
-  .notch-chevron {
-    color: rgba(15, 23, 42, 0.75);
-  }
-
-  .notch-pull-handle {
-    background-color: rgba(15, 23, 42, 0.35);
-  }
-}
-
+.notch-pill { background: var(--color-notch); color: var(--color-on-notch); }
+.notch-title { color: inherit; }
+.notch-indicator-dot { background: var(--color-success); box-shadow: 0 0 8px var(--color-success); }
+.notch-pull-handle { background: currentColor; opacity: .35; }
 .notch-indicator-dot {
   width: 0.45rem;
   height: 0.45rem;
@@ -334,12 +287,11 @@
 
 /* Notch Tray (Expanded Dropdown) */
 .notch-tray {
-  position: absolute;
-  top: 100%;
-  margin-top: 0.5rem;
+  position: relative;
+  margin-top: 0;
   z-index: 1002;
   width: min(92vw, 22rem);
-  border-radius: 1.25rem;
+  border-radius: 0 0 1.25rem 1.25rem;
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
@@ -347,7 +299,7 @@
   background-color: var(--color-surface);
   color: var(--color-text);
   border: 1px solid var(--color-border);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 20px 50px var(--color-overlay);
   animation: slideDownTray 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -429,17 +381,17 @@
   width: 100%;
   padding: 0.6rem 1rem;
   border-radius: 0.75rem;
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #ef4444;
+  background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, var(--color-border));
+  color: var(--color-danger);
   font-weight: 700;
   font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.15s ease;
 
   &:hover {
-    background: rgba(239, 68, 68, 0.2);
-    border-color: #ef4444;
+    background: color-mix(in srgb, var(--color-danger) 18%, var(--color-surface));
+    border-color: var(--color-danger);
   }
 }
 
@@ -469,10 +421,17 @@
 @keyframes slideDownTray {
   from {
     opacity: 0;
-    transform: translateY(-10px) scale(0.96);
+    clip-path: inset(0 0 100% 0);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    clip-path: inset(0);
   }
 }
+
+.app-notch-container.expanded { width: min(92vw, 22rem); }
+.expanded .notch-pill { width: 100%; justify-content: center; border-radius: 0; }
+.notch-tray { box-sizing: border-box; max-height: calc(100dvh - 4rem); overflow-y: auto; }
+.pwa-check { border: 1px solid var(--color-border); border-radius: .75rem; padding: .75rem; background: var(--color-primary-soft); color: var(--color-text); cursor: pointer; }
+.pwa-message { font-size: .8rem; line-height: 1.5; margin: 0; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

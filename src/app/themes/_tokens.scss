@@ -10,3 +10,12 @@
   --radius-md: 0.75rem;
   --shadow-raised: 0 0.5rem 1.5rem rgb(0 0 0 / 12%);
 }
+
+:root {
+  --shadow-floating: 0 20px 60px rgb(0 0 0 / 25%);
+  --color-overlay: rgb(15 23 42 / 50%);
+  --color-primary-soft: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+  --color-notch: #0f172a;
+  --color-on-notch: #ffffff;
+}
+:root[data-theme='dark'] { --color-notch: #ffffff; --color-on-notch: #0f172a; }

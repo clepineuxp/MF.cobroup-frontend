@@ -3,9 +3,9 @@
 ## Identidad y restricciones
 
 - Producto: COBROUP; rol: frontend operativo.
-- Maestro: `../cobroup.md/COBROUP.md` 1.13.0 y `../cobroup.md/DECISION_AUTENTICACION_JWT.md`.
+- Maestro: `../cobroup.md/COBROUP.md` 1.14.0 y `../cobroup.md/DECISION_AUTENTICACION_JWT.md`.
 - Estándar: `../cobroup.md/FRAMEWORK_DESARROLLO_FRONTEND.md` 1.0.
-- Rama activa: `feature/clientes-gps-mapa`, creada desde `origin/dev` por la instrucción vigente del usuario.
+- Rama activa: `feature/clients-page`, actualizada con `origin/dev` para resolver los conflictos del PR #15.
 - Sin push, merge, tag ni PR sin autorización.
 
 ## Estado actual
@@ -351,3 +351,28 @@
 - Estados: ambos controles bloquean solicitudes repetidas mientras consultan el navegador y muestran mensajes específicos para permiso denegado, timeout, ubicación inválida, indisponibilidad o navegador sin soporte. Los callbacks tardíos se descartan al destruir el componente.
 - Verificación: 67/67 pruebas Vitest aprobadas en 18 suites; compilación productiva correcta. Se añadieron pruebas de éxito GPS en ambos mapas y permiso denegado en el principal.
 - Alcance externo: no se solicitó permiso real de ubicación, no se alteraron datos ni se realizó push, merge, tag, PR o despliegue.
+
+### 2026-10-23 — Actualización PWA y coherencia visual
+
+- Solicitud: popup de actualización en ambas PWA, administración alineada con la operativa y header operativo que se despliega unido al borde superior.
+- Rama existente feature/update-pwa conservada; sin commit, push, merge, PR ni despliegue solicitados para esta intervención.
+- PWA: servicio instanciado desde la raíz, VERSION_READY abre diálogo nativo accesible con Más tarde / Actualizar ahora. Recarga completa bajo confirmación para cambiar shell y chunks juntos, sin activar versiones sobre código ya cargado. Una versión pospuesta puede reabrirse desde el panel superior; una versión distinta vuelve a avisar.
+- Detección: al estabilizar Angular, cada 15 minutos y al volver a primer plano/recuperar conexión, con exclusión concurrente y throttle de 1 minuto. Búsqueda manual, estado de carga, error de red y reintento. Listeners/timer se liberan al destruir el servicio. Worker y manifiesto sin caché HTTP persistente; caché Angular limitada a recursos estáticos.
+- Interfaz: navegación lateral y panel superior compartiendo el lenguaje de la operativa, nuevas tarjetas/accesos administrativos y fundamentos de controles/tablas en themes. Header pegado a top:0; efecto de crecimiento/revelado sin translateY ni margen entre cabecera y bandeja; soporte Espacio, Enter y movimiento reducido. Drawer cerrado inert.
+- Validación: 69/69 en suite completa y 1/1 adicional del diálogo; builds de producción correctos sin advertencias de presupuesto; CLI Angular local con Node v24.22.1, sin npm en PATH. Pruebas cubren descarga lista, posponer, nueva versión, recarga única, error/reintento, worker deshabilitado y diálogo accesible/bloqueo durante actualización.
+- Navegador: dos releases locales A/B con service worker real para cada frontend; popup detectado, admin pospuesto/reabierto y ambas aplicaciones recargadas con marcador DOM B. Revisión visual de panel administrativo en claro/oscuro y header operativo conectado al borde. Sesión de demostración servida únicamente por fixture local, sin modificar cuentas/datos reales. No validado en PWA instalada móvil ni ingress productivo; no se realizó auditoría independiente.
+- Despliegue: usuarios con una versión anterior que carece del aviso necesitarán cargar esta versión una vez para disponer del nuevo flujo. A partir de ahí los siguientes releases muestran el popup cuando terminan de descargarse.
+
+### 2026-10-23 — Commits autorizados de actualización PWA
+
+- Solicitud expresa del usuario: hacer los commits del alcance de actualización PWA, coherencia visual administrativa y header operativo, con pruebas y documentación asociadas.
+- Se conservan las verificaciones registradas; sin nuevos cambios funcionales. Commit autorizado: SÍ. Sin push, merge, tag, PR ni despliegue.
+
+### 2026-10-24 — Resolución de conflictos del PR #15 contra dev
+
+- Solicitud expresa: resolver los conflictos de `feature/clients-page` con `dev` preservando funcionales ambos features.
+- Integración: se incorporó `origin/dev` (`66225a2`) mediante merge local. Los cambios PWA, header, configuración, nginx y tokens visuales de `dev` se conservaron completos.
+- Resolución del selector: los cinco conflictos add/add correspondían al mismo selector GPS incorporado por historiales distintos. Se conservó la versión evolucionada de esta rama porque incluye todo el contrato de `dev` (selección, arrastre, confirmación, estados de teselas y reintento), además de tema claro/oscuro, satélite, marcador de usuario y acceso a ubicación actual.
+- Documentación: `AGENTS.md` conserva tanto el registro PWA de `dev` como los registros del directorio de clientes y las mejoras cartográficas de la rama.
+- Verificación combinada: 74/74 pruebas Vitest aprobadas en 20 suites y build productivo correcto, sin conflictos ni marcadores pendientes.
+- Git remoto: actualización de la rama del PR autorizada por la solicitud de resolver los conflictos; no se fusionó el PR a `dev` ni se realizó despliegue.
