@@ -30,6 +30,7 @@
 >
   <div class="drawer-header">
     <div class="drawer-branding">
+      <img class="brand-mark" src="brand/cobroup-mark.svg" alt="" aria-hidden="true" />
       <span class="drawer-logo">Cobro UP</span>
       <span class="drawer-badge">Operación</span>
     </div>
@@ -41,35 +42,35 @@
   @if (isAuthenticated()) {
     <nav class="drawer-nav" aria-label="Módulos del sistema">
       <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" (click)="closeDrawer()">
-        <span class="nav-icon">🗺️</span>
+        <span class="nav-icon"><app-icon name="map" /></span>
         <span class="nav-text">Home / Mapa</span>
       </a>
       <a routerLink="/agenda" routerLinkActive="active" (click)="closeDrawer()">
-        <span class="nav-icon">📅</span>
+        <span class="nav-icon"><app-icon name="calendar" /></span>
         <span class="nav-text">Agenda diaria</span>
       </a>
       <a routerLink="/rutas" routerLinkActive="active" (click)="closeDrawer()">
-        <span class="nav-icon">🛣️</span>
+        <span class="nav-icon"><app-icon name="route" /></span>
         <span class="nav-text">Mis rutas</span>
       </a>
       <a routerLink="/clientes" routerLinkActive="active" (click)="closeDrawer()">
-        <span class="nav-icon">👥</span>
+        <span class="nav-icon"><app-icon name="users" /></span>
         <span class="nav-text">Clientes</span>
       </a>
       <a routerLink="/prestamos" routerLinkActive="active" (click)="closeDrawer()">
-        <span class="nav-icon">💰</span>
+        <span class="nav-icon"><app-icon name="money" /></span>
         <span class="nav-text">Préstamos y Cobros</span>
       </a>
       <a routerLink="/conciliacion" routerLinkActive="active" (click)="closeDrawer()">
-        <span class="nav-icon">⚖️</span>
+        <span class="nav-icon"><app-icon name="scale" /></span>
         <span class="nav-text">Conciliación diaria</span>
       </a>
       <a routerLink="/plantillas" routerLinkActive="active" (click)="closeDrawer()">
-        <span class="nav-icon">📋</span>
+        <span class="nav-icon"><app-icon name="clipboard" /></span>
         <span class="nav-text">Plantillas de crédito</span>
       </a>
       <a routerLink="/excepciones" routerLinkActive="active" (click)="closeDrawer()">
-        <span class="nav-icon">⚡</span>
+        <span class="nav-icon"><app-icon name="bolt" /></span>
         <span class="nav-text">Excepciones</span>
       </a>
     </nav>
@@ -94,6 +95,7 @@
 <header class="app-notch-container" [class.expanded]="notchExpanded()">
   <div class="notch-pill" (click)="toggleNotch()" role="button" [attr.aria-expanded]="notchExpanded()" tabindex="0" (keyup.enter)="toggleNotch()" (keydown.space)="$event.preventDefault()" (keyup.space)="toggleNotch()" aria-controls="notch-settings">
     <div class="notch-indicator-dot"></div>
+    <img class="notch-brand-mark" src="brand/cobroup-mark.svg" alt="" aria-hidden="true" />
     <h1 class="notch-title">Cobro UP</h1>
     <span class="notch-chevron" [class.rotated]="notchExpanded()">▾</span>
     <div class="notch-pull-handle"></div>
@@ -131,7 +133,8 @@
         @if (pwa.enabled) {
           <div class="tray-section">
             <span class="tray-section-label">Aplicación</span>
-            <button type="button" class="pwa-check" [disabled]="pwa.checking()" (click)="pwa.checkForUpdate(true)">{{ pwa.checking() ? 'Buscando actualización…' : pwa.updateAvailable() ? 'Actualizar PWA' : 'Buscar actualizaciones' }}</button>
+            <div class="pwa-version-row"><span>Versión actual</span><strong>v{{ pwa.currentVersion }}</strong></div>
+            <button type="button" class="pwa-check" [disabled]="pwa.checking()" (click)="pwa.checkForUpdate(true)">{{ pwa.updateAvailable() ? 'Ver actualización disponible' : pwa.checking() ? 'Consultando…' : 'Buscar actualizaciones' }}</button>
             @if (pwa.message()) { <p class="pwa-message" role="status">{{ pwa.message() }}</p> }
           </div>
         }
@@ -139,7 +142,7 @@
           <div class="tray-section tray-logout">
             <button type="button" class="btn-notch-logout" (click)="logout()">
               <span>Cerrar sesión</span>
-              <span class="logout-icon">🚪</span>
+              <span class="logout-icon"><app-icon name="logout" /></span>
             </button>
           </div>
         }

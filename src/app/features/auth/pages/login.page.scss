@@ -1,5 +1,6 @@
 :host { display: grid; place-items: center; min-height: 28rem; }
 .auth-card { width: min(100%, 28rem); padding: var(--space-8); border: .0625rem solid var(--color-border); border-radius: 1rem; background: var(--color-surface); box-shadow: 0 .75rem 2rem rgb(0 0 0 / 8%); }
+.login-logo { display: block; width: 8.5rem; height: auto; margin: 0 auto var(--space-4); }
 h2 { margin-block: var(--space-2); } .intro, .eyebrow { color: var(--color-text-muted); } form, label { display: grid; gap: var(--space-2); } form { gap: var(--space-4); margin-top: var(--space-6); }
 input { padding: .75rem; border: .0625rem solid var(--color-border); border-radius: .5rem; color: var(--color-text); background: var(--color-background); }
 button { padding: .75rem 1rem; border: 0; border-radius: .5rem; color: var(--color-on-primary); background: var(--color-primary); font: inherit; font-weight: 700; cursor: pointer; }

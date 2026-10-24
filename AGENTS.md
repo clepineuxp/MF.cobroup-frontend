@@ -376,3 +376,12 @@
 - Documentación: `AGENTS.md` conserva tanto el registro PWA de `dev` como los registros del directorio de clientes y las mejoras cartográficas de la rama.
 - Verificación combinada: 74/74 pruebas Vitest aprobadas en 20 suites y build productivo correcto, sin conflictos ni marcadores pendientes.
 - Git remoto: actualización de la rama del PR autorizada por la solicitud de resolver los conflictos; no se fusionó el PR a `dev` ni se realizó despliegue.
+
+### 2026-10-24 — Identidad rombo, iconografía monocromática y versión PWA
+
+- Solicitud: unificar iconos de ambos frontends en escala de grises, convertir el rombo del Resumen en marca de aplicación, mostrarlo en títulos/PWA/login y reemplazar el estado permanente “Buscando actualización” por versión instalada y búsqueda manual sin perder la automática.
+- Marca: se crearon SVG accesibles `cobroup-mark.svg` y `cobroup-logo.svg`; el login, drawer, notch, favicon y metadatos visuales usan la misma geometría de rombos concéntricos. Los ocho PNG PWA (72–512 px) se regeneraron con zona segura y paleta `#405c72`/`#f4f6f8`.
+- Iconografía: navegación reemplazada por SVG lineales reutilizables que heredan `currentColor`; los pictogramas decorativos heredados se normalizan con escala de grises, conservando colores únicamente para estados semánticos del mapa/cartera.
+- PWA: versión visible `1.14.0`, botón manual `Buscar actualizaciones` y estado transitorio `Consultando…`; continúan las comprobaciones automáticas al estabilizar, cada 15 minutos, con foco, visibilidad y reconexión. `ngsw.json` incluye `appData` con versión y aplicación.
+- Verificación: suite completa operativa 74/74, prueba dirigida PWA 6/6 y build productivo correctos. Se comprobó en navegador el login operativo con logo y marca en notch; el paquete final contiene SVG, PNG y appData.
+- Git: cambios preservados sin commit, push, merge, tag, PR ni despliegue para esta solicitud.

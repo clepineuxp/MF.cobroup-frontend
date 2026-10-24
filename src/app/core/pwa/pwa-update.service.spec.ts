@@ -52,6 +52,7 @@ describe('PwaUpdateService', () => {
   it('does nothing when service workers are disabled', async () => {
     const service = setup(false); await service.checkForUpdate(true); ready(); service.activateUpdate();
     expect(check).not.toHaveBeenCalled(); expect(reload).not.toHaveBeenCalled(); expect(service.promptOpen()).toBe(false);
+    expect(service.currentVersion).toBe('1.14.0');
   });
   it('reopens a deferred update from settings without another download', async () => {
     const service = setup(); ready(); service.defer(); await service.checkForUpdate(true);
