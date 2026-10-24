@@ -36,3 +36,8 @@ Nuevo Préstamo incorpora combobox accesible que filtra al escribir y consulta e
 ## Nombre completo y Alias Cliente — 2026-10-24
 
 Modal de creación/edición de clientes: un único campo Nombre completo y etiqueta Alias Cliente. Se conservan campos técnicos de la API, datos anteriores y separación original del nombre al guardar sin cambios. Se mantiene validación de nombre/apellido del contrato vigente. 16 pruebas dirigidas y build aprobados; alcance y límites en AGENTS.md. Buscador previo versionado en 09929b4; este cambio pendiente de commit.
+
+
+## Identificación del cliente — 2026-10-24
+
+Decisión vigente: [identificación obligatoria y etiquetas](../../../cobroup.md/DECISION_IDENTIFICACION_CLIENTE.md). Identification viaja en alta, edición y lectura; sin default para nuevos. Migración operativa aplicada en Dev: 7 clientes anteriores con 0, sin pendientes. El modal invierte solo etiquetas Alias/Nombre completo, sin mover datos. Evidencias y despliegue coordinado en AGENTS.md.

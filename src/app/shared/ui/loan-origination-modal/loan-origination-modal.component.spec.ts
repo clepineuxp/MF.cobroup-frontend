@@ -22,7 +22,7 @@ describe('LoanOriginationModalComponent', () => {
 
   const customersService = {
     search: vi.fn().mockResolvedValue({
-      items: [{ id: 'cust-1', routeId: 'route-1', firstNames: 'Ana', lastNames: 'Pérez', status: 'Active' }],
+      items: [{ id: 'cust-1', routeId: 'route-1', identification: '001234567', firstNames: 'Ana', lastNames: 'Pérez', status: 'Active' }],
       page: 1,
       pageSize: 100,
       totalCount: 1,
@@ -197,7 +197,7 @@ describe('LoanOriginationModalComponent', () => {
   it('debounces server search and can select a customer outside the initial results', async () => {
     const fixture = TestBed.createComponent(LoanOriginationModalComponent); const comp = fixture.componentInstance;
     await comp.initModal();
-    const extra = { ...comp.customers()[0], id: 'cust-remote', firstNames: 'Carlos', lastNames: 'Remoto' };
+    const extra = { ...comp.customers()[0], id: 'cust-remote', identification: '001234567', firstNames: 'Carlos', lastNames: 'Remoto' };
     customersService.search.mockResolvedValueOnce({ items: [extra], page: 1, pageSize: 100, totalCount: 1 });
     comp.searchCustomers('Car'); comp.searchCustomers('Carlos');
     await vi.waitFor(() => expect(comp.customerSearching()).toBe(false));

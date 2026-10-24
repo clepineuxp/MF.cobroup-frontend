@@ -15,6 +15,7 @@ import {
 import { CustomersService } from '../../../features/customers/data/customers.service';
 
 export interface CustomerDraft {
+  identification: string;
   id: string | null;
   routeId: string;
   firstNames: string;
@@ -61,6 +62,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
 
   draft: CustomerDraft = this.emptyDraft();
   fullName = '';
+  private originalIdentification = '';
 
   async ngOnChanges(changes: SimpleChanges): Promise<void> {
     if (changes['isOpen'] && !this.isOpen) this.cancelLocationWork();
@@ -72,6 +74,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
   async initModal(): Promise<void> {
     this.cancelLocationWork();
     this.fullName = '';
+    this.originalIdentification = '';
     this.error.set('');
     this.success.set('');
     this.loading.set(true);
@@ -84,6 +87,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
       if (this.customerId) {
         const customer = await this.customersService.get(this.customerId);
         this.draft = this.fromDetails(customer);
+        this.originalIdentification = customer.identification;
         this.fullName = `${customer.firstNames} ${customer.lastNames}`.trim();
       } else {
         this.draft = this.emptyDraft();
@@ -214,6 +218,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
 
     const request: CustomerWriteRequest = {
       routeId: this.draft.routeId,
+      identification: this.draft.identification.trim(),
       ...this.customerNameParts()!,
       businessOrWorkName: this.draft.businessOrWorkName.trim() || null,
       observations: this.draft.observations.trim() || null,
@@ -257,12 +262,17 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
   }
 
   private isValid(): boolean {
+    const identification = this.draft.identification.trim();
+    if (!identification || identification.length > 64 || (identification === '0' && (!this.draft.id || this.originalIdentification !== '0'))) {
+      this.error.set('La identificación es obligatoria. El valor 0 solo se conserva en clientes antiguos.');
+      return false;
+    }
     if (!this.draft.routeId || !this.fullName.trim()) {
-      this.error.set('Ruta y nombre completo son obligatorios.');
+      this.error.set('Ruta y alias son obligatorios.');
       return false;
     }
     if (!this.customerNameParts()) {
-      this.error.set('Ingresa el nombre completo, incluyendo al menos un apellido, sin superar la longitud permitida.');
+      this.error.set('El alias debe conservar el formato actual y no superar la longitud permitida.');
       return false;
     }
     if (
@@ -290,6 +300,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
 
   private emptyDraft(): CustomerDraft {
     return {
+      identification: '',
       id: null,
       routeId: '',
       firstNames: '',
@@ -308,6 +319,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
 
   private fromDetails(customer: CustomerDetails): CustomerDraft {
     return {
+      identification: customer.identification,
       id: customer.id,
       routeId: customer.routeId,
       firstNames: customer.firstNames,

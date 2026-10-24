@@ -95,7 +95,7 @@ describe('Operative LoansPage', () => {
       items: [
         {
           id: 'cust-1',
-          firstNames: 'Pedro',
+          identification: '001234567', firstNames: 'Pedro',
           lastNames: 'Gómez',
           businessOrWorkName: 'Panadería Gómez',
           status: 'Active',
