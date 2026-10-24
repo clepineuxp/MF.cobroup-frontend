@@ -385,3 +385,11 @@
 - PWA: versión visible `1.14.0`, botón manual `Buscar actualizaciones` y estado transitorio `Consultando…`; continúan las comprobaciones automáticas al estabilizar, cada 15 minutos, con foco, visibilidad y reconexión. `ngsw.json` incluye `appData` con versión y aplicación.
 - Verificación: suite completa operativa 74/74, prueba dirigida PWA 6/6 y build productivo correctos. Se comprobó en navegador el login operativo con logo y marca en notch; el paquete final contiene SVG, PNG y appData.
 - Git: cambios preservados sin commit, push, merge, tag, PR ni despliegue para esta solicitud.
+
+### 2026-10-24 — Ingresos, inversiones, gastos y balance operativo por ruta
+
+- Navegación: nuevas secciones `Ingresos / Inversiones` y `Gastos`.
+- Flujo: selección de ruta, balance neto con desglose, alta de movimiento sin fecha editable e historial con autor/fecha. Los movimientos editables muestran acción Modificar; registros de días anteriores quedan visibles pero bloqueados para Collector/Supervisor según la decisión del servidor.
+- Contrato: cliente para `/api/operations/v1/route-finances`, incluyendo saldo inicial publicado por el directorio de rutas.
+- Verificación: 76/76 pruebas Vitest en 21 suites y build productivo correcto sin warnings.
+- Git: cambios locales sin commit, push, merge, tag, PR ni despliegue.

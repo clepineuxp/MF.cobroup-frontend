@@ -1,0 +1,37 @@
+<div class="finance-page">
+  <header><p class="eyebrow">CAJA POR RUTA</p><h2>{{ title }}</h2><p>Registra y consulta movimientos. La fecha y el responsable se guardan automáticamente.</p></header>
+  @if (error()) { <p class="message error" role="alert">{{ error() }}</p> }
+  @if (success()) { <p class="message success" role="status">{{ success() }}</p> }
+  <label class="route-picker">Ruta
+    <select [value]="selectedRouteId()" (change)="selectRoute($any($event.target).value)">
+      <option value="">Selecciona una ruta</option>
+      @for (route of routes(); track route.id) { <option [value]="route.id">{{ route.name }}</option> }
+    </select>
+  </label>
+  @if (balance(); as item) {
+    <section class="balance-card" [class.negative]="item.netBalance < 0">
+      <span>Balance actual</span><strong>{{ item.netBalance | currency:'COP':'symbol-narrow':'1.0-2' }}</strong>
+      <small>Inicial {{ item.initialBalance | currency:'COP':'symbol-narrow':'1.0-2' }} · Préstamos −{{ item.loanDisbursements | currency:'COP':'symbol-narrow':'1.0-2' }} · Cobros +{{ item.paymentCollections | currency:'COP':'symbol-narrow':'1.0-2' }}</small>
+    </section>
+  }
+  @if (selectedRouteId()) {
+    <div class="workspace">
+      <section class="panel editor">
+        <h3>{{ editingId() ? 'Modificar movimiento' : 'Nuevo movimiento' }}</h3>
+        <form [formGroup]="form" (ngSubmit)="submit()">
+          @if (!isExpense) { <label>Tipo<select formControlName="type"><option value="Income">Ingreso</option><option value="Investment">Inversión</option></select></label> }
+          <label>Concepto<input formControlName="concept" maxlength="160" /></label>
+          <label>Descripción<textarea formControlName="description" maxlength="1000" rows="4"></textarea></label>
+          <label>Monto<input type="number" min="0.01" step="0.01" formControlName="amount" /></label>
+          <div class="actions"><button type="submit" [disabled]="saving()">{{ saving() ? 'Guardando…' : editingId() ? 'Guardar cambios' : 'Registrar' }}</button>@if (editingId()) { <button type="button" class="secondary" (click)="cancelEdit()">Cancelar</button> }</div>
+        </form>
+      </section>
+      <section class="panel history"><h3>Historial de la ruta</h3>
+        @if (!loading() && entries().length === 0) { <p class="empty">No hay movimientos en esta sección.</p> }
+        @for (entry of entries(); track entry.id) {
+          <article><div class="entry-main"><span class="type">{{ entry.type === 'Income' ? 'Ingreso' : entry.type === 'Investment' ? 'Inversión' : 'Gasto' }}</span><h4>{{ entry.concept }}</h4><p>{{ entry.description || 'Sin descripción' }}</p></div><strong>{{ entry.amount | currency:'COP':'symbol-narrow':'1.0-2' }}</strong><footer><span>{{ entry.createdAtUtc | date:'medium':'-0500' }} · {{ entry.createdByDisplayName }}</span>@if (entry.canEdit) { <button type="button" class="link" (click)="edit(entry)">Modificar</button> } @else { <small>Edición cerrada</small> }</footer></article>
+        }
+      </section>
+    </div>
+  }
+</div>
