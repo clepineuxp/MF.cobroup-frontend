@@ -59,13 +59,15 @@
                 <span class="field-label">Plantilla de crédito *</span>
                 <select formControlName="loanTemplateId" (change)="onTemplateChanged($any($event.target).value)">
                   <option value="">Seleccione una plantilla...</option>
-                  @for (tpl of templates(); track tpl.id) {
+                  @for (tpl of availableTemplates; track tpl.id) {
                     <option [value]="tpl.id">
-                      {{ tpl.name }} (Hasta {{ tpl.maxPrincipalAmount | currency:'COP':'symbol-narrow':'1.0-0' }} · {{ tpl.maxLoanDays }} días)
+                      {{ tpl.name }} ({{ tpl.minPrincipalAmount | currency:'COP':'symbol-narrow':'1.0-0' }} a {{ tpl.maxPrincipalAmount | currency:'COP':'symbol-narrow':'1.0-0' }} · {{ tpl.minPercentage }} % a {{ tpl.maxPercentage }} % · hasta {{ tpl.maxLoanDays }} días)
                     </option>
                   }
                 </select>
               </label>
+              @if (!form.controls.customerId.value) { <p>Selecciona primero un cliente para ver las plantillas de su ruta.</p> }
+              @else if (availableTemplates.length === 0) { <p>No hay plantillas publicadas asignadas a la ruta de este cliente.</p> }
             } @else {
               <label class="clean-field">
                 <span class="field-label">Solicitud de excepción aprobada *</span>
@@ -98,6 +100,7 @@
                 <select formControlName="paymentFrequency" (change)="calculatePreview()">
                   <option value="Daily">Diario</option>
                   <option value="Weekly">Semanal</option>
+                  <option value="Monthly">Mensual</option>
                   <option value="EveryNDays">Cada N Días</option>
                 </select>
               </label>
@@ -116,8 +119,11 @@
             </div>
 
             <label class="clean-field">
-              <span class="field-label">Fecha del Primer Pago *</span>
+              <span class="field-label">Fecha de inicio del préstamo *</span>
               <input type="date" formControlName="startDate" (change)="calculatePreview()" />
+              @if (form.controls.paymentFrequency.value === 'Monthly') {
+                <small>La primera cuota vence un mes después. Si el día no existe, se usa el último día del mes.</small>
+              }
             </label>
           </div>
 
@@ -154,13 +160,16 @@
             </div>
           }
 
+          @if (originationMode() === 'template' && form.controls.loanTemplateId.value && templateLimitsError) {
+            <p role="alert">{{ templateLimitsError }}</p>
+          }
           <div class="modal-footer">
             <button type="button" class="btn-cancel" (click)="close()">Cancelar</button>
             <button
               id="btn-submit-loan"
               type="submit"
               class="btn-submit"
-              [disabled]="form.invalid || submitting()"
+              [disabled]="form.invalid || submitting() || !!templateLimitsError"
             >
               {{ submitting() ? 'Originando préstamo...' : 'Confirmar y Originar' }}
             </button>

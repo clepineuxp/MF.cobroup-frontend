@@ -122,7 +122,15 @@ export class MapViewComponent implements AfterViewInit, OnChanges, OnDestroy {
     if (!this.containerRef?.nativeElement || typeof window === 'undefined') return;
 
     try {
-      const L = await import('leaflet');
+      const leafletRaw = await import('leaflet');
+      const L: any =
+        (leafletRaw as any).default?.map
+          ? (leafletRaw as any).default
+          : (leafletRaw as any).map
+            ? leafletRaw
+            : (typeof window !== 'undefined' && (window as any).L
+                ? (window as any).L
+                : ((leafletRaw as any).default ?? leafletRaw));
       this.leafletModule = L;
 
       this.map = L.map(this.containerRef.nativeElement, {

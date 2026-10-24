@@ -7,6 +7,10 @@ export interface AvailableLoanTemplate {
   readonly version: number;
   readonly maxLoanDays: number;
   readonly maxPrincipalAmount: number;
-  readonly allowedPercentages: readonly number[];
+  readonly allowedPercentages?: readonly number[];
+  readonly minPrincipalAmount: number;
+  readonly minPercentage: number;
+  readonly maxPercentage: number;
+  readonly routeIds: readonly string[];
   readonly updatedAtUtc: string;
 }

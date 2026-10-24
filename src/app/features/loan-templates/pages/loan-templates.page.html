@@ -17,10 +17,10 @@
       <dl class="terms-grid">
         <div class="term-item"><dt>Clasificación</dt><dd>{{ template.classification }}</dd></div>
         <div class="term-item"><dt>Plazo máximo</dt><dd>{{ template.maxLoanDays }} días</dd></div>
-        <div class="term-item"><dt>Monto máximo</dt><dd>{{ template.maxPrincipalAmount | currency }}</dd></div>
+        <div class="term-item"><dt>Rango de monto</dt><dd>{{ template.minPrincipalAmount | currency }} a {{ template.maxPrincipalAmount | currency }}</dd></div>
       </dl>
       <div class="card-footer">
-        <span>Tasas autorizadas: <strong>{{ template.allowedPercentages.join(' %, ') }} %</strong></span>
+        <span>Tasas autorizadas: <strong>{{ template.minPercentage }} % a {{ template.maxPercentage }} %</strong></span>
       </div>
     </article>
   }

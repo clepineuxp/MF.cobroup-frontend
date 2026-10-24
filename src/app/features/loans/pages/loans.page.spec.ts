@@ -116,7 +116,7 @@ describe('Operative LoansPage', () => {
         version: 1,
         maxLoanDays: 20,
         maxPrincipalAmount: 1000000,
-        allowedPercentages: [10, 15, 20],
+        allowedPercentages: [10, 15, 20], minPrincipalAmount: 100000, minPercentage: 10, maxPercentage: 20, routeIds: ['route-1'],
       },
     ]),
   };
@@ -211,6 +211,7 @@ describe('Operative LoansPage', () => {
 
     const page = fixture.componentInstance;
     page.openOrigination();
+    page.form.patchValue({ customerId: 'cust-1' });
     page.onTemplateChanged('tpl-1');
 
     await page.calculatePreview();

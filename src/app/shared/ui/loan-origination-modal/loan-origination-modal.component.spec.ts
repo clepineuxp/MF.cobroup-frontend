@@ -22,7 +22,7 @@ describe('LoanOriginationModalComponent', () => {
 
   const customersService = {
     search: vi.fn().mockResolvedValue({
-      items: [{ id: 'cust-1', firstNames: 'Ana', lastNames: 'Pérez', status: 'Active' }],
+      items: [{ id: 'cust-1', routeId: 'route-1', firstNames: 'Ana', lastNames: 'Pérez', status: 'Active' }],
       page: 1,
       pageSize: 100,
       totalCount: 1,
@@ -37,7 +37,7 @@ describe('LoanOriginationModalComponent', () => {
         version: 1,
         maxLoanDays: 20,
         maxPrincipalAmount: 1000000,
-        allowedPercentages: [10],
+        allowedPercentages: [10], minPrincipalAmount: 100000, minPercentage: 10, maxPercentage: 20, routeIds: ['route-1'],
       },
     ]),
   };
@@ -85,6 +85,48 @@ describe('LoanOriginationModalComponent', () => {
     expect(comp.form.controls.principalAmount.value).toBe(1000000);
     expect(comp.form.controls.installmentCount.value).toBe(20);
     expect(comp.form.controls.interestRate.value).toBe(10);
+  });
+
+  it('filters templates by customer route and resets selection when changing customers', async () => {
+    const comp = TestBed.createComponent(LoanOriginationModalComponent).componentInstance;
+    await comp.initModal();
+    comp.customers.set([
+      ...comp.customers(),
+      { ...comp.customers()[0], id: 'cust-2', routeId: 'route-2' },
+    ]);
+    expect(comp.availableTemplates).toHaveLength(0);
+    comp.form.patchValue({ customerId: 'cust-1', loanTemplateId: 'tpl-1' });
+    expect(comp.availableTemplates.map(item => item.id)).toEqual(['tpl-1']);
+    comp.form.patchValue({ customerId: 'cust-2' });
+    comp.onCustomerChanged('cust-2');
+    expect(comp.form.controls.loanTemplateId.value).toBe('');
+    expect(comp.availableTemplates).toHaveLength(0);
+  });
+
+  it('blocks values outside template bounds and accepts an intermediate rate', async () => {
+    const comp = TestBed.createComponent(LoanOriginationModalComponent).componentInstance;
+    await comp.initModal();
+    comp.form.patchValue({ customerId: 'cust-1', loanTemplateId: 'tpl-1', principalAmount: 99999, interestRate: 12.5 });
+    expect(comp.templateLimitsError).toContain('monto');
+    comp.form.patchValue({ principalAmount: 500000, interestRate: 21 });
+    expect(comp.templateLimitsError).toContain('interés');
+    comp.form.patchValue({ interestRate: 12.5 });
+    expect(comp.templateLimitsError).toBe('');
+  });
+
+  it('offers monthly payments and sends the monthly frequency without a day interval', async () => {
+    const fixture = TestBed.createComponent(LoanOriginationModalComponent);
+    const comp = fixture.componentInstance;
+    comp.isOpen = true;
+    await comp.initModal();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('option[value="Monthly"]').textContent).toContain('Mensual');
+    comp.form.patchValue({ customerId: 'cust-1', loanTemplateId: 'tpl-1', principalAmount: 500000,
+      interestRate: 12.5, installmentCount: 2, paymentFrequency: 'Monthly', frequencyNDays: 7 });
+    await comp.submitOrigination();
+    expect(loansService.originate).toHaveBeenCalledWith(expect.objectContaining({
+      paymentFrequency: 'Monthly', frequencyNDays: null, installmentCount: 2,
+    }));
   });
 
   it('submits loan origination and emits loanCreated', async () => {
