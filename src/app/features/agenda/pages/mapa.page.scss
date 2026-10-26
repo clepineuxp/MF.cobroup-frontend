@@ -497,11 +497,13 @@
   gap: 0.6rem;
 
   /* Mobile / Narrow Screen default (< 540px):
-     Collapsed to the left side in a single vertical column */
+     Collapsed to the left side in a single vertical column with equal button size */
   bottom: 5.5rem;
   left: 1rem;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
+  width: max-content;
+  max-width: calc(100vw - 2rem);
 
   /* Wide Screen (>= 540px):
      Centered at the bottom in a single horizontal row */
@@ -511,6 +513,8 @@
     transform: translateX(-50%);
     flex-direction: row;
     align-items: center;
+    width: auto;
+    max-width: none;
     white-space: nowrap;
   }
 }
@@ -530,6 +534,12 @@
   -webkit-backdrop-filter: blur(14px);
   transition: all 0.15s ease;
   user-select: none;
+  box-sizing: border-box;
+  width: 100%;
+
+  @media (min-width: 540px) {
+    width: auto;
+  }
 
   &:hover:not(:disabled) {
     transform: translateY(-2px);
