@@ -42,7 +42,7 @@ describe('Operative LoanExceptionsPage', () => {
         {
           id: 'cust-1',
           routeId: 'route-1',
-          firstNames: 'Laura',
+          identification: '001234567', firstNames: 'Laura',
           lastNames: 'Torres',
           status: 'Active',
           primaryPhone: '3001234567',

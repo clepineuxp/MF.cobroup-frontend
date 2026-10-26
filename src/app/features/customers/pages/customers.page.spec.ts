@@ -7,7 +7,7 @@ import { CustomersPage } from './customers.page';
 
 describe('CustomersPage', () => {
   const customer = {
-    id: 'customer-1', routeId: 'route-1', firstNames: 'Ana', lastNames: 'Pérez', businessOrWorkName: 'Taller',
+    id: 'customer-1', routeId: 'route-1', identification: '001234567', firstNames: 'Ana', lastNames: 'Pérez', businessOrWorkName: 'Taller',
     primaryPhone: '3001112233', primaryLatitude: 4.711, primaryLongitude: -74.072, status: 'Active' as const,
     updatedAtUtc: '2026-10-21T00:00:00Z',
   };
@@ -61,11 +61,11 @@ describe('CustomersPage', () => {
     await fixture.whenStable();
     const page = fixture.componentInstance;
     page.openCreate();
-    page.draft.firstNames = 'Luis'; page.draft.lastNames = 'Díaz'; page.draft.phones[0].number = '3002223344';
+    page.draft.identification = '001234567'; page.draft.firstNames = 'Luis'; page.draft.lastNames = 'Díaz'; page.draft.phones[0].number = '3002223344';
     page.draft.locations[0].latitude = 4.7; page.draft.locations[0].longitude = -74.1;
 
     await page.save();
 
-    expect(customersService.create).toHaveBeenCalledWith(expect.objectContaining({ routeId: 'route-1', firstNames: 'Luis' }));
+    expect(customersService.create).toHaveBeenCalledWith(expect.objectContaining({ routeId: 'route-1', identification: '001234567', firstNames: 'Luis' }));
   });
 });

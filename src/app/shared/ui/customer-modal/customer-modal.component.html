@@ -36,18 +36,18 @@
               </label>
 
               <label class="clean-field">
-                <span class="field-label">Nombres *</span>
-                <input name="firstNames" [(ngModel)]="draft.firstNames" maxlength="120" placeholder="Ej: Carlos Alberto" required />
+                <span class="field-label">Alias *</span>
+                <input name="fullName" [(ngModel)]="fullName" maxlength="241" placeholder="Ej: Don Carlos" required />
               </label>
 
               <label class="clean-field">
-                <span class="field-label">Apellidos *</span>
-                <input name="lastNames" [(ngModel)]="draft.lastNames" maxlength="120" placeholder="Ej: Gómez Restrepo" required />
+                <span class="field-label">Nombre completo</span>
+                <input name="business" [(ngModel)]="draft.businessOrWorkName" maxlength="160" placeholder="Ej: Carlos Alberto Gómez Restrepo" />
               </label>
 
               <label class="clean-field">
-                <span class="field-label">Comercio / Trabajo</span>
-                <input name="business" [(ngModel)]="draft.businessOrWorkName" maxlength="160" placeholder="Ej: Tienda La 45" />
+                <span class="field-label">Identificación *</span>
+                <input name="identification" [(ngModel)]="draft.identification" maxlength="64" placeholder="Ej: 001234567" required />
               </label>
 
               @if (draft.id && isAdmin()) {

@@ -3,9 +3,9 @@
 ## Identidad y restricciones
 
 - Producto: COBROUP; rol: frontend operativo.
-- Maestro: `../cobroup.md/COBROUP.md` 1.14.0 y `../cobroup.md/DECISION_AUTENTICACION_JWT.md`.
+- Maestro: `../cobroup.md/COBROUP.md` 1.15.0 y `../cobroup.md/DECISION_AUTENTICACION_JWT.md`.
 - Estándar: `../cobroup.md/FRAMEWORK_DESARROLLO_FRONTEND.md` 1.0.
-- Rama activa: `feature/clients-page`, actualizada con `origin/dev` para resolver los conflictos del PR #15.
+- Rama activa: `feature/customer-identification`, creada desde `origin/dev`; árbol limpio al iniciar.
 - Sin push, merge, tag ni PR sin autorización.
 
 ## Estado actual
@@ -386,6 +386,7 @@
 - Verificación: suite completa operativa 74/74, prueba dirigida PWA 6/6 y build productivo correctos. Se comprobó en navegador el login operativo con logo y marca en notch; el paquete final contiene SVG, PNG y appData.
 - Git: cambios preservados sin commit, push, merge, tag, PR ni despliegue para esta solicitud.
 
+
 ### 2026-10-24 — Ingresos, inversiones, gastos y balance operativo por ruta
 
 - Navegación: nuevas secciones `Ingresos / Inversiones` y `Gastos`.
@@ -393,3 +394,77 @@
 - Contrato: cliente para `/api/operations/v1/route-finances`, incluyendo saldo inicial publicado por el directorio de rutas.
 - Verificación: 76/76 pruebas Vitest en 21 suites y build productivo correcto sin warnings.
 - Git: cambios locales sin commit, push, merge, tag, PR ni despliegue.
+=======
+
+### 2026-10-23 — Corrección de desbordamiento en tarjetas de préstamos
+
+- Solicitud: corregir montos, etiquetas y acciones superpuestos en /prestamos del frontend operativo.
+- Rama feature/loan-card-overflow desde origin/dev (9adc9bb), árbol limpio al inicio. Maestro 1.14.0 y framework frontend 1.0. Sin commit, push ni despliegue solicitados para este alcance.
+- Cambio limitado a loans.page.scss: métricas en grid de dos columnas con saldo en fila completa; etiquetas y valores en columna, min-width:0 y overflow-wrap para contenido largo. Pie y acciones con flex-wrap y separación; grilla limitada al ancho disponible, filtros adaptables. Sin truncar montos ni cambiar cálculos, API, autenticación, temas o PWA.
+- Verificación: build productivo correcto sin advertencias y 4/4 pruebas existentes de LoansPage. Navegador con fixtures locales, nombres largos y montos hasta 1.099.999.999.999: ancho contenido = ancho tarjeta (351 px), métricas y acciones dentro del borde. Revisión en claro/oscuro; captura local de evidencia. No se usaron datos reales ni se verificó en móvil instalado. Auditoría independiente no realizada. git diff --check correcto.
+
+### 2026-10-24 — Commit autorizado de tarjetas de préstamos
+
+- Solicitud expresa: hacer commit de la corrección de desbordamiento ya validada. Se conservan las pruebas y límites registrados. Sin push ni despliegue.
+
+### 2026-10-24 — Captura manual de condiciones al elegir plantilla
+
+- Solicitud: después del commit de tarjetas, quitar el autorrelleno de los campos inferiores al seleccionar una plantilla al crear un préstamo.
+- Cambio: onTemplateChanged en el modal compartido y en la lógica previa de LoansPage ya no asigna máximo principal, mínimo interés ni maxLoanDays como número de cuotas. Limpia simulación/error; conserva los valores manuales existentes. Monto, interés y cuotas siguen siendo obligatorios/editables y se validan contra límites antes de guardar; frecuencia/fecha conservan los valores iniciales previos. Excepciones aprobadas conservan su comportamiento existente.
+- Interfaz: ayuda visible que explica la captura manual y el papel de la plantilla como límites permitidos. Sin cambios de API, cálculos, reglas backend, autenticación ni PWA.
+- Verificación: 11/11 pruebas dirigidas del modal y LoansPage (2 suites); cubren selección por DOM con campos vacíos/editables, obligatoriedad, preservación manual, simulación, límites y envío. Build productivo correcto sin advertencias; CLI Angular local, Node v24.22.1. No se realizaron préstamos reales ni E2E desplegado. Auditoría independiente no realizada.
+- Git: rama feature/loan-card-overflow conservada para mantener el commit 6954e14 de tarjetas y este cambio acumulado. Este nuevo alcance queda sin commit; la autorización previa correspondía a la corrección de desbordamiento. Sin push ni despliegue.
+
+### 2026-10-24 — Commit autorizado de condiciones manuales
+
+- Solicitud expresa: hacer commit del ajuste que elimina el autorrelleno al seleccionar plantilla. Se conservan las verificaciones registradas; sin push ni despliegue.
+
+### 2026-10-24 — Selector buscable de clientes en Nuevo Préstamo
+
+- Solicitud: después de versionar el ajuste de condiciones manuales (4624fbd), permitir escribir letras en el selector de cliente para buscar.
+- Cambio: input con rol combobox y lista accesible de clientes activos, consulta local inmediata sin distinción de acentos y búsqueda al servidor con debounce de 250 ms. Usa CustomersService.search existente con página 1 y 100 resultados por consulta; permite afinar escribiendo más letras, sin limitarse al lote inicial. Busca por nombre, comercio o teléfono según el endpoint existente.
+- Interacción: clic, flechas, Enter, Escape y Tab; opción activa visible al navegar y lista con scroll interno. Se mantiene ID real en el formulario, no texto libre. Escribir otro término elimina selección anterior, plantilla y excepción dependientes; seleccionar conserva condiciones económicas manuales y habilita las plantillas de la ruta. Cliente preseleccionado muestra su nombre cuando está en el lote inicial.
+- Concurrencia: temporizador liberado al cerrar/destruir; versión de consulta ignora respuestas atrasadas tras otra búsqueda o selección. No se reabre la lista por respuestas tardías. Carga, sin resultados, fallo de red y reintento por nueva escritura. Datos consultados permanecen solo en memoria; sin nuevas dependencias ni cambios backend/auth/PWA.
+- Estilos centralizados en themes/_customer-combobox.scss con tokens existentes y sin colores nuevos.
+- Validación final: 15/15 pruebas dirigidas del modal y LoansPage (2 suites), cubriendo búsqueda sin acentos, selección DOM/teclado, campos manuales, debounce, cliente remoto fuera del lote inicial, invalidación de IDs, fallo/reintento y respuesta tardía. Build productivo correcto sin advertencias, 319.58 kB iniciales. CLI Angular local, Node v24.22.1; git diff --check correcto.
+- Navegador: fixture local 127.0.0.1:5866, escribir ana muestra Ana Pérez y Enter selecciona, filtra plantillas de su ruta y deja monto/interés/cuotas vacíos. Captura local de evidencia. Sin préstamos reales, móvil instalado ni ingress productivo; auditoría independiente no realizada.
+- Git: rama feature/loan-card-overflow conservada, con cambios previos versionados; nuevo buscador pendiente de commit. Sin push ni despliegue.
+
+### 2026-10-24 — Commit autorizado del buscador de clientes
+
+- Solicitud expresa: hacer commit del buscador de clientes en Nuevo Préstamo. Se conservan las verificaciones registradas; sin push ni despliegue.
+
+### 2026-10-24 — Nombre completo y alias en formulario de cliente
+
+- Solicitud: después del commit del buscador (09929b4), cambiar Comercio / Trabajo por Alias Cliente y reemplazar Nombres/Apellidos por un único Nombre completo en el modal mostrado.
+- Interfaz: mismo formulario compartido de creación/edición usa un único input fullName obligatorio y Alias Cliente opcional con ejemplo Don Carlos. Se conserva el campo técnico businessOrWorkName y sus datos existentes, sin migración ni cambios de contrato.
+- Compatibilidad: el nombre cargado concatena firstNames/lastNames; si no se cambia conserva su separación original, incluidos nombres/apellidos compuestos. Al crear/renombrar se normalizan espacios y se adapta el texto a los dos campos vigentes sin perder/duplicar palabras. Se conserva la obligación actual de al menos un nombre y apellido y los límites de 120 caracteres por campo de la API; no se asignan apellidos ficticios. Es una unificación de captura, no una modificación del modelo backend.
+- Se mantienen ruta, teléfonos, coordenadas, estado, permisos y comportamiento de GPS/mapa. Sin dependencias nuevas ni cambios en PWA o autenticación.
+- Validación: 16/16 pruebas dirigidas del modal y página de clientes (2 suites); cubren único campo y etiqueta, alta, edición preservando nombres compuestos/alias, renombrado sin pérdida de palabras, campos incompletos/largos y regresiones de GPS/mapa. Build productivo correcto sin advertencias. CLI Angular local con Node v24.22.1; git diff --check correcto. No se crearon clientes reales ni se verificó por ingress. Auditoría independiente no realizada.
+- Git: feature/loan-card-overflow conservada con los commits previos; este nuevo ajuste queda sin commit. Sin push ni despliegue.
+
+### 2026-10-24 — Commit autorizado de nombre completo y alias
+
+- Solicitud expresa del usuario: hacer commit del formulario con Nombre completo y Alias Cliente, incluyendo pruebas y documentación asociada.
+- Se conservan las verificaciones registradas, sin nuevos cambios funcionales. Commit autorizado: SÍ. Sin push, merge, tag, PR ni despliegue.
+
+
+### 2026-10-24 — Identificación obligatoria de clientes e intercambio visual de etiquetas
+
+- Solicitud expresa: invertir Alias/Nombre completo solo en interfaz y agregar identificación obligatoria, con 0 solo para clientes anteriores. Maestro 1.15.0, frameworks frontend 1.0 / C# 2.0 y JWT vigente.
+- Modal de clientes: se intercambian únicamente etiquetas/ejemplos: el control fullName sobre firstNames/lastNames se muestra como Alias; businessOrWorkName se muestra como Nombre completo. No se permutan datos persistidos ni se cambian sus validaciones previas.
+- Identificación obligatoria de texto (1–64 caracteres, trim, ceros iniciales preservados). Nueva alta vacía sin default; 0 reservado al cliente existente cargado con 0 y reemplazable. Se envía en alta/edición y se conserva en la ruta anterior de actualización. Lecturas/contratos tipados y fixtures adecuados.
+- Validación: suite completa 86/86 en 20 suites, build productivo correcto sin advertencias (319.58 kB iniciales). Pruebas incluyen etiqueta/dato sin permuta, alta sin ID, rechazo de 0 nuevo, conservación/corrección de 0 anterior y ceros iniciales. Navegador con fixtures locales verificó edición con ID 0 y alta con ID vacía; captura cliente-alias-identificacion.png. Sin creación de clientes reales desde la UI.
+- Despliegue coordinado requerido: las versiones anteriores de API/formularios no envían identificación. Desplegar el backend operativo actualizado y ambos frontends juntos; la migración de Dev ya está aplicada. El servidor valida también las solicitudes directas y las reenviadas por BackendAdmin.
+- Git: sin commit, push, merge, PR ni despliegue solicitados para este alcance. Auditoría independiente no realizada. Decisión canónica: ../cobroup.md/DECISION_IDENTIFICACION_CLIENTE.md.
+
+### 2026-10-24 — Verificación de rama y destino de publicación
+
+- El usuario pidió validar que el trabajo y su publicación correspondan a la rama feature, al observar cambios enviados a dev.
+- Rama activa verificada: feature/customer-identification. Eliminado el seguimiento incorrecto de origin/dev. Configuración local: push.default=current, push.autoSetupRemote=true y branch.autoSetupMerge=false; futuros pushes por defecto usarán el mismo nombre de rama y nuevas features no heredarán origin/dev automáticamente.
+- La rama remota feature/customer-identification no existía al verificar; no se hizo push. Los commits permanecen locales. En documentación se creó esta rama desde la fundación local existente, conservando los cinco commits previos sin reset ni merge.
+
+### 2026-10-24 — Commit autorizado de identificación de clientes
+
+- Solicitud expresa del usuario: hacer commits del alcance de identificación obligatoria, intercambio visual de etiquetas, migración, pruebas y documentación.
+- Se conservan las verificaciones y la migración de Dev a 7 clientes. Commit autorizado: SÍ. Sin push, merge, tag, PR ni despliegue.

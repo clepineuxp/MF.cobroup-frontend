@@ -11,7 +11,7 @@ describe('CustomerModalComponent', () => {
     get: vi.fn().mockResolvedValue({
       id: 'cust-1',
       routeId: 'route-1',
-      firstNames: 'Carlos',
+      identification: '001234567', firstNames: 'Carlos',
       lastNames: 'Restrepo',
       businessOrWorkName: 'Ferretería',
       observations: '',
@@ -56,7 +56,7 @@ describe('CustomerModalComponent', () => {
     const fixture = TestBed.createComponent(CustomerModalComponent);
     const comp = fixture.componentInstance;
     comp.isOpen = true;
-    await comp.initModal();
+    await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567';
     fixture.detectChanges();
 
     expect(routesService.listAccessible).toHaveBeenCalled();
@@ -69,7 +69,7 @@ describe('CustomerModalComponent', () => {
     const comp = fixture.componentInstance;
     comp.isOpen = true;
     comp.customerId = 'cust-1';
-    await comp.initModal();
+    await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567';
     fixture.detectChanges();
 
     expect(customersService.get).toHaveBeenCalledWith('cust-1');
@@ -81,11 +81,10 @@ describe('CustomerModalComponent', () => {
     const fixture = TestBed.createComponent(CustomerModalComponent);
     const comp = fixture.componentInstance;
     comp.isOpen = true;
-    await comp.initModal();
+    await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567';
 
     comp.draft.routeId = 'route-1';
-    comp.draft.firstNames = 'Laura';
-    comp.draft.lastNames = 'Mejía';
+    comp.fullName = 'Laura Mejía';
     comp.draft.phones[0].number = '3001234567';
     comp.draft.locations[0].latitude = 4.7;
     comp.draft.locations[0].longitude = -74.1;
@@ -98,7 +97,7 @@ describe('CustomerModalComponent', () => {
     expect(customersService.create).toHaveBeenCalledWith(
       expect.objectContaining({
         routeId: 'route-1',
-        firstNames: 'Laura',
+        identification: '001234567', firstNames: 'Laura',
         lastNames: 'Mejía',
       })
     );
@@ -109,7 +108,7 @@ describe('CustomerModalComponent', () => {
     let resolve!: PositionCallback;
     vi.stubGlobal('navigator', { userAgent: 'Vitest', geolocation: { getCurrentPosition: vi.fn((callback) => { resolve = callback; }) } });
     const fixture = TestBed.createComponent(CustomerModalComponent);
-    const comp = fixture.componentInstance; comp.isOpen = true; await comp.initModal();
+    const comp = fixture.componentInstance; comp.isOpen = true; await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567';
     comp.useCurrentLocation(0); fixture.detectChanges();
     expect(comp.gpsIndex()).toBe(0);
     expect(fixture.nativeElement.querySelector('button[type="submit"]').disabled).toBe(true);
@@ -127,7 +126,7 @@ describe('CustomerModalComponent', () => {
     let reject!: PositionErrorCallback;
     vi.stubGlobal('navigator', { userAgent: 'Vitest', geolocation: { getCurrentPosition: vi.fn((_success, failure) => { reject = failure; }) } });
     const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
-    comp.isOpen = true; await comp.initModal(); comp.draft.locations[0].latitude = 4.7;
+    comp.isOpen = true; await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567'; comp.draft.locations[0].latitude = 4.7;
     comp.useCurrentLocation(0); reject({ code: 1 } as GeolocationPositionError);
     expect(comp.gpsError()).toContain('denegado');
     expect(comp.gpsIndex()).toBeNull(); expect(comp.draft.locations[0].latitude).toBe(4.7);
@@ -137,7 +136,7 @@ describe('CustomerModalComponent', () => {
     let resolve!: PositionCallback;
     vi.stubGlobal('navigator', { userAgent: 'Vitest', geolocation: { getCurrentPosition: vi.fn((callback) => { resolve = callback; }) } });
     const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
-    comp.isOpen = true; await comp.initModal(); vi.useFakeTimers();
+    comp.isOpen = true; await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567'; vi.useFakeTimers();
     comp.useCurrentLocation(0); vi.advanceTimersByTime(12001);
     expect(comp.gpsIndex()).toBeNull(); expect(comp.gpsError()).toContain('demasiado');
     resolve({ coords: { latitude: 10, longitude: 20 } } as GeolocationPosition);
@@ -148,15 +147,15 @@ describe('CustomerModalComponent', () => {
     let resolve!: PositionCallback;
     vi.stubGlobal('navigator', { userAgent: 'Vitest', geolocation: { getCurrentPosition: vi.fn((callback) => { resolve = callback; }) } });
     const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
-    comp.isOpen = true; await comp.initModal(); comp.useCurrentLocation(0);
-    comp.close(); await comp.initModal();
+    comp.isOpen = true; await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567'; comp.useCurrentLocation(0);
+    comp.close(); await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567';
     resolve({ coords: { latitude: 10, longitude: 20 } } as GeolocationPosition);
     expect(Number.isNaN(comp.draft.locations[0].latitude)).toBe(true); expect(comp.gpsMessage()).toBe('');
   });
 
   it('keeps map changes provisional until confirmed and preserves other location fields', async () => {
     const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
-    comp.isOpen = true; await comp.initModal();
+    comp.isOpen = true; await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567';
     comp.draft.locations[0].alias = 'Casa'; comp.openMap(0);
     expect(Number.isNaN(comp.draft.locations[0].latitude)).toBe(true);
     comp.mapLocation.set(null); expect(Number.isNaN(comp.draft.locations[0].latitude)).toBe(true);
@@ -167,9 +166,78 @@ describe('CustomerModalComponent', () => {
 
   it('offers manual capture when GPS is unavailable and rejects empty coordinates', async () => {
     vi.stubGlobal('navigator', { userAgent: 'Vitest' });
-    const comp = TestBed.createComponent(CustomerModalComponent).componentInstance; comp.isOpen = true; await comp.initModal();
+    const comp = TestBed.createComponent(CustomerModalComponent).componentInstance; comp.isOpen = true; await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567';
     comp.useCurrentLocation(0); expect(comp.gpsError()).toContain('no ofrece GPS'); expect(comp.gpsIndex()).toBeNull();
-    comp.draft.routeId = 'route-1'; comp.draft.firstNames = 'Ana'; comp.draft.lastNames = 'Pérez'; comp.draft.phones[0].number = '3001234567';
+    comp.draft.routeId = 'route-1'; comp.fullName = 'Ana Pérez'; comp.draft.phones[0].number = '3001234567';
     await comp.save(); expect(customersService.create).not.toHaveBeenCalled(); expect(comp.error()).toContain('coordenadas válidas');
+  });
+
+  it('renders one full-name field and the customer alias label', async () => {
+    const fixture = TestBed.createComponent(CustomerModalComponent); const comp = fixture.componentInstance;
+    comp.isOpen = true; await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567'; await fixture.whenStable();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('input[name="fullName"]')).toBeTruthy();
+    expect(root.querySelector('input[name="firstNames"]')).toBeNull();
+    expect(root.querySelector('input[name="lastNames"]')).toBeNull();
+    expect(root.textContent).toContain('Alias *'); expect(root.textContent).not.toContain('Comercio / Trabajo');
+  });
+
+  it('preserves existing compound names and alias when editing without renaming', async () => {
+    const fixture = TestBed.createComponent(CustomerModalComponent); const comp = fixture.componentInstance;
+    customersService.get.mockResolvedValueOnce({ ...(await customersService.get()), identification: '001234567', firstNames: 'Carlos Alberto', lastNames: 'Gómez Restrepo' });
+    comp.customerId = 'cust-1'; comp.isOpen = true; await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567';
+    expect(comp.fullName).toBe('Carlos Alberto Gómez Restrepo');
+    comp.draft.observations = 'Nueva nota'; await comp.save();
+    expect(customersService.update).toHaveBeenCalledWith('cust-1', expect.objectContaining({ identification: '001234567', firstNames: 'Carlos Alberto', lastNames: 'Gómez Restrepo', businessOrWorkName: 'Ferretería' }));
+  });
+
+  it('saves every word of an edited full name and the alias through the existing API', async () => {
+    const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
+    comp.customerId = 'cust-1'; comp.isOpen = true; await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567';
+    comp.fullName = '  Ana   María de la Cruz  '; comp.draft.businessOrWorkName = '  Doña Ana  ';
+    await comp.save();
+    const request = customersService.update.mock.calls[0][1];
+    expect(`${request.firstNames} ${request.lastNames}`).toBe('Ana María de la Cruz');
+    expect(request.businessOrWorkName).toBe('Doña Ana');
+  });
+
+  it('requires the full name and rejects incomplete or oversized names before sending', async () => {
+    const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
+    comp.isOpen = true; await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567';
+    await comp.save(); expect(comp.error()).toContain('alias');
+    comp.fullName = 'Ana'; await comp.save(); expect(customersService.create).not.toHaveBeenCalled();
+    comp.fullName = 'A'.repeat(121) + ' Pérez'; await comp.save(); expect(customersService.create).not.toHaveBeenCalled();
+  });
+
+  it('starts a new customer with blank identification and requires a nonzero value', async () => {
+    const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
+    comp.isOpen = true; await comp.initModal();
+    expect(comp.draft.identification).toBe('');
+    comp.fullName = 'Ana Pérez'; comp.draft.phones[0].number = '3000000000';
+    comp.draft.locations[0].latitude = 4.7; comp.draft.locations[0].longitude = -74.1;
+    await comp.save(); expect(comp.error()).toContain('identificación');
+    comp.draft.identification = '0'; await comp.save(); expect(customersService.create).not.toHaveBeenCalled();
+    comp.draft.identification = '  001001  '; await comp.save();
+    expect(customersService.create).toHaveBeenCalledWith(expect.objectContaining({ identification: '001001' }));
+  });
+
+  it('retains the migrated 0 on an existing customer and can replace it', async () => {
+    const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
+    customersService.get.mockResolvedValueOnce({ ...(await customersService.get()), identification: '0' });
+    comp.customerId = 'cust-1'; comp.isOpen = true; await comp.initModal();
+    expect(comp.draft.identification).toBe('0'); await comp.save();
+    expect(customersService.update).toHaveBeenCalledWith('cust-1', expect.objectContaining({ identification: '0' }));
+    comp.draft.identification = '001777'; await comp.save();
+    expect(customersService.update).toHaveBeenCalledWith('cust-1', expect.objectContaining({ identification: '001777' }));
+  });
+
+  it('swaps only visible labels and keeps the original data in place', async () => {
+    const fixture = TestBed.createComponent(CustomerModalComponent); const comp = fixture.componentInstance;
+    comp.customerId = 'cust-1'; comp.isOpen = true; await comp.initModal(); await fixture.whenStable();
+    const alias = fixture.nativeElement.querySelector('input[name="fullName"]') as HTMLInputElement;
+    const name = fixture.nativeElement.querySelector('input[name="business"]') as HTMLInputElement;
+    expect(alias.closest('label')!.textContent).toContain('Alias'); expect(alias.value).toBe('Carlos Restrepo');
+    expect(name.closest('label')!.textContent).toContain('Nombre completo'); expect(name.value).toBe('Ferretería');
+    expect(fixture.nativeElement.querySelector('input[name="identification"]').required).toBe(true);
   });
 });

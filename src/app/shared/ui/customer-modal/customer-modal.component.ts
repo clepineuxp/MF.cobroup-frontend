@@ -15,6 +15,7 @@ import {
 import { CustomersService } from '../../../features/customers/data/customers.service';
 
 export interface CustomerDraft {
+  identification: string;
   id: string | null;
   routeId: string;
   firstNames: string;
@@ -60,6 +61,8 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
   readonly isAdmin = signal(false);
 
   draft: CustomerDraft = this.emptyDraft();
+  fullName = '';
+  private originalIdentification = '';
 
   async ngOnChanges(changes: SimpleChanges): Promise<void> {
     if (changes['isOpen'] && !this.isOpen) this.cancelLocationWork();
@@ -70,6 +73,8 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
 
   async initModal(): Promise<void> {
     this.cancelLocationWork();
+    this.fullName = '';
+    this.originalIdentification = '';
     this.error.set('');
     this.success.set('');
     this.loading.set(true);
@@ -82,6 +87,8 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
       if (this.customerId) {
         const customer = await this.customersService.get(this.customerId);
         this.draft = this.fromDetails(customer);
+        this.originalIdentification = customer.identification;
+        this.fullName = `${customer.firstNames} ${customer.lastNames}`.trim();
       } else {
         this.draft = this.emptyDraft();
         this.draft.routeId = this.defaultRouteId || routesList[0]?.id || '';
@@ -211,8 +218,8 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
 
     const request: CustomerWriteRequest = {
       routeId: this.draft.routeId,
-      firstNames: this.draft.firstNames.trim(),
-      lastNames: this.draft.lastNames.trim(),
+      identification: this.draft.identification.trim(),
+      ...this.customerNameParts()!,
       businessOrWorkName: this.draft.businessOrWorkName.trim() || null,
       observations: this.draft.observations.trim() || null,
       status: this.draft.status,
@@ -242,9 +249,30 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
     }
   }
 
+  private customerNameParts(): { firstNames: string; lastNames: string } | null {
+    const fullName = this.fullName.trim().replace(/\s+/g, ' ');
+    const original = `${this.draft.firstNames} ${this.draft.lastNames}`.trim().replace(/\s+/g, ' ');
+    if (this.draft.firstNames.trim() && this.draft.lastNames.trim() && fullName === original)
+      return { firstNames: this.draft.firstNames.trim(), lastNames: this.draft.lastNames.trim() };
+    // Adapt the single UI field to the existing API without dropping or duplicating words.
+    const separators = [...fullName.matchAll(/ /g)].map(match => match.index!);
+    const split = separators.reverse().find(index => index <= 120 && fullName.length - index - 1 <= 120);
+    if (split === undefined) return null;
+    return { firstNames: fullName.slice(0, split), lastNames: fullName.slice(split + 1) };
+  }
+
   private isValid(): boolean {
-    if (!this.draft.routeId || !this.draft.firstNames.trim() || !this.draft.lastNames.trim()) {
-      this.error.set('Ruta, nombres y apellidos son obligatorios.');
+    const identification = this.draft.identification.trim();
+    if (!identification || identification.length > 64 || (identification === '0' && (!this.draft.id || this.originalIdentification !== '0'))) {
+      this.error.set('La identificación es obligatoria. El valor 0 solo se conserva en clientes antiguos.');
+      return false;
+    }
+    if (!this.draft.routeId || !this.fullName.trim()) {
+      this.error.set('Ruta y alias son obligatorios.');
+      return false;
+    }
+    if (!this.customerNameParts()) {
+      this.error.set('El alias debe conservar el formato actual y no superar la longitud permitida.');
       return false;
     }
     if (
@@ -272,6 +300,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
 
   private emptyDraft(): CustomerDraft {
     return {
+      identification: '',
       id: null,
       routeId: '',
       firstNames: '',
@@ -290,6 +319,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
 
   private fromDetails(customer: CustomerDetails): CustomerDraft {
     return {
+      identification: customer.identification,
       id: customer.id,
       routeId: customer.routeId,
       firstNames: customer.firstNames,
