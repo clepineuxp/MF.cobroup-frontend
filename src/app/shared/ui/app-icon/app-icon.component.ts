@@ -18,6 +18,7 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
       @case ('analytics') { <path d="M4 19V9M10 19V5M16 19v-7M22 19V2"/> }
       @case ('settings') { <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M2 12h3M19 12h3M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/> }
       @case ('logout') { <path d="M10 17l5-5-5-5M15 12H3M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/> }
+      @case ('plus') { <path d="M12 5v14M5 12h14"/> }
       @default { <circle cx="12" cy="12" r="9"/> }
     }
   </svg>`,

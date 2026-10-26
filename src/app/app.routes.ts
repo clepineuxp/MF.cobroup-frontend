@@ -45,18 +45,18 @@ export const routes: Routes = [
     title: 'Conciliación diaria | COBROUP',
   },
   {
-    path: 'ingresos-inversiones',
+    path: 'balance-ruta',
     canActivate: [authGuard],
-    data: { section: 'income-investments' },
     loadComponent: () => import('./features/route-finances/pages/route-finance.page').then((module) => module.RouteFinancePage),
-    title: 'Ingresos e inversiones | COBROUP',
+    title: 'Balance Ruta | COBROUP',
+  },
+  {
+    path: 'ingresos-inversiones',
+    redirectTo: 'balance-ruta',
   },
   {
     path: 'gastos',
-    canActivate: [authGuard],
-    data: { section: 'expenses' },
-    loadComponent: () => import('./features/route-finances/pages/route-finance.page').then((module) => module.RouteFinancePage),
-    title: 'Gastos | COBROUP',
+    redirectTo: 'balance-ruta',
   },
   {
     path: 'agenda',
