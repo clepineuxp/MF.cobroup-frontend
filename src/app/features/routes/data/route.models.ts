@@ -5,4 +5,6 @@ export interface AccessibleRoute {
   readonly accessAs: 'Admin' | 'Supervisor' | 'Collector';
   readonly maxActiveCustomers: number | null;
   readonly maxActiveLoans: number | null;
+  readonly initialBalance: number;
+  readonly timeZoneId: string;
 }
