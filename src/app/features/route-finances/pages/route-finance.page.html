@@ -1,37 +1,429 @@
 <div class="finance-page">
-  <header><p class="eyebrow">CAJA POR RUTA</p><h2>{{ title }}</h2><p>Registra y consulta movimientos. La fecha y el responsable se guardan automáticamente.</p></header>
-  @if (error()) { <p class="message error" role="alert">{{ error() }}</p> }
-  @if (success()) { <p class="message success" role="status">{{ success() }}</p> }
-  <label class="route-picker">Ruta
-    <select [value]="selectedRouteId()" (change)="selectRoute($any($event.target).value)">
-      <option value="">Selecciona una ruta</option>
-      @for (route of routes(); track route.id) { <option [value]="route.id">{{ route.name }}</option> }
-    </select>
-  </label>
-  @if (balance(); as item) {
-    <section class="balance-card" [class.negative]="item.netBalance < 0">
-      <span>Balance actual</span><strong>{{ item.netBalance | currency:'COP':'symbol-narrow':'1.0-2' }}</strong>
-      <small>Inicial {{ item.initialBalance | currency:'COP':'symbol-narrow':'1.0-2' }} · Préstamos −{{ item.loanDisbursements | currency:'COP':'symbol-narrow':'1.0-2' }} · Cobros +{{ item.paymentCollections | currency:'COP':'symbol-narrow':'1.0-2' }}</small>
-    </section>
-  }
-  @if (selectedRouteId()) {
-    <div class="workspace">
-      <section class="panel editor">
-        <h3>{{ editingId() ? 'Modificar movimiento' : 'Nuevo movimiento' }}</h3>
-        <form [formGroup]="form" (ngSubmit)="submit()">
-          @if (!isExpense) { <label>Tipo<select formControlName="type"><option value="Income">Ingreso</option><option value="Investment">Inversión</option></select></label> }
-          <label>Concepto<input formControlName="concept" maxlength="160" /></label>
-          <label>Descripción<textarea formControlName="description" maxlength="1000" rows="4"></textarea></label>
-          <label>Monto<input type="number" min="0.01" step="0.01" formControlName="amount" /></label>
-          <div class="actions"><button type="submit" [disabled]="saving()">{{ saving() ? 'Guardando…' : editingId() ? 'Guardar cambios' : 'Registrar' }}</button>@if (editingId()) { <button type="button" class="secondary" (click)="cancelEdit()">Cancelar</button> }</div>
-        </form>
-      </section>
-      <section class="panel history"><h3>Historial de la ruta</h3>
-        @if (!loading() && entries().length === 0) { <p class="empty">No hay movimientos en esta sección.</p> }
-        @for (entry of entries(); track entry.id) {
-          <article><div class="entry-main"><span class="type">{{ entry.type === 'Income' ? 'Ingreso' : entry.type === 'Investment' ? 'Inversión' : 'Gasto' }}</span><h4>{{ entry.concept }}</h4><p>{{ entry.description || 'Sin descripción' }}</p></div><strong>{{ entry.amount | currency:'COP':'symbol-narrow':'1.0-2' }}</strong><footer><span>{{ entry.createdAtUtc | date:'medium':'-0500' }} · {{ entry.createdByDisplayName }}</span>@if (entry.canEdit) { <button type="button" class="link" (click)="edit(entry)">Modificar</button> } @else { <small>Edición cerrada</small> }</footer></article>
+  <!-- Clean Header without unnecessary copy -->
+  <header class="page-header">
+    <h1 class="page-title">Balance Ruta</h1>
+
+    <div class="route-selector-wrapper">
+      <label class="sr-only" for="route-selector">Seleccionar ruta</label>
+      <select
+        id="route-selector"
+        class="route-selector"
+        [value]="selectedRouteId()"
+        (change)="selectRoute($any($event.target).value)"
+        aria-label="Seleccionar ruta"
+      >
+        <option value="">Todas las rutas (General)</option>
+        @for (route of routes(); track route.id) {
+          <option [value]="route.id">{{ route.name }}</option>
         }
-      </section>
+      </select>
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="feedback-banner error" role="alert">
+      <span class="banner-icon">⚠️</span>
+      <span class="banner-text">{{ error() }}</span>
     </div>
   }
+
+  @if (success()) {
+    <div class="feedback-banner success" role="status">
+      <span class="banner-icon">✓</span>
+      <span class="banner-text">{{ success() }}</span>
+    </div>
+  }
+
+  @if (balance(); as item) {
+    <!-- Compact Balance Card -->
+    <section
+      class="balance-card"
+      [class.negative]="item.netBalance < 0"
+      aria-label="Resumen de balance"
+    >
+      <div class="card-main">
+        <span class="balance-label">
+          {{ isGeneralView() ? 'Balance General Consolidado' : 'Balance Neto en Ruta' }}
+        </span>
+        <strong class="balance-value">
+          {{ item.netBalance | currency:'COP':'symbol-narrow':'1.0-0' }}
+        </strong>
+      </div>
+
+      <div class="balance-metrics">
+        <div class="metric-item">
+          <span class="m-label">Cobros (+)</span>
+          <strong class="m-value text-positive">+{{ item.paymentCollections | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+        </div>
+        <div class="metric-item">
+          <span class="m-label">Préstamos (−)</span>
+          <strong class="m-value text-negative">−{{ item.loanDisbursements | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+        </div>
+        <div class="metric-item">
+          <span class="m-label">Ingresos (+)</span>
+          <strong class="m-value text-positive">+{{ item.incomeInvestments | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+        </div>
+        <div class="metric-item">
+          <span class="m-label">Gastos (−)</span>
+          <strong class="m-value text-negative">−{{ item.expenses | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+        </div>
+      </div>
+    </section>
+  }
+
+  <!-- Date Navigation & Period Bar -->
+  <section class="period-navigator-section" aria-label="Filtro temporal">
+    <div class="viewing-info">
+      <span class="viewing-label">Viendo:</span>
+      <strong class="viewing-text">{{ viewingText() }}</strong>
+    </div>
+
+    <div class="navigator-controls">
+      <!-- Left arrow -->
+      <button
+        type="button"
+        class="nav-arrow-btn"
+        (click)="navigatePeriod(-1)"
+        aria-label="Periodo anterior"
+        title="Anterior"
+      >
+        ‹
+      </button>
+
+      <!-- Center: Day buttons strip when daily, or period badge -->
+      @if (periodType() === 'daily') {
+        <div class="days-strip" role="group" aria-label="Días de la semana">
+          @for (day of dayButtons(); track day.dayNumber) {
+            <button
+              type="button"
+              class="day-btn"
+              [class.selected]="day.isSelected"
+              [class.today]="day.isToday"
+              (click)="selectDay(day.date)"
+              [attr.aria-pressed]="day.isSelected"
+            >
+              <span class="d-name">{{ day.dayName }}</span>
+              <span class="d-num">{{ day.dayNumber }}</span>
+            </button>
+          }
+        </div>
+      } @else {
+        <div class="period-badge-display">
+          <span>{{ viewingText() }}</span>
+        </div>
+      }
+
+      <!-- Right arrow -->
+      <button
+        type="button"
+        class="nav-arrow-btn"
+        (click)="navigatePeriod(1)"
+        aria-label="Periodo siguiente"
+        title="Siguiente"
+      >
+        ›
+      </button>
+
+      <!-- Right Combobox for period granularity -->
+      <div class="combobox-wrapper">
+        <select
+          class="period-select"
+          [value]="periodType()"
+          (change)="setPeriod($any($event.target).value)"
+          aria-label="Seleccionar periodicidad"
+        >
+          <option value="daily">Diario</option>
+          <option value="weekly">Semanal</option>
+          <option value="monthly">Mensual</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tabs & Movements Container -->
+  <section class="movements-container">
+    <!-- Tabs Navigation -->
+    <div class="tabs-nav" role="tablist" aria-label="Secciones de movimientos">
+      <button
+        type="button"
+        role="tab"
+        id="tab-income"
+        class="tab-btn"
+        [class.active]="activeTab() === 'income'"
+        [attr.aria-selected]="activeTab() === 'income'"
+        aria-controls="panel-income"
+        (click)="setTab('income')"
+      >
+        <span class="tab-icon"><app-icon name="payment" /></span>
+        <span class="tab-title">Ingresos y Cobros</span>
+        <span class="tab-badge">{{ incomeCount() }}</span>
+      </button>
+
+      <button
+        type="button"
+        role="tab"
+        id="tab-expense"
+        class="tab-btn"
+        [class.active]="activeTab() === 'expense'"
+        [attr.aria-selected]="activeTab() === 'expense'"
+        aria-controls="panel-expense"
+        (click)="setTab('expense')"
+      >
+        <span class="tab-icon"><app-icon name="money" /></span>
+        <span class="tab-title">Gastos y Préstamos</span>
+        <span class="tab-badge">{{ expenseCount() }}</span>
+      </button>
+    </div>
+
+    <!-- Tab Content: Scrollable History of Last 10 Entries for this Period -->
+    <div
+      [id]="activeTab() === 'income' ? 'panel-income' : 'panel-expense'"
+      role="tabpanel"
+      class="tab-panel"
+    >
+      <div class="history-header">
+        <h3 class="history-title">
+          {{ activeTab() === 'income' ? 'Ingresos y cobros del periodo' : 'Gastos y préstamos del periodo' }}
+          @if (tabMovements().length > 0) {
+            <span class="history-count">({{ recentTabMovements().length }} de {{ tabMovements().length }})</span>
+          }
+        </h3>
+        <span class="history-hint">Scroll hacia abajo para ver más</span>
+      </div>
+
+      <div class="scrollable-history-list" tabindex="0" aria-label="Lista de movimientos">
+        @if (loading() && recentTabMovements().length === 0) {
+          <div class="loading-state">
+            <span class="spinner"></span>
+            <p>Cargando movimientos...</p>
+          </div>
+        } @else if (recentTabMovements().length === 0) {
+          <div class="empty-state">
+            <span class="empty-icon">{{ activeTab() === 'income' ? '📥' : '💸' }}</span>
+            <h4>Sin movimientos en este periodo</h4>
+            <p>
+              {{ activeTab() === 'income'
+                ? 'No se registran ingresos ni cobros en la fecha seleccionada.'
+                : 'No se registran gastos ni desembolsos de préstamos en la fecha seleccionada.' }}
+            </p>
+          </div>
+        } @else {
+          @for (item of recentTabMovements(); track item.id) {
+            <article class="entry-card" [class.expense-item]="item.section === 'expense'">
+              <div class="entry-header">
+                <div class="entry-concept-wrapper">
+                  <span class="entry-badge" [class]="item.badgeClass">
+                    {{ item.badge }}
+                  </span>
+                  <h4 class="entry-concept">{{ item.concept }}</h4>
+                </div>
+                <strong class="entry-value" [class.positive]="item.section === 'income'" [class.negative]="item.section === 'expense'">
+                  {{ item.section === 'income' ? '+' : '−' }}{{ item.amount | currency:'COP':'symbol-narrow':'1.0-0' }}
+                </strong>
+              </div>
+
+              @if (item.description) {
+                <p class="entry-description">{{ item.description }}</p>
+              }
+
+              <footer class="entry-footer">
+                <span class="entry-meta">
+                  {{ item.date | date:'dd/MM/yyyy, hh:mm a':'-0500' }}
+                  @if (item.createdBy) {
+                    · {{ item.createdBy }}
+                  }
+                </span>
+                @if (item.canEdit && item.rawEntry) {
+                  <button type="button" class="btn-modify" (click)="openEditModal(item.rawEntry)">
+                    Modificar
+                  </button>
+                }
+              </footer>
+            </article>
+          }
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- Bottom Actions Toolbar: Nuevo Gasto y Nuevo Ingreso with Warm Subtle Borders -->
+  <div class="bottom-actions-toolbar" role="region" aria-label="Acciones de balance de ruta">
+    <div class="toolbar-content">
+      <button
+        type="button"
+        id="btn-new-expense"
+        class="btn-action btn-expense"
+        (click)="openCreateModal('expense')"
+      >
+        <span class="btn-icon"><app-icon name="plus" /></span>
+        <span class="btn-text">Nuevo Gasto</span>
+      </button>
+
+      <button
+        type="button"
+        id="btn-new-income"
+        class="btn-action btn-income"
+        (click)="openCreateModal('income')"
+      >
+        <span class="btn-icon"><app-icon name="plus" /></span>
+        <span class="btn-text">Nuevo Ingreso</span>
+      </button>
+    </div>
+  </div>
 </div>
+
+<!-- Modal Dialog: Registrar o Modificar Movimiento -->
+@if (isModalOpen()) {
+  <div class="modal-backdrop" (click)="closeModal()" role="presentation">
+    <div
+      class="modal-sheet"
+      (click)="$event.stopPropagation()"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-entry-title"
+    >
+      <div class="sheet-drag-handle" aria-hidden="true"></div>
+
+      <header class="modal-header">
+        <div class="header-info">
+          <span class="sheet-badge">
+            {{ modalSection() === 'expense' ? 'Gasto Operativo' : 'Ingreso / Inversión' }}
+          </span>
+          <h2 id="modal-entry-title" class="sheet-title">
+            {{ editingEntry() ? 'Modificar Movimiento' : (modalSection() === 'expense' ? 'Nuevo Gasto' : 'Nuevo Ingreso') }}
+          </h2>
+        </div>
+        <button
+          type="button"
+          class="btn-close-modal"
+          (click)="closeModal()"
+          aria-label="Cerrar modal"
+          [disabled]="saving()"
+        >
+          ✕
+        </button>
+      </header>
+
+      @if (modalError()) {
+        <div class="modal-banner error" role="alert">
+          {{ modalError() }}
+        </div>
+      }
+
+      <form [formGroup]="modalForm" (ngSubmit)="submitModal()" class="modal-form">
+        <!-- Selector de ruta destino si estamos en vista general o creando -->
+        <div class="form-group">
+          <label for="modal-route-select" class="field-label">Ruta asignada *</label>
+          <select
+            id="modal-route-select"
+            formControlName="targetRouteId"
+            [class.invalid]="modalForm.controls.targetRouteId.invalid && modalForm.controls.targetRouteId.touched"
+          >
+            <option value="">Selecciona una ruta</option>
+            @for (route of routes(); track route.id) {
+              <option [value]="route.id">{{ route.name }}</option>
+            }
+          </select>
+        </div>
+
+        <!-- Tipo selector solo si es sección de ingreso -->
+        @if (modalSection() === 'income') {
+          <div class="form-group">
+            <span class="field-label">Tipo de movimiento</span>
+            <div class="type-pill-selector">
+              <label class="type-pill" [class.selected]="modalForm.controls.type.value === 'Income'">
+                <input
+                  type="radio"
+                  formControlName="type"
+                  value="Income"
+                />
+                <span>Ingreso</span>
+              </label>
+              <label class="type-pill" [class.selected]="modalForm.controls.type.value === 'Investment'">
+                <input
+                  type="radio"
+                  formControlName="type"
+                  value="Investment"
+                />
+                <span>Inversión</span>
+              </label>
+            </div>
+          </div>
+        }
+
+        <!-- Concepto -->
+        <div class="form-group">
+          <label for="entry-concept" class="field-label">
+            Concepto del {{ modalSection() === 'expense' ? 'gasto' : 'ingreso' }} *
+          </label>
+          <input
+            id="entry-concept"
+            type="text"
+            formControlName="concept"
+            maxlength="160"
+            [placeholder]="modalSection() === 'expense' ? 'Ej. Gasolina, Almuerzo, Viáticos...' : 'Ej. Aporte base, Inversión externa...'"
+            [class.invalid]="modalForm.controls.concept.invalid && modalForm.controls.concept.touched"
+          />
+          @if (modalForm.controls.concept.invalid && modalForm.controls.concept.touched) {
+            <span class="field-error">El concepto es obligatorio (máximo 160 caracteres).</span>
+          }
+        </div>
+
+        <!-- Monto / Valor -->
+        <div class="form-group">
+          <label for="entry-amount" class="field-label">Valor ($ COP) *</label>
+          <div class="amount-input-wrapper">
+            <span class="currency-prefix">$</span>
+            <input
+              id="entry-amount"
+              type="number"
+              min="0.01"
+              step="any"
+              formControlName="amount"
+              placeholder="0"
+              [class.invalid]="modalForm.controls.amount.invalid && modalForm.controls.amount.touched"
+            />
+          </div>
+          @if (modalForm.controls.amount.invalid && modalForm.controls.amount.touched) {
+            <span class="field-error">Ingresa un valor positivo válido mayor a 0.</span>
+          }
+        </div>
+
+        <!-- Descripción opcional -->
+        <div class="form-group">
+          <label for="entry-description" class="field-label">Descripción (opcional)</label>
+          <textarea
+            id="entry-description"
+            formControlName="description"
+            maxlength="1000"
+            rows="3"
+            placeholder="Detalles complementarios o justificación..."
+          ></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button
+            type="button"
+            class="btn-modal-cancel"
+            (click)="closeModal()"
+            [disabled]="saving()"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            class="btn-modal-submit"
+            [class.expense-submit]="modalSection() === 'expense'"
+            [disabled]="saving()"
+          >
+            @if (saving()) {
+              <span class="spinner-small"></span> Guardando…
+            } @else {
+              {{ editingEntry() ? 'Guardar Cambios' : (modalSection() === 'expense' ? 'Registrar Gasto' : 'Registrar Ingreso') }}
+            }
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

@@ -115,6 +115,30 @@
           <span>Sin crédito activo para cobrar</span>
         </div>
       }
+
+      <div class="inspector-actions">
+        @if (isCustomerMarkedWillNotPay(sel.customerId)) {
+          <button
+            type="button"
+            class="btn-will-not-pay marked"
+            (click)="unmarkWillNotPayToday(sel.customerId)"
+            title="Quitar marca de 'Hoy no pagará'"
+          >
+            <span class="btn-icon">✓</span>
+            <span>Marcado: No pagará hoy (Restablecer)</span>
+          </button>
+        } @else {
+          <button
+            type="button"
+            class="btn-will-not-pay"
+            (click)="markWillNotPayToday(sel.customerId)"
+            title="Marcar que el cliente hoy no pagará para removerlo del mapa de hoy"
+          >
+            <span class="btn-icon">⛔</span>
+            <span>Hoy no pagará</span>
+          </button>
+        }
+      </div>
     </aside>
   }
 
@@ -129,12 +153,12 @@
         <div class="filter-options">
           <button
             type="button"
-            class="filter-chip"
-            [class.active]="statusFilter() === 'ALL'"
-            (click)="setFilter('ALL')"
+            class="filter-chip chip-pending"
+            [class.active]="statusFilter() === 'PENDING'"
+            (click)="setFilter('PENDING')"
           >
-            <span>Todos</span>
-            <span class="count-badge">{{ rawLocations().length }}</span>
+            <span>⚡ Cobro Hoy / Mora</span>
+            <span class="count-badge">{{ pendingCount() }}</span>
           </button>
           <button
             type="button"
@@ -156,12 +180,30 @@
           </button>
           <button
             type="button"
+            class="filter-chip chip-will-not-pay"
+            [class.active]="statusFilter() === 'WILL_NOT_PAY'"
+            (click)="setFilter('WILL_NOT_PAY')"
+          >
+            <span>⛔ No pagará hoy</span>
+            <span class="count-badge">{{ willNotPayCount() }}</span>
+          </button>
+          <button
+            type="button"
             class="filter-chip chip-collected"
             [class.active]="statusFilter() === 'COLLECTED'"
             (click)="setFilter('COLLECTED')"
           >
             <span>🟢 Cobrado</span>
             <span class="count-badge">{{ collectedCount() }}</span>
+          </button>
+          <button
+            type="button"
+            class="filter-chip"
+            [class.active]="statusFilter() === 'ALL'"
+            (click)="setFilter('ALL')"
+          >
+            <span>Todos</span>
+            <span class="count-badge">{{ allCount() }}</span>
           </button>
         </div>
       </div>
@@ -176,11 +218,80 @@
       title="Filtros de cobranza"
     >
       <span class="filter-fab-icon">⚡</span>
-      @if (statusFilter() !== 'ALL') {
+      @if (statusFilter() !== 'PENDING') {
         <span class="filter-active-dot"></span>
       }
     </button>
   </div>
+
+  <!-- Floating Route Balance Bubble (Bottom) -->
+  @if (selectedRouteId()) {
+    <div
+      class="floating-balance-bubble"
+      [class.active]="summaryPopoverOpen()"
+      role="region"
+      aria-label="Balance de la ruta"
+    >
+      <button
+        type="button"
+        class="bubble-main-btn"
+        [class.has-hover]="summaryPopoverOpen()"
+        (click)="toggleSummaryPopover($event)"
+        (blur)="onBubbleBlur($event)"
+        title="Balance en ruta. Clic para ver opciones"
+        aria-label="Balance en ruta. Clic para ver opciones"
+        [attr.aria-expanded]="summaryPopoverOpen()"
+      >
+        <span class="bubble-icon" aria-hidden="true">💼</span>
+        <div class="bubble-info">
+          <span class="bubble-label">Balance</span>
+          <div class="bubble-value-row">
+            @if (isBalanceHidden()) {
+              <span class="bubble-amount masked" aria-label="Balance oculto">******</span>
+            } @else if (balanceLoading()) {
+              <span class="bubble-amount loading">...</span>
+            } @else {
+              <strong
+                class="bubble-amount"
+                [class.negative]="(routeBalance()?.netBalance ?? 0) < 0"
+              >
+                {{ (routeBalance()?.netBalance ?? 0) | currency:'COP':'symbol-narrow':'1.0-0' }}
+              </strong>
+            }
+          </div>
+        </div>
+      </button>
+
+      <!-- Popover Tooltip "Ir a resumen" -->
+      <div
+        class="bubble-popover"
+        [class.visible]="summaryPopoverOpen()"
+        role="tooltip"
+      >
+        <button
+          type="button"
+          class="popover-action-btn"
+          (click)="goToBalanceSummary()"
+          (blur)="onBubbleBlur($event)"
+          title="Ir a página de balance y movimientos"
+        >
+          <span>Ir a resumen</span>
+          <span class="popover-arrow">→</span>
+        </button>
+        <div class="popover-tail" aria-hidden="true"></div>
+      </div>
+
+      <button
+        type="button"
+        class="bubble-eye-toggle"
+        (click)="toggleBalanceVisibility($event)"
+        [attr.aria-label]="isBalanceHidden() ? 'Mostrar balance' : 'Ocultar balance'"
+        [title]="isBalanceHidden() ? 'Mostrar balance' : 'Ocultar balance'"
+      >
+        <app-icon [name]="isBalanceHidden() ? 'eye-off' : 'eye'" />
+      </button>
+    </div>
+  }
 
   <!-- Bottom Action Buttons: (Nuevo Préstamo) (Cobrar) (Nuevo Cliente) (Requirement 2.5.4) -->
   <nav class="home-action-bar" aria-label="Acciones principales de cobranza">

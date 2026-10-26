@@ -36,23 +36,33 @@
     <div class="alert-error" role="alert">{{ error() }}</div>
   }
 
+  @if (success()) {
+    <div class="alert-success" role="status">{{ success() }}</div>
+  }
+
   @if (agenda(); as ag) {
     <div class="summary-grid">
       <div class="metric-card">
         <span class="label">Para cobrar hoy</span>
-        <strong class="value due">{{ ag.summary.totalDueToday | currency:'USD':'symbol':'1.0-0' }}</strong>
+        <strong class="value due">{{ ag.summary.totalDueToday | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
         <span class="sub">{{ ag.summary.dueTodayCount }} cuotas hoy</span>
       </div>
 
       <div class="metric-card">
         <span class="label">Cartera en mora</span>
-        <strong class="value overdue">{{ ag.summary.totalOverdue | currency:'USD':'symbol':'1.0-0' }}</strong>
+        <strong class="value overdue">{{ ag.summary.totalOverdue | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
         <span class="sub">{{ ag.summary.overdueCount }} clientes vencidos</span>
       </div>
 
       <div class="metric-card">
-        <span class="label">Cobrado hoy</span>
-        <strong class="value collected">{{ ag.summary.totalCollectedToday | currency:'USD':'symbol':'1.0-0' }}</strong>
+        <span class="label">Total prestado hoy</span>
+        <strong class="value loaned">{{ totalLoanedToday() | currency:'COP':'symbol-narrow':'1.0-0' }} | {{ loanedCountToday() }}</strong>
+        <span class="sub">{{ loanedCountToday() }} préstamos realizados</span>
+      </div>
+
+      <div class="metric-card">
+        <span class="label">Total cobrado hoy</span>
+        <strong class="value collected">{{ ag.summary.totalCollectedToday | currency:'COP':'symbol-narrow':'1.0-0' }} | {{ ag.summary.collectedCount }}</strong>
         <span class="sub">{{ ag.summary.collectedCount }} cobros realizados</span>
       </div>
 
@@ -67,10 +77,10 @@
       <button
         type="button"
         class="tab-btn"
-        [class.active]="activeFilter() === 'ALL'"
-        (click)="setFilter('ALL')"
+        [class.active]="activeFilter() === 'PENDING'"
+        (click)="setFilter('PENDING')"
       >
-        Todos ({{ ag.items.length }})
+        Cobro hoy / Mora ({{ pendingCount() }})
       </button>
       <button
         type="button"
@@ -78,7 +88,7 @@
         [class.active]="activeFilter() === 'OVERDUE'"
         (click)="setFilter('OVERDUE')"
       >
-        En mora ({{ ag.summary.overdueCount }})
+        En mora ({{ overdueCount() }})
       </button>
       <button
         type="button"
@@ -86,7 +96,15 @@
         [class.active]="activeFilter() === 'DUE_TODAY'"
         (click)="setFilter('DUE_TODAY')"
       >
-        Cobro hoy ({{ ag.summary.dueTodayCount }})
+        Cobro hoy ({{ dueTodayCount() }})
+      </button>
+      <button
+        type="button"
+        class="tab-btn will-not-pay"
+        [class.active]="activeFilter() === 'WILL_NOT_PAY'"
+        (click)="setFilter('WILL_NOT_PAY')"
+      >
+        No pagará hoy ({{ willNotPayCount() }})
       </button>
       <button
         type="button"
@@ -96,22 +114,52 @@
       >
         Cobrados ({{ ag.summary.collectedCount }})
       </button>
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeFilter() === 'ALL'"
+        (click)="setFilter('ALL')"
+      >
+        Todos ({{ ag.items.length }})
+      </button>
     </div>
 
     <div class="items-list">
       @for (item of filteredItems(); track item.customerId; let idx = $index) {
-        <article class="stop-card" [class.is-overdue]="item.status === 'Overdue'">
+        <article class="stop-card" [class.is-overdue]="effectiveStatus(item) === 'Overdue'">
           <div class="seq-badge">{{ idx + 1 }}</div>
 
           <div class="info-col">
-            <div class="client-header">
-              <h3 class="name">{{ item.customerName }}</h3>
-              @if (item.businessOrWorkName) {
-                <span class="business">· {{ item.businessOrWorkName }}</span>
-              }
-              <span class="status-pill" [style.--pill-color]="item.markerColor">{{ item.statusLabel }}</span>
+            <!-- 1. Alias / Negocio (1 solo renglón con ellipsis) -->
+            <div class="title-row">
+              <h3 class="client-alias" [title]="item.alias || item.businessOrWorkName || item.customerName">
+                {{ item.alias || item.businessOrWorkName || item.customerName }}
+              </h3>
             </div>
 
+            <!-- 2. Nombre del cliente (1 solo renglón con ellipsis) -->
+            @if (item.alias || item.businessOrWorkName) {
+              <div class="name-row" [title]="item.customerName">
+                · {{ item.customerName }}
+              </div>
+            }
+
+            <!-- 3. Estado (siempre en un nuevo renglón) -->
+            <div class="status-row">
+              <span
+                class="status-pill"
+                [class.is-overdue]="effectiveStatus(item) === 'Overdue'"
+                [class.is-due]="effectiveStatus(item) === 'DueToday'"
+                [class.is-uptodate]="effectiveStatus(item) === 'UpToDate'"
+                [class.is-collected]="effectiveStatus(item) === 'Collected'"
+                [class.is-will-not-pay]="effectiveStatus(item) === 'WillNotPayToday'"
+                [style.--pill-color]="effectiveStatus(item) === 'WillNotPayToday' ? '#f97316' : item.markerColor"
+              >
+                {{ effectiveStatusLabel(item) }}
+              </span>
+            </div>
+
+            <!-- 4. Metadatos de contacto y ubicación -->
             <div class="meta-row">
               @if (item.primaryPhone) {
                 <span class="meta-item">📞 {{ item.primaryPhone }}</span>
@@ -127,25 +175,44 @@
 
           <div class="finance-col">
             @if (item.dueTodayAmount > 0) {
-              <div class="amt-due">Hoy: <strong>{{ item.dueTodayAmount | currency:'USD':'symbol':'1.0-0' }}</strong></div>
+              <div class="amt-due">Hoy: <strong>{{ item.dueTodayAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</strong></div>
             }
             @if (item.overdueAmount > 0) {
-              <div class="amt-overdue">Mora: <strong>{{ item.overdueAmount | currency:'USD':'symbol':'1.0-0' }}</strong></div>
+              <div class="amt-overdue">Mora: <strong>{{ item.overdueAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</strong></div>
             }
             @if (item.loanBalance > 0) {
-              <div class="amt-balance">Saldo: {{ item.loanBalance | currency:'USD':'symbol':'1.0-0' }}</div>
+              <div class="amt-balance">Saldo: {{ item.loanBalance | currency:'COP':'symbol-narrow':'1.0-0' }}</div>
             }
           </div>
 
           <div class="action-col">
-            <button
-              type="button"
-              class="btn-collect"
-              (click)="goToCollect(item)"
-              aria-label="Registrar cobro para este cliente"
-            >
-              Cobrar
-            </button>
+            @if (isPending(item)) {
+              <button
+                type="button"
+                class="btn-action btn-collect"
+                (click)="openCollectModal(item)"
+                aria-label="Registrar cobro para este cliente"
+              >
+                Cobrar
+              </button>
+              <button
+                type="button"
+                class="btn-action btn-will-not-pay"
+                (click)="markWillNotPayToday(item.customerId)"
+                aria-label="Marcar que hoy no pagará este cliente"
+              >
+                No pagará hoy
+              </button>
+            } @else if (effectiveStatus(item) === 'WillNotPayToday') {
+              <button
+                type="button"
+                class="btn-action btn-restore"
+                (click)="unmarkWillNotPayToday(item.customerId)"
+                aria-label="Restablecer cliente en la ruta de cobro"
+              >
+                Restablecer
+              </button>
+            }
           </div>
         </article>
       } @empty {
@@ -153,4 +220,11 @@
       }
     </div>
   }
+
+  <app-payment-modal
+    [isOpen]="isPaymentModalOpen()"
+    [loan]="payingLoan()"
+    (closed)="onPaymentModalClosed()"
+    (paymentSuccess)="onPaymentSuccess($event)"
+  />
 </section>

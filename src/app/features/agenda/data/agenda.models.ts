@@ -1,4 +1,4 @@
-export type AgendaStatus = 'Overdue' | 'DueToday' | 'Collected' | 'UpToDate';
+export type AgendaStatus = 'Overdue' | 'DueToday' | 'Collected' | 'UpToDate' | 'WillNotPayToday';
 
 export interface AgendaItem {
   customerId: string;
