@@ -65,6 +65,23 @@ export class PaymentsService {
     return (await response.json()) as PaymentDetails;
   }
 
+  async updatePayment(paymentId: string, request: { amount: number; paymentMethodId: string; notes?: string | null }): Promise<PaymentDetails> {
+    const response = await this.auth.authorizedFetch(`${this.config.baseUrl}/payments/${paymentId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) throw new Error(await this.message(response, 'No fue posible actualizar el cobro.'));
+    return (await response.json()) as PaymentDetails;
+  }
+
+  async deletePayment(paymentId: string): Promise<void> {
+    const response = await this.auth.authorizedFetch(`${this.config.baseUrl}/payments/${paymentId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error(await this.message(response, 'No fue posible eliminar el cobro.'));
+  }
+
   private async message(response: Response, fallback: string): Promise<string> {
     if (response.status === 403) return 'No tienes autorización para operar sobre este préstamo o ruta.';
     if (response.status === 404) return 'No se encontró el recurso solicitado.';

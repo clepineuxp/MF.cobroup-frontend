@@ -1,22 +1,61 @@
 <div class="finance-page">
-  <!-- Clean Header without unnecessary copy -->
+  <!-- Clean Header with Day Closing Status & Route Selector -->
   <header class="page-header">
-    <h1 class="page-title">Balance Ruta</h1>
+    <div class="header-titles">
+      <h1 class="page-title">Balance Ruta</h1>
+      @if (dayClosing(); as closing) {
+        <div class="closing-badge" [class.closed]="closing.isClosed" [class.open]="!closing.isClosed">
+          <span class="status-dot"></span>
+          <span class="status-text">{{ closing.isClosed ? 'Día Cerrado' : 'Día Abierto' }}</span>
+          @if (closing.isClosed && closing.closedByDisplayName) {
+            <span class="closed-by">({{ closing.closedByDisplayName }})</span>
+          }
+        </div>
+      }
+    </div>
 
-    <div class="route-selector-wrapper">
-      <label class="sr-only" for="route-selector">Seleccionar ruta</label>
-      <select
-        id="route-selector"
-        class="route-selector"
-        [value]="selectedRouteId()"
-        (change)="selectRoute($any($event.target).value)"
-        aria-label="Seleccionar ruta"
-      >
-        <option value="">Todas las rutas (General)</option>
-        @for (route of routes(); track route.id) {
-          <option [value]="route.id">{{ route.name }}</option>
+    <div class="header-actions">
+      <div class="route-selector-wrapper">
+        <label class="sr-only" for="route-selector">Seleccionar ruta</label>
+        <select
+          id="route-selector"
+          class="route-selector"
+          [value]="selectedRouteId()"
+          (change)="selectRoute($any($event.target).value)"
+          aria-label="Seleccionar ruta"
+        >
+          <option value="">Todas las rutas (General)</option>
+          @for (route of routes(); track route.id) {
+            <option [value]="route.id">{{ route.name }}</option>
+          }
+        </select>
+      </div>
+
+      @if (selectedRouteId()) {
+        @if (!isDayClosed()) {
+          <button
+            type="button"
+            class="btn-close-day"
+            (click)="closeDay()"
+            [disabled]="closingInProgress()"
+            title="Cerrar la jornada diaria para esta ruta"
+          >
+            <app-icon name="lock" />
+            <span>Cerrar Día</span>
+          </button>
+        } @else if (canReopenDay()) {
+          <button
+            type="button"
+            class="btn-reopen-day"
+            (click)="reopenDay()"
+            [disabled]="closingInProgress()"
+            title="Reabrir la jornada diaria para esta ruta"
+          >
+            <app-icon name="unlock" />
+            <span>Reabrir Día</span>
+          </button>
         }
-      </select>
+      }
     </div>
   </header>
 
@@ -234,9 +273,16 @@
                   }
                 </span>
                 @if (item.canEdit && item.rawEntry) {
-                  <button type="button" class="btn-modify" (click)="openEditModal(item.rawEntry)">
-                    Modificar
-                  </button>
+                  <div class="entry-actions">
+                    <button type="button" class="btn-modify" (click)="openEditModal(item.rawEntry)">
+                      Modificar
+                    </button>
+                    @if (item.canDelete) {
+                      <button type="button" class="btn-delete" (click)="deleteEntry(item.rawEntry)" title="Eliminar movimiento">
+                        <app-icon name="trash" />
+                      </button>
+                    }
+                  </div>
                 }
               </footer>
             </article>
@@ -253,6 +299,8 @@
         type="button"
         id="btn-new-expense"
         class="btn-action btn-expense"
+        [disabled]="isDayClosed()"
+        [title]="isDayClosed() ? 'El día se encuentra cerrado para esta ruta.' : 'Nuevo Gasto'"
         (click)="openCreateModal('expense')"
       >
         <span class="btn-icon"><app-icon name="plus" /></span>
@@ -263,6 +311,8 @@
         type="button"
         id="btn-new-income"
         class="btn-action btn-income"
+        [disabled]="isDayClosed()"
+        [title]="isDayClosed() ? 'El día se encuentra cerrado para esta ruta.' : 'Nuevo Ingreso'"
         (click)="openCreateModal('income')"
       >
         <span class="btn-icon"><app-icon name="plus" /></span>
