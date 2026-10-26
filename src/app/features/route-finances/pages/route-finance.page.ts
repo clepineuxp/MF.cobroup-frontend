@@ -6,6 +6,7 @@ import { LoansService } from '../../loans/data/loans.service';
 import { PaymentsService } from '../../payments/data/payments.service';
 import { AccessibleRoute } from '../../routes/data/route.models';
 import { RoutesService } from '../../routes/data/routes.service';
+import { ActivatedRoute } from '@angular/router';
 import {
   RouteBalance,
   RouteFinancialEntry,
@@ -52,6 +53,7 @@ export class RouteFinancePage {
   private readonly finances = inject(RouteFinancesService);
   private readonly loansService = inject(LoansService);
   private readonly paymentsService = inject(PaymentsService);
+  private readonly route = inject(ActivatedRoute, { optional: true });
 
   // Routes & Selection: Empty string means "Todas las rutas (General)"
   readonly routes = signal<readonly AccessibleRoute[]>([]);
@@ -332,9 +334,12 @@ export class RouteFinancePage {
     try {
       const routes = await this.routesService.listAccessible();
       this.routes.set(routes);
-      // Default to "Todas las rutas (General)", or first route if desired.
-      // Requerimiento: "si no tengo ninguna ruta seleccionada me debe salir el general"
-      this.selectedRouteId.set('');
+      const queryRouteId = this.route?.snapshot?.queryParamMap?.get('routeId');
+      if (queryRouteId && routes.some((r) => r.id === queryRouteId)) {
+        this.selectedRouteId.set(queryRouteId);
+      } else {
+        this.selectedRouteId.set('');
+      }
       await this.reload();
     } catch (err) {
       this.error.set(err instanceof Error ? err.message : 'No fue posible cargar las rutas.');
