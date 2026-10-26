@@ -25,6 +25,19 @@ export class AuthService {
 
   readonly context = this.contextState.asReadonly();
   readonly isAuthenticated = computed(() => this.contextState() !== null && this.accessToken !== null);
+  readonly isAdmin = computed(() => this.contextState()?.role === 'Admin');
+  readonly canReopenDay = computed(() => {
+    if (this.contextState()?.role === 'Admin') return true;
+    if (!this.accessToken) return false;
+    try {
+      const parts = this.accessToken.split('.');
+      if (parts.length < 2) return false;
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return payload.can_reopen_day === 'true' || payload.can_reopen_day === true;
+    } catch {
+      return false;
+    }
+  });
 
   constructor() {
     this.initSession().catch(() => {});

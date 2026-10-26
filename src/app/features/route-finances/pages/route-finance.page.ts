@@ -7,8 +7,10 @@ import { PaymentsService } from '../../payments/data/payments.service';
 import { AccessibleRoute } from '../../routes/data/route.models';
 import { RoutesService } from '../../routes/data/routes.service';
 import { ActivatedRoute } from '@angular/router';
+import { AuthService } from '../../../core/auth/auth.service';
 import {
   RouteBalance,
+  RouteDayClosingStatus,
   RouteFinancialEntry,
   RouteFinancialEntryType,
   SaveRouteFinancialEntryRequest,
@@ -30,6 +32,7 @@ export interface FinancialMovementItem {
   readonly date: Date;
   readonly createdBy?: string;
   readonly canEdit: boolean;
+  readonly canDelete?: boolean;
   readonly rawEntry?: RouteFinancialEntry;
 }
 
@@ -59,6 +62,13 @@ export class RouteFinancePage {
   readonly routes = signal<readonly AccessibleRoute[]>([]);
   readonly selectedRouteId = signal<string>('');
   readonly balance = signal<RouteBalance | null>(null);
+
+  // Day Closing State
+  readonly auth = inject(AuthService);
+  readonly dayClosing = signal<RouteDayClosingStatus | null>(null);
+  readonly isDayClosed = computed(() => this.dayClosing()?.isClosed ?? false);
+  readonly canReopenDay = computed(() => this.auth.canReopenDay() || (this.dayClosing()?.canReopen ?? false));
+  readonly closingInProgress = signal(false);
 
   // Tab State: Siempre se muestra primero los ingresos
   readonly activeTab = signal<'income' | 'expense'>('income');
@@ -329,6 +339,63 @@ export class RouteFinancePage {
     }
   }
 
+  async closeDay(): Promise<void> {
+    const routeId = this.selectedRouteId();
+    if (!routeId || this.isDayClosed()) return;
+    if (!confirm('¿Deseas cerrar el día para esta ruta? Al cerrar el día, no se podrán realizar cobros, préstamos, ingresos ni gastos hasta el día siguiente.')) {
+      return;
+    }
+    this.closingInProgress.set(true);
+    this.error.set('');
+    try {
+      const status = await this.finances.closeDay(routeId);
+      this.dayClosing.set(status);
+      this.success.set('Día cerrado exitosamente.');
+      await this.reload();
+    } catch (err) {
+      this.error.set(err instanceof Error ? err.message : 'No fue posible cerrar el día.');
+    } finally {
+      this.closingInProgress.set(false);
+    }
+  }
+
+  async reopenDay(): Promise<void> {
+    const routeId = this.selectedRouteId();
+    if (!routeId || !this.isDayClosed()) return;
+    if (!confirm('¿Deseas reabrir el día cerrado para esta ruta?')) {
+      return;
+    }
+    this.closingInProgress.set(true);
+    this.error.set('');
+    try {
+      const status = await this.finances.reopenDay(routeId);
+      this.dayClosing.set(status);
+      this.success.set('Día reabierto exitosamente.');
+      await this.reload();
+    } catch (err) {
+      this.error.set(err instanceof Error ? err.message : 'No fue posible reabrir el día.');
+    } finally {
+      this.closingInProgress.set(false);
+    }
+  }
+
+  async deleteEntry(entry: RouteFinancialEntry): Promise<void> {
+    if (!confirm(`¿Estás seguro de que deseas eliminar el movimiento "${entry.concept}"?`)) {
+      return;
+    }
+    this.saving.set(true);
+    this.error.set('');
+    try {
+      await this.finances.deleteEntry(entry.id);
+      this.success.set('Movimiento eliminado con éxito.');
+      await this.reload();
+    } catch (err) {
+      this.error.set(err instanceof Error ? err.message : 'No fue posible eliminar el movimiento.');
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
   private async loadRoutes(): Promise<void> {
     this.loading.set(true);
     try {
@@ -356,20 +423,23 @@ export class RouteFinancePage {
 
       if (routeId) {
         // Single Route Selected
-        const [bal, incomes, expenses, loansRes] = await Promise.all([
+        const [bal, incomes, expenses, loansRes, closingStatus] = await Promise.all([
           this.finances.getBalance(routeId),
           this.finances.listEntries(routeId, 'income-investments'),
           this.finances.listEntries(routeId, 'expenses'),
           this.loansService.search(routeId, undefined, undefined, 1, 50).catch(() => ({ items: [] })),
+          this.finances.getDayClosingStatus(routeId).catch(() => null),
         ]);
 
         this.balance.set(bal);
+        this.dayClosing.set(closingStatus);
 
         // Fetch payments for loans in this route
         const loanPayments = await this.fetchPaymentsForLoans(loansRes.items);
         this.buildMovements(incomes, expenses, loansRes.items, loanPayments);
       } else {
         // General: Todas las rutas
+        this.dayClosing.set(null);
         if (routes.length === 0) {
           this.balance.set(null);
           this.movements.set([]);
@@ -460,7 +530,8 @@ export class RouteFinancePage {
         amount: e.amount,
         date: new Date(e.createdAtUtc),
         createdBy: e.createdByDisplayName,
-        canEdit: e.canEdit,
+        canEdit: e.canEdit && !this.isDayClosed(),
+        canDelete: e.canEdit && !this.isDayClosed(),
         rawEntry: e,
       });
     }
@@ -495,7 +566,8 @@ export class RouteFinancePage {
         amount: e.amount,
         date: new Date(e.createdAtUtc),
         createdBy: e.createdByDisplayName,
-        canEdit: e.canEdit,
+        canEdit: e.canEdit && !this.isDayClosed(),
+        canDelete: e.canEdit && !this.isDayClosed(),
         rawEntry: e,
       });
     }

@@ -35,3 +35,12 @@ export interface SaveRouteFinancialEntryRequest {
   readonly description: string | null;
   readonly amount: number;
 }
+
+export interface RouteDayClosingStatus {
+  readonly routeId: string;
+  readonly businessDate: string;
+  readonly isClosed: boolean;
+  readonly closedAtUtc: string | null;
+  readonly closedByDisplayName: string | null;
+  readonly canReopen: boolean;
+}

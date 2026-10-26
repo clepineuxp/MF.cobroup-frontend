@@ -63,6 +63,23 @@ export class LoansService {
     return (await response.json()) as LoanDetails;
   }
 
+  async update(id: string, request: OriginateLoanRequest): Promise<LoanDetails> {
+    const response = await this.auth.authorizedFetch(`${this.config.baseUrl}/loans/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) throw new Error(await this.message(response, 'No fue posible actualizar el préstamo.'));
+    return (await response.json()) as LoanDetails;
+  }
+
+  async delete(id: string): Promise<void> {
+    const response = await this.auth.authorizedFetch(`${this.config.baseUrl}/loans/${id}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error(await this.message(response, 'No fue posible eliminar el préstamo.'));
+  }
+
   private async message(response: Response, fallback: string): Promise<string> {
     if (response.status === 403) return 'No tienes autorización para esta ruta o cliente.';
     if (response.status === 404) return 'No se encontró el préstamo o cliente seleccionado.';

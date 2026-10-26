@@ -1,7 +1,13 @@
 import { Injectable, inject } from '@angular/core';
 import { AuthService } from '../../../core/auth/auth.service';
 import { API_CONFIG } from '../../../core/config/api.config';
-import { RouteBalance, RouteFinanceSection, RouteFinancialEntry, SaveRouteFinancialEntryRequest } from './route-finance.models';
+import {
+  RouteBalance,
+  RouteDayClosingStatus,
+  RouteFinanceSection,
+  RouteFinancialEntry,
+  SaveRouteFinancialEntryRequest,
+} from './route-finance.models';
 
 @Injectable({ providedIn: 'root' })
 export class RouteFinancesService {
@@ -25,6 +31,45 @@ export class RouteFinancesService {
 
   async update(entryId: string, request: SaveRouteFinancialEntryRequest): Promise<RouteFinancialEntry> {
     return this.write(`${this.baseUrl}/entries/${entryId}`, 'PUT', request);
+  }
+
+  async deleteEntry(entryId: string): Promise<void> {
+    const response = await this.auth.authorizedFetch(`${this.baseUrl}/entries/${entryId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const problem = await response.json().catch(() => null) as { message?: string } | null;
+      throw new Error(problem?.message ?? 'No fue posible eliminar el movimiento.');
+    }
+  }
+
+  async getDayClosingStatus(routeId: string): Promise<RouteDayClosingStatus> {
+    return this.read<RouteDayClosingStatus>(
+      `${this.baseUrl}/${routeId}/closing-status`,
+      'No fue posible consultar el estado del día para la ruta.'
+    );
+  }
+
+  async closeDay(routeId: string): Promise<RouteDayClosingStatus> {
+    const response = await this.auth.authorizedFetch(`${this.baseUrl}/${routeId}/close-day`, {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      const problem = await response.json().catch(() => null) as { message?: string } | null;
+      throw new Error(problem?.message ?? 'No fue posible cerrar el día para la ruta.');
+    }
+    return (await response.json()) as RouteDayClosingStatus;
+  }
+
+  async reopenDay(routeId: string): Promise<RouteDayClosingStatus> {
+    const response = await this.auth.authorizedFetch(`${this.baseUrl}/${routeId}/reopen-day`, {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      const problem = await response.json().catch(() => null) as { message?: string } | null;
+      throw new Error(problem?.message ?? 'No fue posible reabrir el día para la ruta.');
+    }
+    return (await response.json()) as RouteDayClosingStatus;
   }
 
   private async read<T>(url: string, fallback: string): Promise<T> {

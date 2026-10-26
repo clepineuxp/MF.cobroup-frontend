@@ -12,6 +12,99 @@
   justify-content: space-between;
   align-items: center;
   gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.header-titles {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.closing-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+
+  .status-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+  }
+
+  &.open {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    .status-dot { background: #10b981; }
+  }
+
+  &.closed {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    .status-dot { background: #ef4444; }
+  }
+
+  .closed-by {
+    font-size: 0.7rem;
+    opacity: 0.85;
+  }
+}
+
+.btn-close-day, .btn-reopen-day {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-sm, 0.4rem);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+
+  app-icon {
+    width: 0.95rem;
+    height: 0.95rem;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.btn-close-day {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.35);
+
+  &:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.25);
+  }
+}
+
+.btn-reopen-day {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.35);
+
+  &:hover:not(:disabled) {
+    background: rgba(245, 158, 11, 0.25);
+  }
 }
 
 .page-title {
@@ -421,6 +514,12 @@
     color: var(--color-text-muted);
   }
 
+  .entry-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
   .btn-modify {
     background: transparent;
     border: none;
@@ -429,6 +528,33 @@
     font-weight: 800;
     cursor: pointer;
     padding: 0.1rem 0.3rem;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .btn-delete {
+    background: transparent;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    padding: 0.2rem;
+    display: inline-flex;
+    align-items: center;
+    border-radius: var(--radius-sm, 0.25rem);
+    opacity: 0.75;
+    transition: all 0.15s ease;
+
+    &:hover {
+      opacity: 1;
+      background: rgba(239, 68, 68, 0.15);
+    }
+
+    app-icon {
+      width: 0.95rem;
+      height: 0.95rem;
+    }
   }
 }
 
@@ -469,6 +595,15 @@
 
   &:hover { transform: translateY(-2px); }
   &:active { transform: translateY(0); }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+    border-color: var(--color-border) !important;
+    color: var(--color-text-muted) !important;
+  }
 
   &.btn-income {
     border: 1.5px solid rgba(52, 211, 153, 0.45);
