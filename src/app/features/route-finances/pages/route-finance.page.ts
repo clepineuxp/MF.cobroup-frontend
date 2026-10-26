@@ -16,6 +16,8 @@ import {
   SaveRouteFinancialEntryRequest,
 } from '../data/route-finance.models';
 import { RouteFinancesService } from '../data/route-finances.service';
+import { PaymentDetails, PaymentMethodItem } from '../../payments/data/payment.models';
+import { LoanSearchItem } from '../../loans/data/loan.models';
 
 export type FilterPeriod = 'daily' | 'weekly' | 'monthly';
 
@@ -34,6 +36,8 @@ export interface FinancialMovementItem {
   readonly canEdit: boolean;
   readonly canDelete?: boolean;
   readonly rawEntry?: RouteFinancialEntry;
+  readonly rawPayment?: PaymentDetails;
+  readonly rawLoan?: LoanSearchItem;
 }
 
 export interface DayButton {
@@ -86,7 +90,7 @@ export class RouteFinancePage {
   readonly error = signal('');
   readonly success = signal('');
 
-  // Modal State
+  // Modal State (Manual Entries)
   readonly isModalOpen = signal(false);
   readonly modalSection = signal<'income' | 'expense'>('income');
   readonly modalMode = signal<'create' | 'edit'>('create');
@@ -106,6 +110,43 @@ export class RouteFinancePage {
     }),
     amount: new FormControl<number | null>(null, {
       validators: [Validators.required, Validators.min(0.01)],
+    }),
+  });
+
+  // Payment Edit Modal State
+  readonly isPaymentModalOpen = signal(false);
+  readonly editingPayment = signal<PaymentDetails | null>(null);
+  readonly paymentMethods = signal<readonly PaymentMethodItem[]>([]);
+  readonly paymentModalError = signal('');
+
+  readonly paymentEditForm = new FormGroup({
+    amount: new FormControl<number | null>(null, {
+      validators: [Validators.required, Validators.min(1)],
+    }),
+    paymentMethodId: new FormControl<string>('', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+    notes: new FormControl<string>('', {
+      nonNullable: true,
+      validators: [Validators.maxLength(500)],
+    }),
+  });
+
+  // Loan Edit Modal State
+  readonly isLoanModalOpen = signal(false);
+  readonly editingLoan = signal<LoanSearchItem | null>(null);
+  readonly loanModalError = signal('');
+
+  readonly loanEditForm = new FormGroup({
+    principalAmount: new FormControl<number | null>(null, {
+      validators: [Validators.required, Validators.min(1)],
+    }),
+    interestRate: new FormControl<number | null>(null, {
+      validators: [Validators.required, Validators.min(0.1)],
+    }),
+    installmentCount: new FormControl<number | null>(null, {
+      validators: [Validators.required, Validators.min(1)],
     }),
   });
 
@@ -216,6 +257,7 @@ export class RouteFinancePage {
 
   constructor() {
     void this.loadRoutes();
+    void this.loadPaymentMethods();
   }
 
   async selectRoute(routeId: string): Promise<void> {
@@ -379,6 +421,172 @@ export class RouteFinancePage {
     }
   }
 
+  promptSelectRouteForClosing(): void {
+    this.error.set('Para cerrar la jornada diaria, selecciona primero una ruta en el desplegable superior.');
+    const el = document.getElementById('route-selector');
+    if (el) el.focus();
+  }
+
+  onModifyMovement(item: FinancialMovementItem): void {
+    if (item.rawEntry) {
+      this.openEditModal(item.rawEntry);
+    } else if (item.rawPayment) {
+      this.openEditPaymentModal(item.rawPayment);
+    } else if (item.rawLoan) {
+      this.openEditLoanModal(item.rawLoan);
+    }
+  }
+
+  async onDeleteMovement(item: FinancialMovementItem): Promise<void> {
+    if (item.rawEntry) {
+      await this.deleteEntry(item.rawEntry);
+    } else if (item.rawPayment) {
+      await this.deletePayment(item.rawPayment);
+    } else if (item.rawLoan) {
+      await this.deleteLoan(item.rawLoan);
+    }
+  }
+
+  openEditPaymentModal(payment: PaymentDetails): void {
+    if (this.isDayClosed() || this.saving()) return;
+    this.editingPayment.set(payment);
+    this.paymentModalError.set('');
+    this.paymentEditForm.reset({
+      amount: payment.amount,
+      paymentMethodId: payment.paymentMethodId,
+      notes: payment.notes ?? '',
+    });
+    this.isPaymentModalOpen.set(true);
+  }
+
+  closePaymentModal(): void {
+    if (this.saving()) return;
+    this.isPaymentModalOpen.set(false);
+    this.editingPayment.set(null);
+    this.paymentModalError.set('');
+  }
+
+  async submitPaymentEdit(): Promise<void> {
+    const payment = this.editingPayment();
+    if (!payment || this.paymentEditForm.invalid || this.saving()) {
+      this.paymentEditForm.markAllAsTouched();
+      return;
+    }
+    const { amount, paymentMethodId, notes } = this.paymentEditForm.getRawValue();
+    if (!amount || !paymentMethodId) return;
+
+    this.saving.set(true);
+    this.paymentModalError.set('');
+    try {
+      await this.paymentsService.updatePayment(payment.id, {
+        amount,
+        paymentMethodId,
+        notes: notes.trim() || null,
+      });
+      this.isPaymentModalOpen.set(false);
+      this.editingPayment.set(null);
+      this.success.set('Cobro modificado con éxito.');
+      await this.reload();
+    } catch (err) {
+      this.paymentModalError.set(err instanceof Error ? err.message : 'No fue posible modificar el cobro.');
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  async deletePayment(payment: PaymentDetails): Promise<void> {
+    if (!confirm(`¿Estás seguro de que deseas eliminar este cobro por $${payment.amount.toLocaleString()}? El saldo del préstamo será recalculado.`)) {
+      return;
+    }
+    this.saving.set(true);
+    this.error.set('');
+    try {
+      await this.paymentsService.deletePayment(payment.id);
+      this.success.set('Cobro eliminado con éxito.');
+      await this.reload();
+    } catch (err) {
+      this.error.set(err instanceof Error ? err.message : 'No fue posible eliminar el cobro.');
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  openEditLoanModal(loan: LoanSearchItem): void {
+    if (this.isDayClosed() || this.saving()) return;
+    this.editingLoan.set(loan);
+    this.loanModalError.set('');
+    this.loanEditForm.reset({
+      principalAmount: loan.principalAmount,
+      interestRate: loan.interestRate,
+      installmentCount: loan.installmentCount,
+    });
+    this.isLoanModalOpen.set(true);
+  }
+
+  closeLoanModal(): void {
+    if (this.saving()) return;
+    this.isLoanModalOpen.set(false);
+    this.editingLoan.set(null);
+    this.loanModalError.set('');
+  }
+
+  async submitLoanEdit(): Promise<void> {
+    const loan = this.editingLoan();
+    if (!loan || this.loanEditForm.invalid || this.saving()) {
+      this.loanEditForm.markAllAsTouched();
+      return;
+    }
+    const { principalAmount, interestRate, installmentCount } = this.loanEditForm.getRawValue();
+    if (!principalAmount || !interestRate || !installmentCount) return;
+
+    this.saving.set(true);
+    this.loanModalError.set('');
+    try {
+      await this.loansService.update(loan.id, {
+        customerId: loan.customerId,
+        principalAmount,
+        interestRate,
+        installmentCount,
+        paymentFrequency: loan.paymentFrequency,
+        startDate: loan.startsAtUtc ? loan.startsAtUtc.split('T')[0] : new Date().toISOString().split('T')[0],
+      });
+      this.isLoanModalOpen.set(false);
+      this.editingLoan.set(null);
+      this.success.set('Préstamo modificado con éxito.');
+      await this.reload();
+    } catch (err) {
+      this.loanModalError.set(err instanceof Error ? err.message : 'No fue posible modificar el préstamo.');
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  async deleteLoan(loan: LoanSearchItem): Promise<void> {
+    if (!confirm(`¿Estás seguro de que deseas eliminar este préstamo por $${loan.principalAmount.toLocaleString()} a ${loan.customerName}?`)) {
+      return;
+    }
+    this.saving.set(true);
+    this.error.set('');
+    try {
+      await this.loansService.delete(loan.id);
+      this.success.set('Préstamo eliminado con éxito.');
+      await this.reload();
+    } catch (err) {
+      this.error.set(err instanceof Error ? err.message : 'No fue posible eliminar el préstamo.');
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  private async loadPaymentMethods(): Promise<void> {
+    try {
+      const methods = await this.paymentsService.getPaymentMethods();
+      this.paymentMethods.set(methods);
+    } catch {
+      // Non-critical
+    }
+  }
+
   async deleteEntry(entry: RouteFinancialEntry): Promise<void> {
     if (!confirm(`¿Estás seguro de que deseas eliminar el movimiento "${entry.concept}"?`)) {
       return;
@@ -538,7 +746,9 @@ export class RouteFinancePage {
 
     // 2. Cobros realizados (Payments) -> Cash Inflow in 'income'
     for (const lp of loanPayments) {
-      const p = lp.payment;
+      const p: PaymentDetails = lp.payment;
+      const isToday = this.isSameDay(new Date(p.registeredAtUtc), new Date());
+      const canMutate = isToday && !this.isDayClosed();
       items.push({
         id: `payment-${p.id}`,
         routeId: p.routeId,
@@ -549,7 +759,9 @@ export class RouteFinancePage {
         description: `${p.paymentMethodName || 'Efectivo'}${p.notes ? ' · ' + p.notes : ''}`,
         amount: p.amount,
         date: new Date(p.registeredAtUtc),
-        canEdit: false,
+        canEdit: canMutate,
+        canDelete: canMutate,
+        rawPayment: p,
       });
     }
 
@@ -574,6 +786,8 @@ export class RouteFinancePage {
 
     // 4. Préstamos desembolsados (Loan Disbursements) -> Cash Outflow in 'expense'
     for (const l of loans) {
+      const isToday = this.isSameDay(new Date(l.createdAtUtc), new Date());
+      const canMutate = isToday && !this.isDayClosed();
       items.push({
         id: `loan-${l.id}`,
         routeId: l.routeId,
@@ -584,7 +798,9 @@ export class RouteFinancePage {
         description: `Desembolso (${l.installmentCount} cuotas · ${l.paymentFrequency || 'Diario'})`,
         amount: l.principalAmount,
         date: new Date(l.createdAtUtc),
-        canEdit: false,
+        canEdit: canMutate,
+        canDelete: canMutate,
+        rawLoan: l,
       });
     }
 
