@@ -70,11 +70,6 @@
           <div class="card-footer">
             <span class="due-info">Vence: {{ loan.dueAtUtc | date:'mediumDate' }}</span>
             <div class="card-actions">
-              @if (loan.status === 'Active') {
-                <button type="button" class="btn-action-collect" (click)="openPayment(loan, $event)">
-                  Cobrar
-                </button>
-              }
               <span class="view-link">Ver detalle →</span>
             </div>
           </div>
@@ -101,11 +96,6 @@
             <p class="meta">Ruta: {{ loan.routeName }} · Originado: {{ loan.createdAtUtc | date:'medium' }}</p>
           </div>
           <div class="header-btns">
-            @if (loan.status === 'Active') {
-              <button type="button" class="btn-primary btn-sm" (click)="openPayment(loan)">
-                Cobrar Cuota
-              </button>
-            }
             <button type="button" class="btn-close" (click)="closeDetail()">✕</button>
           </div>
         </div>

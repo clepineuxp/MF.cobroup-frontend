@@ -16,7 +16,6 @@
 
     <div class="header-actions">
       <div class="route-selector-wrapper">
-        <label class="sr-only" for="route-selector">Seleccionar ruta</label>
         <select
           id="route-selector"
           class="route-selector"
@@ -55,6 +54,16 @@
             <span>Reabrir Día</span>
           </button>
         }
+      } @else {
+        <button
+          type="button"
+          class="btn-close-day"
+          (click)="promptSelectRouteForClosing()"
+          title="Selecciona una ruta específica para cerrar la jornada"
+        >
+          <app-icon name="lock" />
+          <span>Cerrar Día</span>
+        </button>
       }
     </div>
   </header>
@@ -272,13 +281,13 @@
                     · {{ item.createdBy }}
                   }
                 </span>
-                @if (item.canEdit && item.rawEntry) {
+                @if (item.canEdit) {
                   <div class="entry-actions">
-                    <button type="button" class="btn-modify" (click)="openEditModal(item.rawEntry)">
+                    <button type="button" class="btn-modify" (click)="onModifyMovement(item)">
                       Modificar
                     </button>
                     @if (item.canDelete) {
-                      <button type="button" class="btn-delete" (click)="deleteEntry(item.rawEntry)" title="Eliminar movimiento">
+                      <button type="button" class="btn-delete" (click)="onDeleteMovement(item)" title="Eliminar movimiento">
                         <app-icon name="trash" />
                       </button>
                     }
@@ -471,6 +480,145 @@
             } @else {
               {{ editingEntry() ? 'Guardar Cambios' : (modalSection() === 'expense' ? 'Registrar Gasto' : 'Registrar Ingreso') }}
             }
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}
+
+<!-- Edit Payment Modal -->
+@if (isPaymentModalOpen() && editingPayment(); as p) {
+  <div class="modal-backdrop" (click)="closePaymentModal()" role="presentation">
+    <div class="modal-card" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="edit-payment-title">
+      <header class="modal-header">
+        <div class="modal-title-wrapper">
+          <span class="modal-category payment">Cobro</span>
+          <h3 id="edit-payment-title" class="modal-title">Modificar Cobro</h3>
+        </div>
+        <button type="button" class="btn-close-modal" (click)="closePaymentModal()" aria-label="Cerrar modal">✕</button>
+      </header>
+
+      <form [formGroup]="paymentEditForm" (ngSubmit)="submitPaymentEdit()" class="modal-form">
+        @if (paymentModalError()) {
+          <div class="modal-feedback error">{{ paymentModalError() }}</div>
+        }
+
+        <div class="form-group">
+          <label for="payment-amount" class="field-label">Valor del Cobro ($ COP) *</label>
+          <div class="amount-input-wrapper">
+            <span class="currency-prefix">$</span>
+            <input
+              id="payment-amount"
+              type="number"
+              min="1"
+              step="any"
+              formControlName="amount"
+              placeholder="0"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="payment-method-select" class="field-label">Medio de Pago *</label>
+          <select id="payment-method-select" formControlName="paymentMethodId" class="select-input" required>
+            <option value="" disabled>Selecciona un medio de pago</option>
+            @for (pm of paymentMethods(); track pm.id) {
+              <option [value]="pm.id">{{ pm.name }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="payment-notes" class="field-label">Notas / Observaciones (opcional)</label>
+          <textarea
+            id="payment-notes"
+            formControlName="notes"
+            maxlength="500"
+            rows="3"
+            placeholder="Observaciones sobre la modificación..."
+          ></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-modal-cancel" (click)="closePaymentModal()" [disabled]="saving()">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-modal-submit" [disabled]="saving() || paymentEditForm.invalid">
+            {{ saving() ? 'Guardando…' : 'Guardar Cambios' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}
+
+<!-- Edit Loan Modal -->
+@if (isLoanModalOpen() && editingLoan(); as l) {
+  <div class="modal-backdrop" (click)="closeLoanModal()" role="presentation">
+    <div class="modal-card" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="edit-loan-title">
+      <header class="modal-header">
+        <div class="modal-title-wrapper">
+          <span class="modal-category loan">Préstamo</span>
+          <h3 id="edit-loan-title" class="modal-title">Modificar Préstamo a {{ l.customerName }}</h3>
+        </div>
+        <button type="button" class="btn-close-modal" (click)="closeLoanModal()" aria-label="Cerrar modal">✕</button>
+      </header>
+
+      <form [formGroup]="loanEditForm" (ngSubmit)="submitLoanEdit()" class="modal-form">
+        @if (loanModalError()) {
+          <div class="modal-feedback error">{{ loanModalError() }}</div>
+        }
+
+        <div class="form-group">
+          <label for="loan-principal" class="field-label">Monto Principal ($ COP) *</label>
+          <div class="amount-input-wrapper">
+            <span class="currency-prefix">$</span>
+            <input
+              id="loan-principal"
+              type="number"
+              min="1"
+              step="any"
+              formControlName="principalAmount"
+              placeholder="0"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="loan-rate" class="field-label">Tasa de Interés (%) *</label>
+          <input
+            id="loan-rate"
+            type="number"
+            min="0.1"
+            step="0.1"
+            formControlName="interestRate"
+            placeholder="Ej: 20"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="loan-installments" class="field-label">Número de Cuotas *</label>
+          <input
+            id="loan-installments"
+            type="number"
+            min="1"
+            step="1"
+            formControlName="installmentCount"
+            placeholder="Ej: 24"
+            required
+          />
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-modal-cancel" (click)="closeLoanModal()" [disabled]="saving()">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-modal-submit" [disabled]="saving() || loanEditForm.invalid">
+            {{ saving() ? 'Guardando…' : 'Guardar Cambios' }}
           </button>
         </div>
       </form>

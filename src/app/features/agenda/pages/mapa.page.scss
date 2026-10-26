@@ -36,10 +36,10 @@
    ========================================================================== */
 .floating-alert {
   position: absolute;
-  top: 3.5rem;
+  top: calc(7.6rem + env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 200;
+  z-index: 850;
   display: flex;
   align-items: center;
   gap: 0.65rem;
@@ -79,10 +79,10 @@
    ========================================================================== */
 .floating-route-selector {
   position: absolute;
-  top: 3.4rem;
+  top: calc(4.75rem + env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 100;
+  z-index: 700;
   display: flex;
   flex-direction: column;
   align-items: center;
