@@ -113,6 +113,7 @@ describe('AgendaPage', () => {
     ],
   };
 
+  const todayStr = new Date().toISOString().substring(0, 10);
   const sampleLoansSearch = {
     items: [
       {
@@ -127,9 +128,9 @@ describe('AgendaPage', () => {
         paymentFrequency: 'Daily' as const,
         installmentCount: 24,
         status: 'Active' as const,
-        startsAtUtc: '2026-10-26T10:00:00Z',
+        startsAtUtc: `${todayStr}T10:00:00Z`,
         dueAtUtc: '2026-11-20T10:00:00Z',
-        createdAtUtc: '2026-10-26T09:00:00Z',
+        createdAtUtc: `${todayStr}T09:00:00Z`,
       },
       {
         id: 'loan-new-2',
@@ -143,9 +144,9 @@ describe('AgendaPage', () => {
         paymentFrequency: 'Daily' as const,
         installmentCount: 20,
         status: 'Active' as const,
-        startsAtUtc: '2026-10-26T11:00:00Z',
+        startsAtUtc: `${todayStr}T11:00:00Z`,
         dueAtUtc: '2026-11-20T11:00:00Z',
-        createdAtUtc: '2026-10-26T10:30:00Z',
+        createdAtUtc: `${todayStr}T10:30:00Z`,
       },
     ],
     page: 1,
