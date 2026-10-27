@@ -22,5 +22,13 @@
   <body>
     <app-root></app-root>
     <noscript>Activa JavaScript para utilizar Cobro UP.</noscript>
+    <script>
+      // Prevenir gestos de zoom del navegador en pantallas táctiles / móviles
+      document.addEventListener('gesturestart', function (e) {
+        if (!e.target.closest || !e.target.closest('.leaflet-container')) {
+          e.preventDefault();
+        }
+      }, { passive: false });
+    </script>
   </body>
 </html>
