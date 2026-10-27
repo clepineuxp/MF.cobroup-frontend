@@ -8,10 +8,12 @@ describe('PwaUpdateService', () => {
   let events: Subject<VersionEvent>;
   let check: ReturnType<typeof vi.fn>;
   let reload: ReturnType<typeof vi.fn>;
+  let activateSw: ReturnType<typeof vi.fn>;
   function setup(enabled = true) {
     events = new Subject(); check = vi.fn().mockResolvedValue(false); reload = vi.fn();
+    activateSw = vi.fn().mockResolvedValue(true);
     TestBed.configureTestingModule({ providers: [
-      { provide: SwUpdate, useValue: { isEnabled: enabled, versionUpdates: events, checkForUpdate: check } },
+      { provide: SwUpdate, useValue: { isEnabled: enabled, versionUpdates: events, checkForUpdate: check, activateUpdate: activateSw } },
       { provide: ApplicationRef, useValue: { isStable: new Subject<boolean>() } },
       { provide: PWA_RELOAD, useValue: reload }
     ] });
@@ -30,17 +32,19 @@ describe('PwaUpdateService', () => {
     service.openPrompt(); expect(service.promptOpen()).toBe(true);
     service.defer(); ready('newer'); expect(service.promptOpen()).toBe(true);
   });
-  it('reloads once only after confirmation and keeps the complete shell together', () => {
-    const service = setup(); service.activateUpdate(); expect(reload).not.toHaveBeenCalled();
+  it('reloads once only after confirmation and keeps the complete shell together', async () => {
+    const service = setup(); await service.activateUpdate(); expect(reload).not.toHaveBeenCalled();
     ready(); expect(reload).not.toHaveBeenCalled();
-    service.activateUpdate(); service.activateUpdate(); service.defer();
+    const p1 = service.activateUpdate(); const p2 = service.activateUpdate(); service.defer();
+    await Promise.all([p1, p2]);
+    expect(activateSw).toHaveBeenCalledTimes(1);
     expect(reload).toHaveBeenCalledTimes(1); expect(service.updating()).toBe(true);
     expect(service.promptOpen()).toBe(true);
   });
-  it('permits retry after reload failure', () => {
+  it('permits retry after reload failure', async () => {
     const service = setup(); ready(); reload.mockImplementationOnce(() => { throw new Error(); });
-    service.activateUpdate(); expect(service.error()).toBeTruthy(); expect(service.updating()).toBe(false);
-    service.activateUpdate(); expect(reload).toHaveBeenCalledTimes(2);
+    await service.activateUpdate(); expect(service.error()).toBeTruthy(); expect(service.updating()).toBe(false);
+    await service.activateUpdate(); expect(reload).toHaveBeenCalledTimes(2);
   });
   it('handles network errors and manual retries without concurrent checks', async () => {
     const service = setup(); check.mockRejectedValueOnce(new Error('offline'));
@@ -50,9 +54,9 @@ describe('PwaUpdateService', () => {
     await service.checkForUpdate(true); expect(service.message()).toContain('más reciente');
   });
   it('does nothing when service workers are disabled', async () => {
-    const service = setup(false); await service.checkForUpdate(true); ready(); service.activateUpdate();
+    const service = setup(false); await service.checkForUpdate(true); ready(); await service.activateUpdate();
     expect(check).not.toHaveBeenCalled(); expect(reload).not.toHaveBeenCalled(); expect(service.promptOpen()).toBe(false);
-    expect(service.currentVersion).toBe('1.14.0');
+    expect(service.currentVersion).toBe('1.15.0');
   });
   it('reopens a deferred update from settings without another download', async () => {
     const service = setup(); ready(); service.defer(); await service.checkForUpdate(true);
