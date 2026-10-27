@@ -1,13 +1,14 @@
 {
   "$schema": "./node_modules/@angular/service-worker/config/schema.json",
   "index": "/index.html",
-  "appData": { "version": "1.14.0", "application": "COBROUP Operación" },
+  "appData": { "version": "1.15.0", "application": "COBROUP Operación" },
   "assetGroups": [
     {
       "name": "app",
       "installMode": "prefetch",
       "resources": {
         "files": [
+          "/apple-touch-icon.png",
           "/favicon.ico",
           "/index.csr.html",
           "/index.html",

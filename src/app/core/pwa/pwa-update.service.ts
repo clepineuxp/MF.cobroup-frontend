@@ -73,12 +73,18 @@ export class PwaUpdateService {
 
   openPrompt(): void { if (this.updateAvailable()) this.promptOpen.set(true); }
   defer(): void { if (!this.updating()) this.promptOpen.set(false); }
-  activateUpdate(): void {
+  async activateUpdate(): Promise<void> {
     if (!this.enabled || !this.updateAvailable() || this.updating()) return;
     this.updating.set(true);
     this.error.set('');
-    // Reload lets the worker switch the entire application atomically, including lazy chunks.
-    try { this.reload(); }
-    catch { this.updating.set(false); this.error.set('No se pudo actualizar. Intenta de nuevo.'); }
+    try {
+      if (this.sw) {
+        await this.sw.activateUpdate();
+      }
+      this.reload();
+    } catch {
+      this.updating.set(false);
+      this.error.set('No se pudo actualizar. Intenta de nuevo.');
+    }
   }
 }
