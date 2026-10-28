@@ -51,6 +51,10 @@
           <div class="existing-code" role="status">Código vigente pendiente de aprobación</div>
         }
         <p class="otp-expiry">Válido hasta <strong>{{ expiresAt() }}</strong></p>
+        <div class="countdown" aria-live="polite">
+          <div class="countdown-top"><span>Tiempo restante</span><strong>{{ remainingSeconds() ? countdownLabel() : 'Expirado' }}</strong></div>
+          <div class="countdown-track" role="progressbar" aria-label="Tiempo restante del OTP" [attr.aria-valuenow]="remainingSeconds()" aria-valuemin="0" aria-valuemax="7200"><span [style.width.%]="countdownPercent()"></span></div>
+        </div>
         <div class="otp-actions">
           <button class="btn-primary check-button" type="button" (click)="request()" [disabled]="busy()">
             {{ busy() ? 'Consultando…' : 'Comprobar autorización' }}
