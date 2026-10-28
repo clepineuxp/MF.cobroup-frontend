@@ -102,7 +102,7 @@ export class AuthService {
     this.accessToken = result.access_token ?? null;
     await this.ensureAntiforgeryToken(true);
     await this.loadContext();
-    await this.router.navigateByUrl('/');
+    await this.router.navigateByUrl('/machine-auth');
     return 'authenticated';
   }
 
@@ -282,14 +282,29 @@ export class AuthService {
     const execute = () => {
       const headers = new Headers(init.headers);
       headers.set('Authorization', `Bearer ${this.accessToken}`);
+      headers.set('X-Machine-Id', this.machineId());
+      const routeId = localStorage.getItem('cobroup.selectedRouteId');
+      if (routeId) headers.set('X-Route-Id', routeId);
       return fetch(input, { ...init, headers });
     };
     let response = await execute();
     if (response.status === 401 && await this.refreshAccessToken()) {
       response = await execute();
     }
+    if (response.status === 428 && !input.includes('/machine-auth')) {
+      await this.router.navigateByUrl('/machine-auth');
+    }
     return response;
   }
+
+  machineId(): string {
+    let value = localStorage.getItem('cobroup.machineId');
+    if (!value) { value = crypto.randomUUID(); localStorage.setItem('cobroup.machineId', value); }
+    return value;
+  }
+
+  selectedRouteId(): string | null { return localStorage.getItem('cobroup.selectedRouteId'); }
+  selectRoute(routeId: string): void { localStorage.setItem('cobroup.selectedRouteId', routeId); }
 
   private async loadContext(): Promise<void> {
     if (!this.accessToken) throw new Error('No hay access token disponible.');
