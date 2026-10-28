@@ -13,7 +13,7 @@ import { MachineAuthService } from '../data/machine-auth.service';
 })
 export class MachineAuthPage implements OnDestroy {
   private readonly auth = inject(AuthService); private readonly routesService = inject(RoutesService); private readonly machine = inject(MachineAuthService); private readonly router = inject(Router);
-  readonly routes = signal<readonly AccessibleRoute[]>([]); readonly selected = signal(this.auth.selectedRouteId() ?? ''); readonly busy = signal(false); readonly error = signal(''); readonly otp = signal(''); readonly otpReused = signal(false); readonly expiresAt = signal(''); readonly remainingSeconds = signal(0); readonly countdownPercent = computed(() => Math.max(0, Math.min(100, Math.round((this.remainingSeconds() / (2 * 60 * 60)) * 100)))); private countdownTimer?: ReturnType<typeof setInterval>;
+  readonly routes = signal<readonly AccessibleRoute[]>([]); readonly selected = signal(this.auth.selectedRouteId() ?? ''); readonly busy = signal(false); readonly error = signal(''); readonly otp = signal(''); readonly otpReused = signal(false); readonly expiresAt = signal(''); readonly remainingSeconds = signal(0); readonly copied = signal(false); readonly countdownPercent = computed(() => Math.max(0, Math.min(100, Math.round((this.remainingSeconds() / (2 * 60 * 60)) * 100)))); private countdownTimer?: ReturnType<typeof setInterval>; private copiedTimer?: ReturnType<typeof setTimeout>;
   constructor() { void this.load(); }
   private async load(): Promise<void> {
     try {
@@ -47,6 +47,25 @@ export class MachineAuthPage implements OnDestroy {
   private async loadOtp(regenerate: boolean): Promise<void> { const result = await this.machine.requestOtp(this.selected(), regenerate); this.otp.set(result.otp ?? ''); this.otpReused.set(result.reused); this.startCountdown(result.createdAtUtc, result.expiresAtUtc); }
   private startCountdown(createdAtUtc: string, expiresAtUtc: string): void { if (this.countdownTimer) clearInterval(this.countdownTimer); this.expiresAt.set(new Date(expiresAtUtc).toLocaleString()); const update = () => { const remaining = Math.max(0, Math.ceil((Date.parse(expiresAtUtc) - Date.now()) / 1000)); this.remainingSeconds.set(remaining); if (remaining === 0 && this.countdownTimer) { clearInterval(this.countdownTimer); this.countdownTimer = undefined; } }; void createdAtUtc; update(); this.countdownTimer = setInterval(update, 1000); }
   countdownLabel(): string { const total = this.remainingSeconds(); const hours = Math.floor(total / 3600); const minutes = Math.floor((total % 3600) / 60); const seconds = total % 60; return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`; }
-  ngOnDestroy(): void { if (this.countdownTimer) clearInterval(this.countdownTimer); }
+  async copyOtp(): Promise<void> {
+    const code = this.otp();
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      this.copied.set(true);
+      if (this.copiedTimer) clearTimeout(this.copiedTimer);
+      this.copiedTimer = setTimeout(() => this.copied.set(false), 2500);
+    } catch {
+      this.error.set('No fue posible copiar el código. Selecciónalo y cópialo manualmente.');
+    }
+  }
+  shareOtpOnWhatsApp(): void {
+    const code = this.otp();
+    if (!code) return;
+    const routeName = this.routes().find((route) => route.id === this.selected())?.name;
+    const message = `Código de autorización CobroUp${routeName ? ` para ${routeName}` : ''}: ${code}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+  }
+  ngOnDestroy(): void { if (this.countdownTimer) clearInterval(this.countdownTimer); if (this.copiedTimer) clearTimeout(this.copiedTimer); }
   async logout(): Promise<void> { await this.auth.logout(); }
 }
