@@ -1,0 +1,65 @@
+<main class="machine-auth" aria-labelledby="machine-auth-title">
+  <section class="auth-card">
+    <header class="auth-header">
+      <div class="security-mark" aria-hidden="true">✓</div>
+      <div>
+        <p class="eyebrow">Seguridad de acceso</p>
+        <h1 id="machine-auth-title">Autoriza este dispositivo</h1>
+      </div>
+    </header>
+
+    <p class="intro">Cada celular o computador necesita una autorización independiente para operar en una ruta.</p>
+
+    <div class="route-step">
+      <div class="step-heading">
+        <span class="step-number">1</span>
+        <div>
+          <h2>Selecciona una ruta</h2>
+          <p>Al elegirla generaremos el código para tu administrador.</p>
+        </div>
+      </div>
+      <label class="route-field">
+        <span>Ruta de trabajo</span>
+        <select [value]="selected()" (change)="choose($any($event.target).value)" [disabled]="busy()">
+          <option value="">Selecciona una ruta</option>
+          @for (route of routes(); track route.id) {
+            <option [value]="route.id">{{ route.name }}</option>
+          }
+        </select>
+      </label>
+    </div>
+
+    @if (busy()) {
+      <div class="loading-state" role="status" aria-live="polite">
+        <span class="loading-dot" aria-hidden="true"></span>
+        Generando código de autorización…
+      </div>
+    }
+
+    @if (otp()) {
+      <section class="otp-panel" aria-live="polite" aria-labelledby="otp-title">
+        <div class="step-heading">
+          <span class="step-number step-number-accent">2</span>
+          <div>
+            <h2 id="otp-title">Comparte este código</h2>
+            <p>Entrégaselo al administrador para que autorice tu dispositivo.</p>
+          </div>
+        </div>
+        <div class="otp-code" aria-label="Código de autorización">{{ otp() }}</div>
+        <p class="otp-expiry">Válido hasta <strong>{{ expiresAt() }}</strong></p>
+        <button class="btn-primary check-button" type="button" (click)="request()" [disabled]="busy()">
+          {{ busy() ? 'Consultando…' : 'Comprobar autorización' }}
+        </button>
+      </section>
+    }
+
+    @if (error()) {
+      <p class="error-message" role="alert">{{ error() }}</p>
+    }
+
+    <footer class="auth-actions">
+      <p class="help-text">La autorización puede durar el tiempo definido por el administrador o mantenerse indefinida.</p>
+      <button class="btn-secondary" type="button" (click)="logout()">Cerrar sesión</button>
+    </footer>
+  </section>
+</main>
