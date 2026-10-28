@@ -46,7 +46,17 @@
           </div>
         </div>
         @if (otp()) {
-          <div class="otp-code" aria-label="Código de autorización">{{ otp() }}</div>
+          <div class="otp-code-area">
+            <div class="otp-code" aria-label="Código de autorización">{{ otp() }}</div>
+            <div class="otp-share-actions" aria-label="Compartir código de autorización">
+              <button class="btn-secondary" type="button" (click)="copyOtp()">
+                {{ copied() ? 'Código copiado' : 'Copiar código' }}
+              </button>
+              <button class="btn-secondary whatsapp-button" type="button" (click)="shareOtpOnWhatsApp()">
+                Enviar por WhatsApp
+              </button>
+            </div>
+          </div>
         } @else {
           <div class="existing-code" role="status">Código vigente pendiente de aprobación</div>
         }
