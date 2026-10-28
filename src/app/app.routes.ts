@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
+import { machineRouteGuard } from './core/auth/machine-route.guard';
 
 export const routes: Routes = [
   { path: 'machine-auth', canActivate: [authGuard], loadComponent: () => import('./features/machine-auth/pages/machine-auth.page').then((module) => module.MachineAuthPage), title: 'Autorizar dispositivo | COBROUP' },
@@ -11,13 +12,13 @@ export const routes: Routes = [
   },
   {
     path: 'rutas',
-    canActivate: [authGuard],
+    canActivate: [authGuard, machineRouteGuard],
     loadComponent: () => import('./features/routes/pages/routes.page').then((module) => module.RoutesPage),
     title: 'Mis rutas | COBROUP',
   },
   {
     path: 'plantillas',
-    canActivate: [authGuard],
+    canActivate: [authGuard, machineRouteGuard],
     loadComponent: () => import('./features/loan-templates/pages/loan-templates.page').then((module) => module.LoanTemplatesPage),
     title: 'Plantillas disponibles | COBROUP',
   },

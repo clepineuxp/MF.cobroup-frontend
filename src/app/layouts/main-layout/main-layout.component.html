@@ -65,14 +65,16 @@
         <span class="nav-icon"><app-icon name="money" /></span>
         <span class="nav-text">Préstamos y Cobros</span>
       </a>
-      <a routerLink="/rutas" routerLinkActive="active" (click)="closeDrawer()">
-        <span class="nav-icon"><app-icon name="route" /></span>
-        <span class="nav-text">Mis rutas</span>
-      </a>
-      <a routerLink="/plantillas" routerLinkActive="active" (click)="closeDrawer()">
-        <span class="nav-icon"><app-icon name="clipboard" /></span>
-        <span class="nav-text">Plantillas de crédito</span>
-      </a>
+      @if (hasAuthorizedRoute()) {
+        <a routerLink="/rutas" routerLinkActive="active" (click)="closeDrawer()">
+          <span class="nav-icon"><app-icon name="route" /></span>
+          <span class="nav-text">Mis rutas</span>
+        </a>
+        <a routerLink="/plantillas" routerLinkActive="active" (click)="closeDrawer()">
+          <span class="nav-icon"><app-icon name="clipboard" /></span>
+          <span class="nav-text">Plantillas de crédito</span>
+        </a>
+      }
       <a routerLink="/excepciones" routerLinkActive="active" (click)="closeDrawer()">
         <span class="nav-icon"><app-icon name="bolt" /></span>
         <span class="nav-text">Excepciones</span>
