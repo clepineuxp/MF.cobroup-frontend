@@ -1,12 +1,13 @@
 import { PwaUpdateService } from '../../core/pwa/pwa-update.service';
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, inject, signal } from '@angular/core';
+import { Component, effect, HostListener, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { ThemeSwitchComponent } from '../../shared/ui/theme-switch/theme-switch.component';
 import { OrganizationSwitcherComponent } from '../../features/organization-session/components/organization-switcher.component';
 import { AuthService } from '../../core/auth/auth.service';
 import { ThemeService } from '../../themes/theme.service';
 import { AppIconComponent } from '../../shared/ui/app-icon/app-icon.component';
+import { MachineAuthService } from '../../features/machine-auth/data/machine-auth.service';
 
 @Component({
   selector: 'app-main-layout',
@@ -28,14 +29,26 @@ import { AppIconComponent } from '../../shared/ui/app-icon/app-icon.component';
 })
 export class MainLayoutComponent {
   private readonly auth = inject(AuthService);
+  private readonly machineAuth = inject(MachineAuthService);
   protected readonly themeService = inject(ThemeService);
 
   readonly pwa = inject(PwaUpdateService);
   readonly isAuthenticated = this.auth.isAuthenticated;
+  readonly hasAuthorizedRoute = this.machineAuth.hasAuthorizedRoute.asReadonly();
   readonly userContext = this.auth.context;
 
   readonly drawerOpen = signal(false);
   readonly notchExpanded = signal(false);
+
+  constructor() {
+    effect(() => {
+      if (this.isAuthenticated()) {
+        void this.machineAuth.refreshAuthorizedRouteAccess();
+      } else {
+        this.machineAuth.resetAuthorizedRouteAccess();
+      }
+    });
+  }
 
   toggleDrawer(): void {
     this.drawerOpen.update((v) => !v);
