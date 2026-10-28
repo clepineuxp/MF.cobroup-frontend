@@ -175,6 +175,11 @@ h2 {
   color: var(--color-text);
 }
 
+.countdown { display: grid; gap: var(--space-2); }
+.countdown-top { display: flex; justify-content: space-between; gap: var(--space-3); color: var(--color-text-muted); font-size: .8rem; }
+.countdown-top strong { color: var(--color-text); font-variant-numeric: tabular-nums; }
+.countdown-track { height: .55rem; overflow: hidden; border-radius: 9999px; background: var(--color-border); }
+.countdown-track span { display: block; height: 100%; border-radius: inherit; background: var(--color-success); transition: width 1s linear, background-color .2s ease; }
 .existing-code {
   padding: var(--space-3);
   border: 1px dashed var(--color-border);
