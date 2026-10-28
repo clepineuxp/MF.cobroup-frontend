@@ -12,9 +12,9 @@ export class MachineAuthService {
     const response = await this.auth.authorizedFetch(`${this.config.identityBaseUrl}/api/v1/machine-auth/check?routeId=${routeId}`);
     return response.ok;
   }
-  async requestOtp(routeId: string): Promise<{ otp: string; expiresAtUtc: string }> {
-    const response = await this.auth.authorizedFetch(`${this.config.identityBaseUrl}/api/v1/machine-auth/otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ routeId, machineId: this.auth.machineId() }) });
+  async requestOtp(routeId: string, regenerate = false): Promise<{ otp: string | null; expiresAtUtc: string; reused: boolean }> {
+    const response = await this.auth.authorizedFetch(`${this.config.identityBaseUrl}/api/v1/machine-auth/otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ routeId, machineId: this.auth.machineId(), regenerate }) });
     if (!response.ok) throw new Error('No fue posible generar el código OTP.');
-    return (await response.json()) as { otp: string; expiresAtUtc: string };
+    return (await response.json()) as { otp: string | null; expiresAtUtc: string; reused: boolean };
   }
 }
