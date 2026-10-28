@@ -13,7 +13,7 @@ import { MachineAuthService } from '../data/machine-auth.service';
 })
 export class MachineAuthPage {
   private readonly auth = inject(AuthService); private readonly routesService = inject(RoutesService); private readonly machine = inject(MachineAuthService); private readonly router = inject(Router);
-  readonly routes = signal<readonly AccessibleRoute[]>([]); readonly selected = signal(this.auth.selectedRouteId() ?? ''); readonly busy = signal(false); readonly error = signal(''); readonly otp = signal(''); readonly expiresAt = signal('');
+  readonly routes = signal<readonly AccessibleRoute[]>([]); readonly selected = signal(this.auth.selectedRouteId() ?? ''); readonly busy = signal(false); readonly error = signal(''); readonly otp = signal(''); readonly otpReused = signal(false); readonly expiresAt = signal('');
   constructor() { void this.load(); }
   private async load(): Promise<void> {
     try {
@@ -34,6 +34,7 @@ export class MachineAuthPage {
   async choose(routeId: string): Promise<void> {
     this.selected.set(routeId);
     this.otp.set('');
+    this.otpReused.set(false);
     this.expiresAt.set('');
     this.error.set('');
     if (routeId) {
@@ -41,6 +42,8 @@ export class MachineAuthPage {
       await this.request();
     }
   }
-  async request(): Promise<void> { if (!this.selected()) return; this.busy.set(true); this.error.set(''); try { if (await this.machine.check(this.selected())) { await this.router.navigateByUrl('/'); return; } if (this.otp()) { this.error.set('La autorización aún está pendiente de aprobación.'); return; } const result = await this.machine.requestOtp(this.selected()); this.otp.set(result.otp); this.expiresAt.set(new Date(result.expiresAtUtc).toLocaleString()); } catch (e) { this.error.set(e instanceof Error ? e.message : 'No fue posible generar o validar el OTP.'); } finally { this.busy.set(false); } }
+  async request(): Promise<void> { if (!this.selected()) return; this.busy.set(true); this.error.set(''); try { if (await this.machine.check(this.selected())) { await this.router.navigateByUrl('/'); return; } if (this.otp() || this.otpReused()) { this.error.set('La autorización aún está pendiente de aprobación.'); return; } await this.loadOtp(false); } catch (e) { this.error.set(e instanceof Error ? e.message : 'No fue posible generar o validar el OTP.'); } finally { this.busy.set(false); } }
+  async regenerate(): Promise<void> { if (!this.selected() || this.busy()) return; this.busy.set(true); this.error.set(''); try { await this.loadOtp(true); } catch (e) { this.error.set(e instanceof Error ? e.message : 'No fue posible regenerar el OTP.'); } finally { this.busy.set(false); } }
+  private async loadOtp(regenerate: boolean): Promise<void> { const result = await this.machine.requestOtp(this.selected(), regenerate); this.otp.set(result.otp ?? ''); this.otpReused.set(result.reused); this.expiresAt.set(new Date(result.expiresAtUtc).toLocaleString()); }
   async logout(): Promise<void> { await this.auth.logout(); }
 }

@@ -15,7 +15,7 @@
         <span class="step-number">1</span>
         <div>
           <h2>Selecciona una ruta</h2>
-          <p>Al elegirla generaremos el código para tu administrador.</p>
+          <p>Al elegirla consultaremos tu código vigente o generaremos uno nuevo.</p>
         </div>
       </div>
       <label class="route-field">
@@ -36,20 +36,27 @@
       </div>
     }
 
-    @if (otp()) {
+    @if (expiresAt()) {
       <section class="otp-panel" aria-live="polite" aria-labelledby="otp-title">
         <div class="step-heading">
           <span class="step-number step-number-accent">2</span>
           <div>
-            <h2 id="otp-title">Comparte este código</h2>
-            <p>Entrégaselo al administrador para que autorice tu dispositivo.</p>
+          <h2 id="otp-title">{{ otp() ? 'Comparte este código' : 'Tienes un código vigente' }}</h2>
+          <p>{{ otp() ? 'Entrégaselo al administrador para que autorice tu dispositivo.' : 'Este código se generó antes y no se muestra de nuevo por seguridad.' }}</p>
           </div>
         </div>
-        <div class="otp-code" aria-label="Código de autorización">{{ otp() }}</div>
+        @if (otp()) {
+          <div class="otp-code" aria-label="Código de autorización">{{ otp() }}</div>
+        } @else {
+          <div class="existing-code" role="status">Código vigente pendiente de aprobación</div>
+        }
         <p class="otp-expiry">Válido hasta <strong>{{ expiresAt() }}</strong></p>
-        <button class="btn-primary check-button" type="button" (click)="request()" [disabled]="busy()">
-          {{ busy() ? 'Consultando…' : 'Comprobar autorización' }}
-        </button>
+        <div class="otp-actions">
+          <button class="btn-primary check-button" type="button" (click)="request()" [disabled]="busy()">
+            {{ busy() ? 'Consultando…' : 'Comprobar autorización' }}
+          </button>
+          <button class="btn-secondary" type="button" (click)="regenerate()" [disabled]="busy()">Regenerar código</button>
+        </div>
       </section>
     }
 
