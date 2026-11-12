@@ -11,24 +11,26 @@
         <button type="button" class="btn-icon-close" (click)="close()" aria-label="Cerrar">✕</button>
       </div>
 
-      <div class="mode-switch-bar">
-        <button
-          type="button"
-          class="mode-btn"
-          [class.active]="originationMode() === 'template'"
-          (click)="setOriginationMode('template')"
-        >
-          Plantilla Publicada
-        </button>
-        <button
-          type="button"
-          class="mode-btn"
-          [class.active]="originationMode() === 'exception'"
-          (click)="setOriginationMode('exception')"
-        >
-          Excepción Aprobada
-        </button>
-      </div>
+      @if (!hideExceptions) {
+        <div class="mode-switch-bar">
+          <button
+            type="button"
+            class="mode-btn"
+            [class.active]="originationMode() === 'template'"
+            (click)="setOriginationMode('template')"
+          >
+            Plantilla Publicada
+          </button>
+          <button
+            type="button"
+            class="mode-btn"
+            [class.active]="originationMode() === 'exception'"
+            (click)="setOriginationMode('exception')"
+          >
+            Excepción Aprobada
+          </button>
+        </div>
+      }
 
       @if (error()) {
         <div class="alert-box error" role="alert">{{ error() }}</div>
@@ -61,20 +63,33 @@
             </div>
 
             @if (originationMode() === 'template') {
-              <label class="clean-field">
-                <span class="field-label">Plantilla de crédito *</span>
-                <select formControlName="loanTemplateId" (change)="onTemplateChanged($any($event.target).value)">
-                  <option value="">Seleccione una plantilla...</option>
-                  @for (tpl of availableTemplates; track tpl.id) {
-                    <option [value]="tpl.id">
-                      {{ tpl.name }} ({{ tpl.minPrincipalAmount | currency:'COP':'symbol-narrow':'1.0-0' }} a {{ tpl.maxPrincipalAmount | currency:'COP':'symbol-narrow':'1.0-0' }} · {{ tpl.minPercentage }} % a {{ tpl.maxPercentage }} % · hasta {{ tpl.maxLoanDays }} días)
-                    </option>
-                  }
-                </select>
-              </label>
-              <p>Ingresa el monto, el interés y el número de cuotas. La plantilla solo define los límites permitidos.</p>
-              @if (!form.controls.customerId.value) { <p>Selecciona primero un cliente para ver las plantillas de su ruta.</p> }
-              @else if (availableTemplates.length === 0) { <p>No hay plantillas publicadas asignadas a la ruta de este cliente.</p> }
+              @if (availableTemplates.length === 1) {
+                <div class="clean-field single-template-badge">
+                  <span class="field-label">Plantilla asignada</span>
+                  <div class="template-pill-info">
+                    <strong class="template-name">{{ availableTemplates[0].name }}</strong>
+                    <small class="template-limits">
+                      ({{ availableTemplates[0].minPrincipalAmount | currency:'COP':'symbol-narrow':'1.0-0' }} a {{ availableTemplates[0].maxPrincipalAmount | currency:'COP':'symbol-narrow':'1.0-0' }} · {{ availableTemplates[0].minPercentage }}% a {{ availableTemplates[0].maxPercentage }}% · hasta {{ availableTemplates[0].maxLoanDays }} días)
+                    </small>
+                  </div>
+                </div>
+              } @else if (availableTemplates.length > 1) {
+                <label class="clean-field">
+                  <span class="field-label">Plantilla de crédito *</span>
+                  <select formControlName="loanTemplateId" (change)="onTemplateChanged($any($event.target).value)">
+                    <option value="">Seleccione una plantilla...</option>
+                    @for (tpl of availableTemplates; track tpl.id) {
+                      <option [value]="tpl.id">
+                        {{ tpl.name }} ({{ tpl.minPrincipalAmount | currency:'COP':'symbol-narrow':'1.0-0' }} a {{ tpl.maxPrincipalAmount | currency:'COP':'symbol-narrow':'1.0-0' }} · {{ tpl.minPercentage }} % a {{ tpl.maxPercentage }} % · hasta {{ tpl.maxLoanDays }} días)
+                      </option>
+                    }
+                  </select>
+                </label>
+              } @else {
+                <p class="template-empty-hint">No hay plantillas publicadas asignadas a la ruta de este cliente.</p>
+              }
+              <p class="template-field-help">Ingresa el monto, el interés y el número de cuotas. La plantilla solo define los límites permitidos.</p>
+              @if (!form.controls.customerId.value && !defaultRouteId) { <p class="template-field-help">Selecciona primero un cliente para ver las plantillas de su ruta.</p> }
             } @else {
               <label class="clean-field">
                 <span class="field-label">Solicitud de excepción aprobada *</span>

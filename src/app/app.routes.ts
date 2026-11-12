@@ -6,9 +6,8 @@ export const routes: Routes = [
   { path: 'machine-auth', canActivate: [authGuard], loadComponent: () => import('./features/machine-auth/pages/machine-auth.page').then((module) => module.MachineAuthPage), title: 'Autorizar dispositivo | COBROUP' },
   {
     path: '',
-    canActivate: [authGuard],
-    loadComponent: () => import('./features/agenda/pages/mapa.page').then((module) => module.MapaPage),
-    title: 'Cobro UP',
+    pathMatch: 'full',
+    redirectTo: 'agenda',
   },
   {
     path: 'rutas',
@@ -24,9 +23,7 @@ export const routes: Routes = [
   },
   {
     path: 'excepciones',
-    canActivate: [authGuard],
-    loadComponent: () => import('./features/loan-exceptions/pages/loan-exceptions.page').then((module) => module.LoanExceptionsPage),
-    title: 'Excepciones de crédito | COBROUP',
+    redirectTo: 'agenda',
   },
   {
     path: 'clientes',
@@ -42,9 +39,7 @@ export const routes: Routes = [
   },
   {
     path: 'conciliacion',
-    canActivate: [authGuard],
-    loadComponent: () => import('./features/payments/pages/reconciliation/reconciliation.page').then((module) => module.ReconciliationPage),
-    title: 'Conciliación diaria | COBROUP',
+    redirectTo: 'agenda',
   },
   {
     path: 'balance-ruta',

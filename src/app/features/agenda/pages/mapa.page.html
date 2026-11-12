@@ -293,33 +293,24 @@
     </div>
   }
 
-  <!-- Bottom Action Buttons: (Nuevo Préstamo) (Cobrar) (Nuevo Cliente) (Requirement 2.5.4) -->
+  <!-- Bottom Action Buttons: (Cobrar si cliente seleccionado) (Nuevo Cliente) (Cliente Existente) -->
   <nav class="home-action-bar" aria-label="Acciones principales de cobranza">
-    <!-- 1. Nuevo Préstamo -->
-    <button
-      type="button"
-      class="action-pill-btn btn-prestamo"
-      (click)="openNewLoan()"
-      title="Crear un nuevo préstamo"
-    >
-      <span class="action-icon">💰</span>
-      <span class="action-text">Nuevo Préstamo</span>
-    </button>
+    <!-- 1. Cobrar (Invisible por defecto; solo visible si se selecciona un cliente) -->
+    @if (selectedPoint()) {
+      <button
+        type="button"
+        class="action-pill-btn btn-cobrar"
+        [disabled]="!canCollect()"
+        (click)="openCollect()"
+        [attr.aria-disabled]="!canCollect()"
+        title="Cobrar al cliente seleccionado"
+      >
+        <span class="action-icon">💵</span>
+        <span class="action-text">Cobrar</span>
+      </button>
+    }
 
-    <!-- 2. Cobrar (Only enabled when customer selected, Requirement 2.8) -->
-    <button
-      type="button"
-      class="action-pill-btn btn-cobrar"
-      [disabled]="!canCollect()"
-      (click)="openCollect()"
-      [attr.aria-disabled]="!canCollect()"
-      title="Cobrar al cliente seleccionado"
-    >
-      <span class="action-icon">💵</span>
-      <span class="action-text">Cobrar</span>
-    </button>
-
-    <!-- 3. Nuevo Cliente -->
+    <!-- 2. Nuevo Cliente -->
     <button
       type="button"
       class="action-pill-btn btn-cliente"
@@ -329,18 +320,32 @@
       <span class="action-icon">👤</span>
       <span class="action-text">Nuevo Cliente</span>
     </button>
+
+    <!-- 3. Cliente Existente -->
+    <button
+      type="button"
+      class="action-pill-btn btn-prestamo btn-cliente-existente"
+      (click)="openExistingCustomer()"
+      title="Préstamo para cliente existente"
+    >
+      <span class="action-icon">💰</span>
+      <span class="action-text">Cliente Existente</span>
+    </button>
   </nav>
 
   <!-- Shared Modals (Requirements 2.6, 2.7, 2.8, 2.9) -->
   <app-customer-modal
     [isOpen]="isCustomerModalOpen()"
     [defaultRouteId]="selectedRouteId()"
+    [hideRoute]="true"
     (closed)="isCustomerModalOpen.set(false)"
     (customerSaved)="onCustomerSaved($event)"
   />
 
   <app-loan-origination-modal
     [isOpen]="isOriginationModalOpen()"
+    [defaultRouteId]="selectedRouteId()"
+    [hideExceptions]="true"
     [preselectedCustomerId]="selectedPoint()?.customerId ?? null"
     (closed)="isOriginationModalOpen.set(false)"
     (loanCreated)="onLoanCreated($event)"

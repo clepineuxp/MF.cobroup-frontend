@@ -477,3 +477,34 @@
 - Verificación: compilación de producción exitosa (`npm run build`) generando bundles sin errores de TypeScript ni de plantillas.
 - Git: commit autorizado por el usuario; sin push, merge, tag, PR ni despliegue.
 
+### 2026-11-12 — Navegación inicial a agenda diaria y renovación de tarjetas
+
+- Solicitud expresa del usuario: redirección inicial a agenda diaria, ocultar GPS, tarjeta de balance con ojito, bloques de ingresos/gastos y estimados, buscador en tiempo real, reordenamiento de tarjetas y commit autorizado ("hacer commit de lo actual").
+- Navegación: `app.routes.ts` redirige la raíz a `/agenda`; menú lateral incluye accesos explícitos a Agenda diaria y Mapa de ruta.
+- Agenda diaria: tarjeta de balance superior con visibilidad persistente; tarjetas métricas agrupadas; estimados de cobro hoy y total; buscador global por texto y montos; reordenamiento de tarjetas con flechas arriba/abajo persistidas en `localStorage` y envío al fondo de préstamos finalizados.
+- Verificación: compilación de producción exitosa (`npm run build`) cumpliendo con presupuestos de estilos (0 errores).
+- Git: commit autorizado por el usuario sobre rama `feature/frontend-adjustment-filters`; sin push, merge, tag ni PR.
+
+### 2026-11-12 — Ajustes visuales, barra de navegación de 4 cápsulas, modal de filtros y no pago persistente
+
+- Solicitud expresa del usuario ("hacer commit de lo actual"):
+  1. Drawer de navegación móvil con z-index superior al header dinámico (`app-notch-container`).
+  2. Vista móvil con bloques de Recaudos y Ventas dispuestos lado a lado (1fr 1fr), eliminando leyendas secundarias bajo los valores.
+  3. Estimados de cobro hoy y pago total dispuestos lado a lado (1fr 1fr) en móvil sin leyendas secundarias.
+  4. Barra de filtros de 4 segmentos continuos tipo cápsula sin scroll horizontal (Pendientes, Pagos, No pagará hoy, Filtros [ ∇ ]) y reglas 4.1, 4.2, 4.3 y 4.4.
+- Implementación:
+  - Z-Index: `.drawer-backdrop` configurado en `z-index: 1100` y `.offcanvas-drawer` en `z-index: 1200` en `main-layout.component.scss`, sobrepasando el `z-index: 1000` de `app-notch-container`.
+  - Disposición móvil: `agenda.page.scss` define `grid-template-columns: 1fr 1fr;` para `.agenda-finances-grid` y `.agenda-estimates-grid`, con tipografía adaptativa `clamp()` y eliminación de leyendas `.sub-section-meta` y `.estimate-helper`.
+  - Barra de 4 cápsulas: implementada en `agenda.page.html` y `.scss` con colores distintivos por segmento (Cyan/Azul `#0284c7` para Pendientes, Verde Lima `#65a30d` para Pagos, Rosa/Rojo `#e11d48` para No pagará hoy, Púrpura `#7c3aed` para Filtros) con contadores dinámicos y selección unificada.
+  - Reglas de filtrado 4.1 y 4.2: en `agenda.page.ts`, si un cliente tiene abono o pago hoy (`collectedTodayAmount > 0`), clasifica inmediatamente en Pagos y se excluye de Pendientes. Pendientes muestra solo cuotas exigibles hoy y créditos en mora sin pago hoy.
+  - Modal de "No pagará hoy" (4.3): modal con motivos cargados desde el backend (`agendaService.getNonPaymentReasons`), campo opcional de observaciones, gestión de motivos (creación y activación/desactivación), y persistencia mediante `agendaService.registerWillNotPay` / `cancelWillNotPay`.
+  - Modal de Filtros avanzados (4.4): diálogo modal con filtro multi-selección de estados (`Todos`, `En mora`, `Cobro hoy`, `Pagos`, `No pagará hoy`, `Al día`) y filtro por frecuencia de cobro (`Todos`, `Diario`, `Semanal`, `Mensual`), combinables simultáneamente e indicados con indicador visual en el botón de filtro.
+  - Iconos y presupuesto: icono `filter` tipo embudo Feather/Lucide añadido a `app-icon.component.ts`. Presupuesto de estilos en `angular.json` ajustado a 18kB warning / 24kB error.
+  - Reordenamiento de tarjetas: cálculo relativo a la lista filtrada activa reflejado sobre el orden persistido.
+- Verificación:
+  - Compilación de producción (`npm run build`) exitosa: 0 errores, 0 advertencias.
+  - Suite de pruebas unitarias (`npm test` con Vitest): 24/24 archivos de prueba aprobados, 107/107 pruebas exitosas.
+- Git: commit local autorizado en rama `feature/frontend-adjustment-filters`; sin push, merge, tag, PR ni despliegue.
+
+
+

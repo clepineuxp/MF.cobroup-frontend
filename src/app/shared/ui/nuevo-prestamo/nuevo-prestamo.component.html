@@ -1,0 +1,83 @@
+<!-- 1. Botón / tarjeta colapsada acoplada en la parte inferior -->
+@if (state() === 'collapsed') {
+  <div class="dock-container">
+    <button
+      type="button"
+      class="dock-card-btn"
+      (click)="openOptions()"
+      aria-label="Abrir opciones de nuevo préstamo"
+    >
+      <div class="dock-drag-pill" aria-hidden="true"></div>
+      <div class="dock-btn-content">
+        <span class="dock-btn-icon" aria-hidden="true">💰</span>
+        <span class="dock-btn-text">Nuevo préstamo</span>
+      </div>
+    </button>
+  </div>
+}
+
+<!-- 2. Tarjeta elevada / Opciones intermedias -->
+@if (state() === 'options') {
+  <div class="options-backdrop" (click)="collapse()">
+    <div
+      class="options-sheet"
+      (click)="$event.stopPropagation()"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="nuevo-prestamo-options-title"
+    >
+      <div class="sheet-drag-handle" aria-hidden="true"></div>
+
+      <div class="options-header">
+        <span id="nuevo-prestamo-options-title" class="options-badge">Nuevo Préstamo</span>
+        <button
+          type="button"
+          class="btn-close-options"
+          (click)="collapse()"
+          aria-label="Cerrar opciones"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div class="options-grid">
+        <button
+          type="button"
+          class="btn-option-card btn-option-new-customer"
+          (click)="openNewCustomer()"
+        >
+          <span class="option-icon" aria-hidden="true">👤</span>
+          <span class="option-label">Nuevo cliente</span>
+        </button>
+
+        <button
+          type="button"
+          class="btn-option-card btn-option-existing-customer"
+          (click)="openExistingCustomer()"
+        >
+          <span class="option-icon" aria-hidden="true">💰</span>
+          <span class="option-label">Cliente existente</span>
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- 3. Formulario completo de Nuevo Cliente -->
+<app-customer-modal
+  [isOpen]="state() === 'new-customer'"
+  [defaultRouteId]="routeId"
+  [hideRoute]="true"
+  (closed)="onCustomerModalClosed()"
+  (customerSaved)="onCustomerSaved($event)"
+/>
+
+<!-- 4. Formulario completo de Préstamo para Cliente Existente -->
+<app-loan-origination-modal
+  [isOpen]="state() === 'existing-customer'"
+  [defaultRouteId]="routeId"
+  [hideExceptions]="true"
+  (closed)="onLoanModalClosed()"
+  (loanCreated)="onLoanCreated($event)"
+/>
+

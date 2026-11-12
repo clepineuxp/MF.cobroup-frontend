@@ -1,0 +1,203 @@
+.dock-container {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  z-index: 100;
+  pointer-events: none;
+  padding: 0 1rem;
+}
+
+.dock-card-btn {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 32rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-bottom: none;
+  border-radius: 1.25rem 1.25rem 0 0;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12);
+  padding: 0.5rem 1rem 0.65rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  font-family: inherit;
+
+  &:hover {
+    transform: translateY(-2px);
+    background: var(--color-surface-raised);
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.16);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.dock-drag-pill {
+  width: 2.25rem;
+  height: 0.25rem;
+  background: var(--color-border);
+  border-radius: 9999px;
+  opacity: 0.8;
+}
+
+.dock-btn-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.dock-btn-icon {
+  font-size: 1.15rem;
+}
+
+.dock-btn-text {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+/* Options Sheet */
+.options-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 1100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  animation: fadeIn 0.2s ease-out;
+
+  @media (min-width: 640px) {
+    padding-bottom: 1rem;
+  }
+}
+
+.options-sheet {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 1.5rem 1.5rem 0 0;
+  width: 100%;
+  max-width: 32rem;
+  padding: 0.65rem 1rem 1.5rem;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  animation: slideUpPeek 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @media (min-width: 640px) {
+    border-radius: 1.5rem;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+  }
+}
+
+.sheet-drag-handle {
+  width: 2.75rem;
+  height: 0.28rem;
+  background: var(--color-border);
+  border-radius: 9999px;
+  margin: 0.2rem auto 0;
+}
+
+.options-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.25rem;
+}
+
+.options-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  letter-spacing: 0.05em;
+}
+
+.btn-close-options {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: var(--color-text);
+    background: var(--color-border);
+  }
+}
+
+.options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.btn-option-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.85rem 0.65rem;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: 1rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--color-text);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  transition: all 0.15s ease;
+  font-family: inherit;
+
+  .option-icon {
+    font-size: 1.15rem;
+  }
+
+  .option-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &:hover {
+    background: var(--color-surface-raised);
+    border-color: var(--color-primary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUpPeek {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+

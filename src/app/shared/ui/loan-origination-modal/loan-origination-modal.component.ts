@@ -20,6 +20,8 @@ import { LoansService } from '../../../features/loans/data/loans.service';
 export class LoanOriginationModalComponent implements OnChanges {
   @Input() isOpen = false;
   @Input() preselectedCustomerId: string | null = null;
+  @Input() hideExceptions = false;
+  @Input() defaultRouteId = '';
 
   @Output() readonly closed = new EventEmitter<void>();
   @Output() readonly loanCreated = new EventEmitter<LoanDetails>();
@@ -90,7 +92,7 @@ export class LoanOriginationModalComponent implements OnChanges {
 
   private async lookupCustomers(query: string, version: number): Promise<void> {
     try {
-      const result = await this.customersService.search('', query, 1, 100);
+      const result = await this.customersService.search(this.defaultRouteId || '', query, 1, 100);
       if (version !== this.customerSearchVersion || this.destroyRef.destroyed) return;
       const active = result.items.filter(customer => customer.status === 'Active');
       this.customerMatches.set(active);
@@ -186,7 +188,7 @@ export class LoanOriginationModalComponent implements OnChanges {
 
     try {
       const [customersRes, templatesRes, exceptionsRes] = await Promise.all([
-        this.customersService.search('', '', 1, 100).catch(() => ({ items: [], page: 1, pageSize: 100, totalCount: 0 })),
+        this.customersService.search(this.defaultRouteId || '', '', 1, 100).catch(() => ({ items: [], page: 1, pageSize: 100, totalCount: 0 })),
         this.templatesService.listAvailable(),
         this.exceptionsService.search(undefined, undefined, 'Approved', 1, 100).catch(() => ({ items: [], page: 1, pageSize: 100, totalCount: 0 })),
       ]);
@@ -200,6 +202,9 @@ export class LoanOriginationModalComponent implements OnChanges {
         this.form.patchValue({ customerId: this.preselectedCustomerId });
         const customer = this.customers().find(item => item.id === this.preselectedCustomerId);
         if (customer) this.customerQuery.set(this.customerLabel(customer));
+        if (this.originationMode() === 'template' && this.availableTemplates.length === 1) {
+          this.form.patchValue({ loanTemplateId: this.availableTemplates[0].id });
+        }
       }
     } catch (err) {
       this.error.set(err instanceof Error ? err.message : 'Error al cargar datos para originación.');
@@ -226,7 +231,11 @@ export class LoanOriginationModalComponent implements OnChanges {
   onCustomerChanged(customerId: string): void {
     this.schedulePreview.set(null);
     this.form.patchValue({ loanTemplateId: '', exceptionRequestId: '' });
-    if (this.originationMode() === 'exception') {
+    if (customerId && this.originationMode() === 'template') {
+      if (this.availableTemplates.length === 1) {
+        this.form.patchValue({ loanTemplateId: this.availableTemplates[0].id });
+      }
+    } else if (customerId && this.originationMode() === 'exception') {
       const customerExceptions = this.approvedExceptions().filter((e) => e.customerId === customerId);
       if (customerExceptions.length > 0) {
         this.selectException(customerExceptions[0].id);

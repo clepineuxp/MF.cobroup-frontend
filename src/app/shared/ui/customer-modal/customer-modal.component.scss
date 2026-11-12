@@ -475,6 +475,125 @@
   animation: spin 0.7s linear infinite;
 }
 
+.credit-section {
+  border-top: 1px dashed var(--color-border);
+  padding-top: 1.25rem;
+}
+
+.optional-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+}
+
+.single-template-badge {
+  .template-pill-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.65rem 0.85rem;
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+
+    .template-name {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--color-text);
+    }
+
+    .template-limits {
+      font-size: 0.78rem;
+      color: var(--color-text-muted);
+    }
+  }
+}
+
+.template-empty-hint {
+  font-size: 0.8rem;
+  color: var(--color-danger, #ef4444);
+  margin: 0;
+}
+
+.preview-card {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.preview-header h4 {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.preview-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: 0.5rem;
+}
+
+.stat-pill {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+
+  .stat-label {
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+  }
+
+  .stat-value {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--color-text);
+  }
+}
+
+.installments-scroll {
+  max-height: 10rem;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-background);
+}
+
+.installment-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.8rem;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  .inst-num {
+    font-weight: 600;
+  }
+
+  .inst-date {
+    color: var(--color-text-muted);
+  }
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }

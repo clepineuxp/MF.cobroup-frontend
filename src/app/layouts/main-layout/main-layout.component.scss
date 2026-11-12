@@ -67,7 +67,7 @@
   background: var(--color-overlay);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  z-index: 940;
+  z-index: 1100;
   animation: fadeIn 0.2s ease-out;
 }
 
@@ -77,7 +77,7 @@
   left: 0;
   bottom: 0;
   width: min(85vw, 19.5rem);
-  z-index: 950;
+  z-index: 1200;
   background-color: var(--color-surface);
   color: var(--color-text);
   border-right: 1px solid var(--color-border);

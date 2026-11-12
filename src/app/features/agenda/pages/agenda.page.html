@@ -1,27 +1,23 @@
 <section class="agenda-container">
+  <!-- 1. Header con título: Nombre de la ruta | Fecha apertura de caja(día) -->
   <div class="header-row">
     <div>
-      <h2 class="title">Agenda diaria de cobro</h2>
-    </div>
-    <div class="actions">
-      <button
-        type="button"
-        class="btn-primary btn-gps"
-        (click)="optimizeGps()"
-        [disabled]="optimizing() || loading()"
-        aria-label="Optimizar secuencia de visitas por GPS"
-      >
-        {{ optimizing() ? 'Calculando GPS...' : '📍 Optimizar por cercanía GPS' }}
-      </button>
+      <h2 class="title">
+        <span class="route-header-name">{{ currentRouteName() }}</span>
+        <span class="route-header-sep"> | </span>
+        <span class="route-header-date">{{ boxOpeningDateFormatted() }}</span>
+      </h2>
     </div>
   </div>
 
+  @if (routes().length > 1) {
+  <!-- Selector de ruta y fecha -->
   <form [formGroup]="filterForm" (ngSubmit)="loadAgenda()" class="filter-bar">
     <div class="field">
       <label for="routeSelect">Ruta autorizada</label>
       <select id="routeSelect" formControlName="routeId" (change)="loadAgenda()">
         @for (route of routes(); track route.id) {
-          <option [value]="route.id">{{ route.name }}</option>
+        <option [value]="route.id">{{ route.name }}</option>
         }
       </select>
     </div>
@@ -31,200 +27,464 @@
       <input id="dateInput" type="date" formControlName="date" (change)="loadAgenda()" />
     </div>
   </form>
-
+  }
   @if (error()) {
-    <div class="alert-error" role="alert">{{ error() }}</div>
+  <div class="alert-error" role="alert">{{ error() }}</div>
   }
 
   @if (success()) {
-    <div class="alert-success" role="status">{{ success() }}</div>
+  <div class="alert-success" role="status">{{ success() }}</div>
   }
 
   @if (agenda(); as ag) {
-    <div class="summary-grid">
-      <div class="metric-card">
-        <span class="label">Para cobrar hoy</span>
-        <strong class="value due">{{ ag.summary.totalDueToday | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
-        <span class="sub">{{ ag.summary.dueTodayCount }} cuotas hoy</span>
+  <!-- 2. Balance de ruta: Balance inicial (izquierda) y Balance actual (derecha), ojito oculta ambos -->
+  <div class="balance-card-top">
+    <div class="balance-top-header">
+      <div class="balance-title-group">
+        <span class="balance-icon" aria-hidden="true">💼</span>
+        <span class="balance-title">Balance de ruta</span>
       </div>
-
-      <div class="metric-card">
-        <span class="label">Cartera en mora</span>
-        <strong class="value overdue">{{ ag.summary.totalOverdue | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
-        <span class="sub">{{ ag.summary.overdueCount }} clientes vencidos</span>
-      </div>
-
-      <div class="metric-card">
-        <span class="label">Total prestado hoy</span>
-        <strong class="value loaned">{{ totalLoanedToday() | currency:'COP':'symbol-narrow':'1.0-0' }} | {{ loanedCountToday() }}</strong>
-        <span class="sub">{{ loanedCountToday() }} préstamos realizados</span>
-      </div>
-
-      <div class="metric-card">
-        <span class="label">Total cobrado hoy</span>
-        <strong class="value collected">{{ ag.summary.totalCollectedToday | currency:'COP':'symbol-narrow':'1.0-0' }} | {{ ag.summary.collectedCount }}</strong>
-        <span class="sub">{{ ag.summary.collectedCount }} cobros realizados</span>
-      </div>
-
-      <div class="metric-card">
-        <span class="label">Total paradas</span>
-        <strong class="value">{{ ag.summary.totalCustomers }}</strong>
-        <span class="sub">{{ ag.summary.upToDateCount }} clientes al día</span>
-      </div>
-    </div>
-
-    <div class="tabs-bar" role="tablist">
-      <button
-        type="button"
-        class="tab-btn"
-        [class.active]="activeFilter() === 'PENDING'"
-        (click)="setFilter('PENDING')"
-      >
-        Cobro hoy / Mora ({{ pendingCount() }})
-      </button>
-      <button
-        type="button"
-        class="tab-btn overdue"
-        [class.active]="activeFilter() === 'OVERDUE'"
-        (click)="setFilter('OVERDUE')"
-      >
-        En mora ({{ overdueCount() }})
-      </button>
-      <button
-        type="button"
-        class="tab-btn due"
-        [class.active]="activeFilter() === 'DUE_TODAY'"
-        (click)="setFilter('DUE_TODAY')"
-      >
-        Cobro hoy ({{ dueTodayCount() }})
-      </button>
-      <button
-        type="button"
-        class="tab-btn will-not-pay"
-        [class.active]="activeFilter() === 'WILL_NOT_PAY'"
-        (click)="setFilter('WILL_NOT_PAY')"
-      >
-        No pagará hoy ({{ willNotPayCount() }})
-      </button>
-      <button
-        type="button"
-        class="tab-btn collected"
-        [class.active]="activeFilter() === 'COLLECTED'"
-        (click)="setFilter('COLLECTED')"
-      >
-        Cobrados ({{ ag.summary.collectedCount }})
-      </button>
-      <button
-        type="button"
-        class="tab-btn"
-        [class.active]="activeFilter() === 'ALL'"
-        (click)="setFilter('ALL')"
-      >
-        Todos ({{ ag.items.length }})
+      <button type="button" class="btn-eye-toggle" (click)="toggleBalanceVisibility($event)"
+        [attr.aria-label]="isBalanceHidden() ? 'Mostrar balances' : 'Ocultar balances'"
+        [title]="isBalanceHidden() ? 'Mostrar balances' : 'Ocultar balances'">
+        <app-icon [name]="isBalanceHidden() ? 'eye-off' : 'eye'" />
       </button>
     </div>
 
-    <div class="items-list">
-      @for (item of filteredItems(); track item.customerId; let idx = $index) {
-        <article class="stop-card" [class.is-overdue]="effectiveStatus(item) === 'Overdue'">
-          <div class="seq-badge">{{ idx + 1 }}</div>
+    <div class="balance-split-grid">
+      <!-- Balance Inicial (Izquierda) -->
+      <div class="balance-sub-col balance-initial-col">
+        <span class="balance-sub-label">Balance inicial</span>
+        <div class="balance-val-box">
+          @if (isBalanceHidden()) {
+          <span class="balance-val masked" aria-label="Balance inicial oculto">******</span>
+          } @else if (balanceLoading()) {
+          <span class="balance-val loading">Consultando…</span>
+          } @else {
+          <strong class="balance-val initial-val">
+            {{ (routeBalance()?.initialBalance ?? 0) | currency:'COP':'symbol-narrow':'1.0-0' }}
+          </strong>
+          }
+        </div>
+      </div>
 
-          <div class="info-col">
-            <!-- 1. Alias / Negocio (1 solo renglón con ellipsis) -->
-            <div class="title-row">
-              <h3 class="client-alias" [title]="item.alias || item.businessOrWorkName || item.customerName">
-                {{ item.alias || item.businessOrWorkName || item.customerName }}
-              </h3>
-            </div>
+      <div class="balance-col-divider" aria-hidden="true"></div>
 
-            <!-- 2. Nombre del cliente (1 solo renglón con ellipsis) -->
-            @if (item.alias || item.businessOrWorkName) {
-              <div class="name-row" [title]="item.customerName">
-                · {{ item.customerName }}
-              </div>
-            }
+      <!-- Balance Actual (Derecha) -->
+      <div class="balance-sub-col balance-actual-col">
+        <span class="balance-sub-label">Balance actual</span>
+        <div class="balance-val-box">
+          @if (isBalanceHidden()) {
+          <span class="balance-val masked" aria-label="Balance actual oculto">******</span>
+          } @else if (balanceLoading()) {
+          <span class="balance-val loading">Consultando…</span>
+          } @else {
+          <strong class="balance-val actual-val" [class.negative]="(routeBalance()?.netBalance ?? 0) < 0">
+            {{ (routeBalance()?.netBalance ?? 0) | currency:'COP':'symbol-narrow':'1.0-0' }}
+          </strong>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
 
-            <!-- 3. Estado (siempre en un nuevo renglón) -->
-            <div class="status-row">
-              <span
-                class="status-pill"
-                [class.is-overdue]="effectiveStatus(item) === 'Overdue'"
-                [class.is-due]="effectiveStatus(item) === 'DueToday'"
-                [class.is-uptodate]="effectiveStatus(item) === 'UpToDate'"
-                [class.is-collected]="effectiveStatus(item) === 'Collected'"
-                [class.is-will-not-pay]="effectiveStatus(item) === 'WillNotPayToday'"
-                [style.--pill-color]="effectiveStatus(item) === 'WillNotPayToday' ? '#f97316' : item.markerColor"
-              >
-                {{ effectiveStatusLabel(item) }}
-              </span>
-            </div>
+  <!-- 3 y 4. Dos componentes: Izquierda (Cobros/Recaudos + Ingresos) y Derecha (Gastos préstamos + Demás gastos) -->
+  <div class="finances-two-col-grid">
+    <!-- Columna izquierda: Cobros/Recaudos arriba, Ingresos abajo -->
+    <div class="finance-block-card">
+      <div class="finance-sub-section top-sub">
+        <span class="sub-section-label">Recaudos</span>
+        <strong class="sub-section-val val-collected">
+          {{ (routeBalance()?.paymentCollections ?? ag.summary.totalCollectedToday) |
+          currency:'COP':'symbol-narrow':'1.0-0' }}
+        </strong>
+      </div>
+      <div class="finance-section-divider"></div>
+      <div class="finance-sub-section bottom-sub">
+        <span class="sub-section-label">Microseguros e inversiones</span>
+        <strong class="sub-section-val val-income">
+          {{ (routeBalance()?.incomeInvestments ?? 0) | currency:'COP':'symbol-narrow':'1.0-0' }}
+        </strong>
+      </div>
+    </div>
 
-            <!-- 4. Metadatos de contacto y ubicación -->
-            <div class="meta-row">
-              @if (item.primaryPhone) {
-                <span class="meta-item">📞 {{ item.primaryPhone }}</span>
-              }
-              @if (item.address) {
-                <span class="meta-item">📍 {{ item.address }}</span>
-              }
-              @if (item.distanceKm !== null) {
-                <span class="meta-item distance">🚗 {{ item.distanceKm }} km</span>
-              }
-            </div>
-          </div>
+    <!-- Columna derecha: Gastos por préstamos arriba, Demás gastos abajo -->
+    <div class="finance-block-card">
+      <div class="finance-sub-section top-sub">
+        <span class="sub-section-label">Ventas</span>
+        <strong class="sub-section-val val-disbursed">
+          {{ (routeBalance()?.loanDisbursements ?? totalLoanedToday()) | currency:'COP':'symbol-narrow':'1.0-0' }}
+        </strong>
+      </div>
+      <div class="finance-section-divider"></div>
+      <div class="finance-sub-section bottom-sub">
+        <span class="sub-section-label">Gastos</span>
+        <strong class="sub-section-val val-expenses">
+          {{ (routeBalance()?.expenses ?? 0) | currency:'COP':'symbol-narrow':'1.0-0' }}
+        </strong>
+      </div>
+    </div>
+  </div>
 
-          <div class="finance-col">
-            @if (item.dueTodayAmount > 0) {
-              <div class="amt-due">Hoy: <strong>{{ item.dueTodayAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</strong></div>
-            }
-            @if (item.overdueAmount > 0) {
-              <div class="amt-overdue">Mora: <strong>{{ item.overdueAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</strong></div>
-            }
-            @if (item.loanBalance > 0) {
-              <div class="amt-balance">Saldo: {{ item.loanBalance | currency:'COP':'symbol-narrow':'1.0-0' }}</div>
-            }
-          </div>
+  <!-- 5. Dos componentes justo debajo: [Estimado de cobro hoy] y [Estimado pago Total] -->
+  <div class="estimates-two-col-grid">
+    <div class="estimate-card card-estimate-today">
+      <div class="estimate-header">
+        <span class="estimate-title">Estimado de cobro hoy</span>
+      </div>
+      <strong class="estimate-value val-estimate-due">
+        {{ estimatedDueToday() | currency:'COP':'symbol-narrow':'1.0-0' }}
+      </strong>
+    </div>
 
-          <div class="action-col">
-            @if (isPending(item)) {
-              <button
-                type="button"
-                class="btn-action btn-collect"
-                (click)="openCollectModal(item)"
-                aria-label="Registrar cobro para este cliente"
-              >
-                Cobrar
-              </button>
-              <button
-                type="button"
-                class="btn-action btn-will-not-pay"
-                (click)="markWillNotPayToday(item.customerId)"
-                aria-label="Marcar que hoy no pagará este cliente"
-              >
-                No pagará hoy
-              </button>
-            } @else if (effectiveStatus(item) === 'WillNotPayToday') {
-              <button
-                type="button"
-                class="btn-action btn-restore"
-                (click)="unmarkWillNotPayToday(item.customerId)"
-                aria-label="Restablecer cliente en la ruta de cobro"
-              >
-                Restablecer
-              </button>
-            }
-          </div>
-        </article>
-      } @empty {
-        <div class="empty-state">No hay paradas registradas para este filtro o ruta.</div>
+    <div class="estimate-card card-estimate-total">
+      <div class="estimate-header">
+        <span class="estimate-title">Estimado pago Total</span>
+      </div>
+      <strong class="estimate-value val-estimate-total">
+        {{ estimatedTotalPayment() | currency:'COP':'symbol-narrow':'1.0-0' }}
+      </strong>
+    </div>
+  </div>
+
+  <!-- 4. Barra de Segmentos (Pendientes, Pagos, No pagará hoy, Filtro ∇) -->
+  <nav class="agenda-segmented-nav" aria-label="Filtros principales de agenda">
+    <!-- Segmento 1: Pendientes (azul/celeste) -->
+    <button
+      type="button"
+      class="seg-item seg-pending"
+      [class.active]="activeNavSegment() === 'PENDING'"
+      (click)="selectSegment('PENDING')"
+      aria-label="Ver clientes pendientes"
+    >
+      <span class="seg-count">{{ pendingCount() }}</span>
+      <span class="seg-label">Pendientes</span>
+    </button>
+
+    <div class="seg-divider"></div>
+
+    <!-- Segmento 2: Pagos (verde lima) -->
+    <button
+      type="button"
+      class="seg-item seg-paid"
+      [class.active]="activeNavSegment() === 'PAID'"
+      (click)="selectSegment('PAID')"
+      aria-label="Ver clientes que pagaron hoy"
+    >
+      <span class="seg-count">{{ collectedCount() }}</span>
+      <span class="seg-label">Pagos</span>
+    </button>
+
+    <div class="seg-divider"></div>
+
+    <!-- Segmento 3: No pagará hoy (rosado) -->
+    <button
+      type="button"
+      class="seg-item seg-will-not-pay"
+      [class.active]="activeNavSegment() === 'WILL_NOT_PAY'"
+      (click)="selectSegment('WILL_NOT_PAY')"
+      aria-label="Ver clientes que no pagarán hoy"
+    >
+      <span class="seg-count">{{ willNotPayCount() }}</span>
+      <span class="seg-label">No pagará hoy</span>
+    </button>
+
+    <div class="seg-divider"></div>
+
+    <!-- Segmento 4: Símbolo de filtro (lila / lavanda) -->
+    <button
+      type="button"
+      class="seg-item seg-filter"
+      [class.active]="activeNavSegment() === 'ADVANCED'"
+      [class.has-active]="hasCustomFilters()"
+      (click)="openFilterModal()"
+      title="Filtros avanzados"
+      aria-label="Abrir filtros avanzados"
+    >
+      <span class="seg-filter-icon">
+        <app-icon name="filter" />
+      </span>
+      @if (hasCustomFilters()) {
+        <span class="seg-filter-badge" title="Filtros activos"></span>
+      }
+    </button>
+  </nav>
+
+  <!-- 7. Campo de búsqueda -->
+  <div class="search-bar-wrap">
+    <div class="search-input-box">
+      <span class="search-icon" aria-hidden="true">🔍</span>
+      <input type="search" class="search-input" placeholder="Buscar por cliente, alias, dirección o valor..."
+        [value]="searchQuery()" (input)="onSearchInput($event)" aria-label="Buscar préstamos en la agenda" />
+      @if (searchQuery()) {
+      <button type="button" class="btn-clear-search" (click)="clearSearch()" aria-label="Limpiar búsqueda">
+        ✕
+      </button>
       }
     </div>
+  </div>
+
+  <!-- 8 y 9. Tarjetas de préstamos aplicando el filtro y búsqueda -->
+  <div class="loans-list">
+    @for (item of filteredItems(); track itemKey(item)) {
+    <article class="loan-route-card" [class.is-overdue]="effectiveStatus(item) === 'Overdue'"
+      [class.is-due]="effectiveStatus(item) === 'DueToday'" [class.is-collected]="effectiveStatus(item) === 'Collected'"
+      [class.is-will-not-pay]="effectiveStatus(item) === 'WillNotPayToday'">
+      <!-- A la izquierda: flecha de subir y bajar (ordenación persistida) -->
+      <div class="card-reorder-col">
+        <button type="button" class="btn-reorder up" (click)="moveItemUp(item)" [disabled]="isFirst(item)"
+          title="Subir posición" aria-label="Subir posición del préstamo">
+          ▲
+        </button>
+        <button type="button" class="btn-reorder down" (click)="moveItemDown(item)" [disabled]="isLast(item)"
+          title="Bajar posición" aria-label="Bajar posición del préstamo">
+          ▼
+        </button>
+      </div>
+
+      <!-- Centro-izquierda: Nombre de la persona y abajo saldo -->
+      <div class="card-customer-col">
+        <div class="customer-title-row">
+          <h3 class="customer-name" [title]="item.customerName">
+            {{ item.customerName }}
+          </h3>
+          @if (item.alias) {
+          <span class="customer-alias" [title]="item.alias">
+            · {{ item.alias }}
+          </span>
+          }
+        </div>
+
+        <div class="customer-balance-row">
+          <span class="balance-tag">Saldo:</span>
+          <strong class="balance-val-text">{{ item.loanBalance | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+        </div>
+
+        <div class="customer-tags-row">
+          <span class="status-pill" [class.is-overdue]="effectiveStatus(item) === 'Overdue'"
+            [class.is-due]="effectiveStatus(item) === 'DueToday'"
+            [class.is-uptodate]="effectiveStatus(item) === 'UpToDate'"
+            [class.is-collected]="effectiveStatus(item) === 'Collected'"
+            [class.is-will-not-pay]="effectiveStatus(item) === 'WillNotPayToday'"
+            [style.--pill-color]="effectiveStatus(item) === 'WillNotPayToday' ? '#f43f5e' : item.markerColor">
+            {{ effectiveStatusLabel(item) }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Valores de cuota y mora (solo si hay mora) -->
+      <div class="card-amounts-col">
+        <div class="amount-row cuota-row">
+          <span class="amt-heading">Cuota:</span>
+          <strong class="amt-strong-val val-cuota">
+            {{ (item.dueTodayAmount > 0 ? item.dueTodayAmount : (item.installmentAmount || 0)) |
+            currency:'COP':'symbol-narrow':'1.0-0' }}
+          </strong>
+        </div>
+
+        @if (item.overdueAmount > 0) {
+        <div class="amount-row mora-row has-mora">
+          <span class="amt-heading">Mora:</span>
+          <strong class="amt-strong-val val-mora">
+            {{ item.overdueAmount | currency:'COP':'symbol-narrow':'1.0-0' }}
+          </strong>
+        </div>
+        }
+      </div>
+
+      <!-- A la derecha de esto: botones Cobrar y No pagará hoy (compactos en móvil) -->
+      <div class="card-actions-col">
+        <button type="button" class="btn-card-action btn-collect" (click)="openCollectModal(item)"
+          [disabled]="effectiveStatus(item) === 'Collected'" aria-label="Registrar cobro para este préstamo"
+          [title]="effectiveStatus(item) === 'Collected' ? 'Cobrado' : 'Cobrar'">
+          <span class="btn-label-text">{{ effectiveStatus(item) === 'Collected' ? 'Cobrado' : 'Cobrar' }}</span>
+          <span class="btn-label-icon">{{ effectiveStatus(item) === 'Collected' ? '✓' : '$' }}</span>
+        </button>
+
+        @if (effectiveStatus(item) === 'WillNotPayToday') {
+        <button type="button" class="btn-card-action btn-restore" (click)="unmarkWillNotPayToday(item)"
+          aria-label="Restablecer préstamo en la ruta de cobro" title="Restablecer préstamo">
+          <span class="btn-label-text">Restablecer</span>
+          <span class="btn-label-icon">↺</span>
+        </button>
+        } @else {
+        <button type="button" class="btn-card-action btn-will-not-pay" (click)="openWillNotPayModal(item)"
+          [disabled]="effectiveStatus(item) === 'Collected'" aria-label="Marcar que hoy no pagará este préstamo"
+          title="No pagará hoy">
+          <span class="btn-label-text">No pagará hoy</span>
+          <span class="btn-label-icon">✕</span>
+        </button>
+        }
+      </div>
+    </article>
+    } @empty {
+    <div class="empty-state">No hay préstamos para los filtros o búsqueda especificados.</div>
+    }
+  </div>
   }
 
-  <app-payment-modal
-    [isOpen]="isPaymentModalOpen()"
-    [loan]="payingLoan()"
-    (closed)="onPaymentModalClosed()"
-    (paymentSuccess)="onPaymentSuccess($event)"
+  <!-- Modal de Filtros Avanzados (4.4) -->
+  @if (isFilterModalOpen()) {
+  <div class="modal-backdrop" (click)="closeFilterModal()">
+    <div class="modal-sheet filter-modal-sheet" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="filter-modal-title">
+      <div class="sheet-drag-handle"></div>
+
+      <div class="modal-header">
+        <div class="header-titles">
+          <span class="sheet-badge">Filtros</span>
+          <h2 id="filter-modal-title" class="sheet-title">Filtros de Agenda</h2>
+        </div>
+        <button type="button" class="btn-icon-close" (click)="closeFilterModal()" aria-label="Cerrar">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Sección 1: Filtro por estados (multiselección) -->
+        <div class="filter-group">
+          <h4 class="filter-group-title">Estado del crédito / cobro</h4>
+          <p class="filter-group-desc">Selecciona uno o varios estados:</p>
+          <div class="filter-chips-grid">
+            @for (opt of statusOptions; track opt.key) {
+              <button
+                type="button"
+                class="filter-chip"
+                [class.active]="tempStatuses().has(opt.key) || (opt.key === 'ALL' && tempStatuses().size === 0)"
+                (click)="toggleTempStatus(opt.key)"
+              >
+                {{ opt.label }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <!-- Sección 2: Filtro por frecuencia de pago (diario / semanal / mensual) -->
+        <div class="filter-group">
+          <h4 class="filter-group-title">Frecuencia de pago</h4>
+          <p class="filter-group-desc">Filtra por periodicidad:</p>
+          <div class="filter-chips-grid">
+            @for (freq of frequencyOptions; track freq.key) {
+              <button
+                type="button"
+                class="filter-chip freq-chip"
+                [class.active]="tempFrequencies().has(freq.key) || (freq.key === 'ALL' && tempFrequencies().size === 0)"
+                (click)="toggleTempFrequency(freq.key)"
+              >
+                {{ freq.label }}
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" (click)="clearFilters()">
+          Restablecer
+        </button>
+        <button type="button" class="btn-submit" (click)="applyFilters()">
+          Aplicar filtros
+        </button>
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- Modal de Registro de 'No pagará hoy' (4.3 - Bottom Sheet) -->
+  @if (isWillNotPayModalOpen()) {
+  <div class="modal-backdrop" (click)="closeWillNotPayModal()">
+    <div class="modal-sheet will-not-pay-sheet" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="non-pay-title">
+      <div class="sheet-drag-handle"></div>
+
+      <div class="modal-header">
+        <div class="header-titles">
+          <span class="sheet-badge badge-rose">Novedad de Cobro</span>
+          <h2 id="non-pay-title" class="sheet-title">No Pagará Hoy</h2>
+          @if (targetWillNotPayItem(); as it) {
+            <p class="sheet-subtitle">
+              {{ it.customerName }} · Saldo: <strong>{{ it.loanBalance | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+            </p>
+          }
+        </div>
+        <button type="button" class="btn-icon-close" (click)="closeWillNotPayModal()" aria-label="Cerrar">✕</button>
+      </div>
+
+      <div class="modal-body">
+        @if (targetWillNotPayItem(); as it) {
+          <div class="target-loan-summary">
+            <div class="summary-field">
+              <span class="field-label">Saldo total</span>
+              <strong class="field-val">{{ it.loanBalance | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+            </div>
+            <div class="summary-field">
+              <span class="field-label">Cuota hoy</span>
+              <strong class="field-val">{{ (it.dueTodayAmount > 0 ? it.dueTodayAmount : (it.installmentAmount || 0)) | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+            </div>
+          </div>
+        }
+
+        <div class="form-group">
+          <label class="form-label">Motivo de no pago:</label>
+          @if (reasonsLoading()) {
+            <p class="text-loading">Cargando motivos...</p>
+          } @else {
+            <div class="reasons-radio-list">
+              @for (reason of nonPaymentReasons(); track reason.id) {
+                @if (reason.isActive) {
+                  <label class="reason-radio-option" [class.selected]="selectedReasonId() === reason.id">
+                    <input
+                      type="radio"
+                      name="nonPaymentReason"
+                      [value]="reason.id"
+                      [checked]="selectedReasonId() === reason.id"
+                      (change)="selectedReasonId.set(reason.id)"
+                    />
+                    <div class="reason-info">
+                      <span class="reason-name">{{ reason.name }}</span>
+                      @if (reason.description) {
+                        <span class="reason-desc">{{ reason.description }}</span>
+                      }
+                    </div>
+                  </label>
+                }
+              }
+            </div>
+          }
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="observations-txt">Observaciones adicionales (opcional):</label>
+          <textarea
+            id="observations-txt"
+            class="form-textarea"
+            rows="2"
+            placeholder="Escribe detalles del motivo o acuerdo de pago..."
+            [value]="nonPaymentObservations()"
+            (input)="nonPaymentObservations.set($any($event.target).value)"
+          ></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" (click)="closeWillNotPayModal()">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="btn-submit"
+          [disabled]="submittingNonPayment() || !selectedReasonId()"
+          (click)="submitWillNotPay()"
+        >
+          {{ submittingNonPayment() ? 'Guardando...' : 'Confirmar No Pago' }}
+        </button>
+      </div>
+    </div>
+  </div>
+  }
+
+  <app-payment-modal [isOpen]="isPaymentModalOpen()" [loan]="payingLoan()" (closed)="onPaymentModalClosed()"
+    (paymentSuccess)="onPaymentSuccess($event)" />
+
+  <app-nuevo-prestamo
+    [routeId]="selectedRouteId()"
+    (customerSaved)="onCustomerSaved($event)"
+    (loanCreated)="onLoanCreated($event)"
   />
 </section>
