@@ -564,10 +564,9 @@
 }
 
 /* ==========================================================================
-   6. BOTTOM / LEFT ACTION BAR (Requirement 2.5.4)
-   Strict order: (Nuevo Préstamo) (Cobrar) (Nuevo Cliente)
-   If they fit horizontally: bottom row.
-   If not: collapsed to the left side in a column. NEVER 2 and 1!
+   6. BOTTOM / LEFT ACTION BAR
+   Order: (Cobrar - si cliente seleccionado) (Nuevo Cliente) (Cliente Existente)
+   Below it: Floating Route Balance Bubble
    ========================================================================== */
 .home-action-bar {
   position: absolute;
@@ -576,8 +575,8 @@
   gap: 0.6rem;
 
   /* Mobile / Narrow Screen default (< 540px):
-     Collapsed to the left side in a single vertical column with equal button size */
-  bottom: 5.5rem;
+     Collapsed to the left side in a single vertical column above Balance */
+  bottom: 4.8rem;
   left: 1rem;
   flex-direction: column;
   align-items: stretch;
@@ -641,8 +640,21 @@
   }
 }
 
-/* 1. Nuevo Préstamo */
-.btn-prestamo {
+/* 1. Cobrar (Primary Action) */
+.btn-cobrar {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-color: var(--color-primary);
+  box-shadow: 0 6px 20px rgba(64, 92, 114, 0.35);
+  animation: fadeIn 0.18s ease-out;
+
+  &:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+  }
+}
+
+/* 2. Nuevo Cliente */
+.btn-cliente {
   background: var(--color-surface);
   color: var(--color-text);
   border-color: var(--color-border);
@@ -652,20 +664,9 @@
   }
 }
 
-/* 2. Cobrar (Primary Action) */
-.btn-cobrar {
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  border-color: var(--color-primary);
-  box-shadow: 0 6px 20px rgba(64, 92, 114, 0.35);
-
-  &:hover:not(:disabled) {
-    background: var(--color-primary-hover);
-  }
-}
-
-/* 3. Nuevo Cliente */
-.btn-cliente {
+/* 3. Cliente Existente */
+.btn-prestamo,
+.btn-cliente-existente {
   background: var(--color-surface);
   color: var(--color-text);
   border-color: var(--color-border);
@@ -904,6 +905,17 @@
   from {
     opacity: 0;
     transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
   }
   to {
     opacity: 1;

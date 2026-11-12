@@ -1,8 +1,12 @@
 <section class="agenda-container">
-  <!-- 1. Header con título (Botón de optimizar por GPS ocultado) -->
+  <!-- 1. Header con título: Nombre de la ruta | Fecha apertura de caja(día) -->
   <div class="header-row">
     <div>
-      <h2 class="title">Agenda diaria de cobro</h2>
+      <h2 class="title">
+        <span class="route-header-name">{{ currentRouteName() }}</span>
+        <span class="route-header-sep"> | </span>
+        <span class="route-header-date">{{ boxOpeningDateFormatted() }}</span>
+      </h2>
     </div>
   </div>
 
@@ -33,7 +37,7 @@
   }
 
   @if (agenda(); as ag) {
-  <!-- 2. Balance en la parte superior con opción de ojito para ocultar/mostrar -->
+  <!-- 2. Balance de ruta: Balance inicial (izquierda) y Balance actual (derecha), ojito oculta ambos -->
   <div class="balance-card-top">
     <div class="balance-top-header">
       <div class="balance-title-group">
@@ -41,22 +45,46 @@
         <span class="balance-title">Balance de ruta</span>
       </div>
       <button type="button" class="btn-eye-toggle" (click)="toggleBalanceVisibility($event)"
-        [attr.aria-label]="isBalanceHidden() ? 'Mostrar balance' : 'Ocultar balance'"
-        [title]="isBalanceHidden() ? 'Mostrar balance' : 'Ocultar balance'">
+        [attr.aria-label]="isBalanceHidden() ? 'Mostrar balances' : 'Ocultar balances'"
+        [title]="isBalanceHidden() ? 'Mostrar balances' : 'Ocultar balances'">
         <app-icon [name]="isBalanceHidden() ? 'eye-off' : 'eye'" />
       </button>
     </div>
 
-    <div class="balance-amount-container">
-      @if (isBalanceHidden()) {
-      <span class="balance-val masked" aria-label="Balance oculto">******</span>
-      } @else if (balanceLoading()) {
-      <span class="balance-val loading">Consultando…</span>
-      } @else {
-      <strong class="balance-val" [class.negative]="(routeBalance()?.netBalance ?? 0) < 0">
-        {{ (routeBalance()?.netBalance ?? 0) | currency:'COP':'symbol-narrow':'1.0-0' }}
-      </strong>
-      }
+    <div class="balance-split-grid">
+      <!-- Balance Inicial (Izquierda) -->
+      <div class="balance-sub-col balance-initial-col">
+        <span class="balance-sub-label">Balance inicial</span>
+        <div class="balance-val-box">
+          @if (isBalanceHidden()) {
+          <span class="balance-val masked" aria-label="Balance inicial oculto">******</span>
+          } @else if (balanceLoading()) {
+          <span class="balance-val loading">Consultando…</span>
+          } @else {
+          <strong class="balance-val initial-val">
+            {{ (routeBalance()?.initialBalance ?? 0) | currency:'COP':'symbol-narrow':'1.0-0' }}
+          </strong>
+          }
+        </div>
+      </div>
+
+      <div class="balance-col-divider" aria-hidden="true"></div>
+
+      <!-- Balance Actual (Derecha) -->
+      <div class="balance-sub-col balance-actual-col">
+        <span class="balance-sub-label">Balance actual</span>
+        <div class="balance-val-box">
+          @if (isBalanceHidden()) {
+          <span class="balance-val masked" aria-label="Balance actual oculto">******</span>
+          } @else if (balanceLoading()) {
+          <span class="balance-val loading">Consultando…</span>
+          } @else {
+          <strong class="balance-val actual-val" [class.negative]="(routeBalance()?.netBalance ?? 0) < 0">
+            {{ (routeBalance()?.netBalance ?? 0) | currency:'COP':'symbol-narrow':'1.0-0' }}
+          </strong>
+          }
+        </div>
+      </div>
     </div>
   </div>
 
@@ -208,30 +236,27 @@
           title="Subir posición" aria-label="Subir posición del préstamo">
           ▲
         </button>
-        <span class="reorder-idx-badge" [title]="'Posición ' + (getItemIndex(item) + 1)">
-          {{ getItemIndex(item) + 1 }}
-        </span>
         <button type="button" class="btn-reorder down" (click)="moveItemDown(item)" [disabled]="isLast(item)"
           title="Bajar posición" aria-label="Bajar posición del préstamo">
           ▼
         </button>
       </div>
 
-      <!-- Centro-izquierda: Nombre de la persona y abajo saldo total -->
+      <!-- Centro-izquierda: Nombre de la persona y abajo saldo -->
       <div class="card-customer-col">
         <div class="customer-title-row">
           <h3 class="customer-name" [title]="item.customerName">
             {{ item.customerName }}
           </h3>
-          @if (item.alias || item.businessOrWorkName) {
-          <span class="customer-alias" [title]="item.alias || item.businessOrWorkName">
-            · {{ item.alias || item.businessOrWorkName }}
+          @if (item.alias) {
+          <span class="customer-alias" [title]="item.alias">
+            · {{ item.alias }}
           </span>
           }
         </div>
 
         <div class="customer-balance-row">
-          <span class="balance-tag">Saldo total:</span>
+          <span class="balance-tag">Saldo:</span>
           <strong class="balance-val-text">{{ item.loanBalance | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
         </div>
 
@@ -244,55 +269,50 @@
             [style.--pill-color]="effectiveStatus(item) === 'WillNotPayToday' ? '#f43f5e' : item.markerColor">
             {{ effectiveStatusLabel(item) }}
           </span>
-          @if (item.address) {
-          <span class="address-text" [title]="item.address">📍 {{ item.address }}</span>
-          }
-          @if (item.primaryPhone) {
-          <span class="phone-text">📞 {{ item.primaryPhone }}</span>
-          }
         </div>
       </div>
 
-      <!-- A la derecha de la tarjeta: cuota a pagar hoy, y abajo el total de cuotas en mora -->
+      <!-- Valores de cuota y mora (solo si hay mora) -->
       <div class="card-amounts-col">
         <div class="amount-row cuota-row">
-          <span class="amt-heading">Cuota hoy:</span>
+          <span class="amt-heading">Cuota:</span>
           <strong class="amt-strong-val val-cuota">
             {{ (item.dueTodayAmount > 0 ? item.dueTodayAmount : (item.installmentAmount || 0)) |
             currency:'COP':'symbol-narrow':'1.0-0' }}
           </strong>
         </div>
 
-        <div class="amount-row mora-row" [class.has-mora]="item.overdueAmount > 0">
-          <span class="amt-heading">Total mora:</span>
-          @if (item.overdueAmount > 0) {
+        @if (item.overdueAmount > 0) {
+        <div class="amount-row mora-row has-mora">
+          <span class="amt-heading">Mora:</span>
           <strong class="amt-strong-val val-mora">
-            {{ item.overdueInstallmentsCount ? item.overdueInstallmentsCount + ' cuotas (' + (item.overdueAmount |
-            currency:'COP':'symbol-narrow':'1.0-0') + ')' : (item.overdueAmount |
-            currency:'COP':'symbol-narrow':'1.0-0') }}
+            {{ item.overdueAmount | currency:'COP':'symbol-narrow':'1.0-0' }}
           </strong>
-          } @else {
-          <span class="amt-strong-val val-no-mora">$0</span>
-          }
         </div>
+        }
       </div>
 
-      <!-- A la derecha de esto: botones Cobrar y No pagará hoy -->
+      <!-- A la derecha de esto: botones Cobrar y No pagará hoy (compactos en móvil) -->
       <div class="card-actions-col">
         <button type="button" class="btn-card-action btn-collect" (click)="openCollectModal(item)"
-          [disabled]="effectiveStatus(item) === 'Collected'" aria-label="Registrar cobro para este préstamo">
-          {{ effectiveStatus(item) === 'Collected' ? 'Cobrado' : 'Cobrar' }}
+          [disabled]="effectiveStatus(item) === 'Collected'" aria-label="Registrar cobro para este préstamo"
+          [title]="effectiveStatus(item) === 'Collected' ? 'Cobrado' : 'Cobrar'">
+          <span class="btn-label-text">{{ effectiveStatus(item) === 'Collected' ? 'Cobrado' : 'Cobrar' }}</span>
+          <span class="btn-label-icon">{{ effectiveStatus(item) === 'Collected' ? '✓' : '$' }}</span>
         </button>
 
         @if (effectiveStatus(item) === 'WillNotPayToday') {
         <button type="button" class="btn-card-action btn-restore" (click)="unmarkWillNotPayToday(item)"
-          aria-label="Restablecer préstamo en la ruta de cobro">
-          Restablecer
+          aria-label="Restablecer préstamo en la ruta de cobro" title="Restablecer préstamo">
+          <span class="btn-label-text">Restablecer</span>
+          <span class="btn-label-icon">↺</span>
         </button>
         } @else {
         <button type="button" class="btn-card-action btn-will-not-pay" (click)="openWillNotPayModal(item)"
-          [disabled]="effectiveStatus(item) === 'Collected'" aria-label="Marcar que hoy no pagará este préstamo">
-          No pagará hoy
+          [disabled]="effectiveStatus(item) === 'Collected'" aria-label="Marcar que hoy no pagará este préstamo"
+          title="No pagará hoy">
+          <span class="btn-label-text">No pagará hoy</span>
+          <span class="btn-label-icon">✕</span>
         </button>
         }
       </div>
@@ -305,200 +325,166 @@
 
   <!-- Modal de Filtros Avanzados (4.4) -->
   @if (isFilterModalOpen()) {
-  <div class="modal-backdrop" (click)="closeFilterModal()" aria-hidden="true"></div>
-  <div class="filter-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="filter-modal-title">
-    <div class="modal-header">
-      <div class="modal-title-wrap">
-        <span class="modal-icon"><app-icon name="filter" /></span>
-        <h3 id="filter-modal-title" class="modal-title">Filtros de Agenda</h3>
-      </div>
-      <button type="button" class="btn-modal-close" (click)="closeFilterModal()" aria-label="Cerrar modal">✕</button>
-    </div>
+  <div class="modal-backdrop" (click)="closeFilterModal()">
+    <div class="modal-sheet filter-modal-sheet" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="filter-modal-title">
+      <div class="sheet-drag-handle"></div>
 
-    <div class="modal-body">
-      <!-- Sección 1: Filtro por estados (multiselección) -->
-      <div class="filter-group">
-        <h4 class="filter-group-title">Estado del crédito / cobro</h4>
-        <p class="filter-group-desc">Selecciona uno o varios estados:</p>
-        <div class="filter-chips-grid">
-          @for (opt of statusOptions; track opt.key) {
-            <button
-              type="button"
-              class="filter-chip"
-              [class.active]="tempStatuses().has(opt.key) || (opt.key === 'ALL' && tempStatuses().size === 0)"
-              (click)="toggleTempStatus(opt.key)"
-            >
-              {{ opt.label }}
-            </button>
-          }
+      <div class="modal-header">
+        <div class="header-titles">
+          <span class="sheet-badge">Filtros</span>
+          <h2 id="filter-modal-title" class="sheet-title">Filtros de Agenda</h2>
+        </div>
+        <button type="button" class="btn-icon-close" (click)="closeFilterModal()" aria-label="Cerrar">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Sección 1: Filtro por estados (multiselección) -->
+        <div class="filter-group">
+          <h4 class="filter-group-title">Estado del crédito / cobro</h4>
+          <p class="filter-group-desc">Selecciona uno o varios estados:</p>
+          <div class="filter-chips-grid">
+            @for (opt of statusOptions; track opt.key) {
+              <button
+                type="button"
+                class="filter-chip"
+                [class.active]="tempStatuses().has(opt.key) || (opt.key === 'ALL' && tempStatuses().size === 0)"
+                (click)="toggleTempStatus(opt.key)"
+              >
+                {{ opt.label }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <!-- Sección 2: Filtro por frecuencia de pago (diario / semanal / mensual) -->
+        <div class="filter-group">
+          <h4 class="filter-group-title">Frecuencia de pago</h4>
+          <p class="filter-group-desc">Filtra por periodicidad:</p>
+          <div class="filter-chips-grid">
+            @for (freq of frequencyOptions; track freq.key) {
+              <button
+                type="button"
+                class="filter-chip freq-chip"
+                [class.active]="tempFrequencies().has(freq.key) || (freq.key === 'ALL' && tempFrequencies().size === 0)"
+                (click)="toggleTempFrequency(freq.key)"
+              >
+                {{ freq.label }}
+              </button>
+            }
+          </div>
         </div>
       </div>
 
-      <!-- Sección 2: Filtro por frecuencia de pago (diario / semanal / mensual) -->
-      <div class="filter-group">
-        <h4 class="filter-group-title">Frecuencia de pago</h4>
-        <p class="filter-group-desc">Filtra por periodicidad:</p>
-        <div class="filter-chips-grid">
-          @for (freq of frequencyOptions; track freq.key) {
-            <button
-              type="button"
-              class="filter-chip freq-chip"
-              [class.active]="tempFrequencies().has(freq.key) || (freq.key === 'ALL' && tempFrequencies().size === 0)"
-              (click)="toggleTempFrequency(freq.key)"
-            >
-              {{ freq.label }}
-            </button>
-          }
-        </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" (click)="clearFilters()">
+          Restablecer
+        </button>
+        <button type="button" class="btn-submit" (click)="applyFilters()">
+          Aplicar filtros
+        </button>
       </div>
-    </div>
-
-    <div class="modal-footer">
-      <button type="button" class="btn-filter-clear" (click)="clearFilters()">
-        Restablecer
-      </button>
-      <button type="button" class="btn-filter-apply" (click)="applyFilters()">
-        Aplicar filtros
-      </button>
     </div>
   </div>
   }
 
-  <!-- Modal de Registro de 'No pagará hoy' (4.3) -->
+  <!-- Modal de Registro de 'No pagará hoy' (4.3 - Bottom Sheet) -->
   @if (isWillNotPayModalOpen()) {
-  <div class="modal-backdrop" (click)="closeWillNotPayModal()" aria-hidden="true"></div>
-  <div class="will-not-pay-dialog" role="dialog" aria-modal="true" aria-labelledby="non-pay-title">
-    <div class="modal-header">
-      <div class="modal-title-wrap">
-        <span class="modal-icon icon-rose">⚠️</span>
-        <div>
-          <h3 id="non-pay-title" class="modal-title">Registrar: No pagará hoy</h3>
+  <div class="modal-backdrop" (click)="closeWillNotPayModal()">
+    <div class="modal-sheet will-not-pay-sheet" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="non-pay-title">
+      <div class="sheet-drag-handle"></div>
+
+      <div class="modal-header">
+        <div class="header-titles">
+          <span class="sheet-badge badge-rose">Novedad de Cobro</span>
+          <h2 id="non-pay-title" class="sheet-title">No Pagará Hoy</h2>
           @if (targetWillNotPayItem(); as it) {
-            <span class="modal-subtitle">{{ it.customerName }}</span>
+            <p class="sheet-subtitle">
+              {{ it.customerName }} · Saldo: <strong>{{ it.loanBalance | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+            </p>
           }
         </div>
+        <button type="button" class="btn-icon-close" (click)="closeWillNotPayModal()" aria-label="Cerrar">✕</button>
       </div>
-      <button type="button" class="btn-modal-close" (click)="closeWillNotPayModal()" aria-label="Cerrar modal">✕</button>
-    </div>
 
-    <div class="modal-body">
-      @if (targetWillNotPayItem(); as it) {
-        <div class="target-loan-summary">
-          <div class="summary-field">
-            <span class="field-label">Saldo total</span>
-            <strong class="field-val">{{ it.loanBalance | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+      <div class="modal-body">
+        @if (targetWillNotPayItem(); as it) {
+          <div class="target-loan-summary">
+            <div class="summary-field">
+              <span class="field-label">Saldo total</span>
+              <strong class="field-val">{{ it.loanBalance | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+            </div>
+            <div class="summary-field">
+              <span class="field-label">Cuota hoy</span>
+              <strong class="field-val">{{ (it.dueTodayAmount > 0 ? it.dueTodayAmount : (it.installmentAmount || 0)) | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+            </div>
           </div>
-          <div class="summary-field">
-            <span class="field-label">Cuota hoy</span>
-            <strong class="field-val">{{ (it.dueTodayAmount > 0 ? it.dueTodayAmount : (it.installmentAmount || 0)) | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
-          </div>
+        }
+
+        <div class="form-group">
+          <label class="form-label">Motivo de no pago:</label>
+          @if (reasonsLoading()) {
+            <p class="text-loading">Cargando motivos...</p>
+          } @else {
+            <div class="reasons-radio-list">
+              @for (reason of nonPaymentReasons(); track reason.id) {
+                @if (reason.isActive) {
+                  <label class="reason-radio-option" [class.selected]="selectedReasonId() === reason.id">
+                    <input
+                      type="radio"
+                      name="nonPaymentReason"
+                      [value]="reason.id"
+                      [checked]="selectedReasonId() === reason.id"
+                      (change)="selectedReasonId.set(reason.id)"
+                    />
+                    <div class="reason-info">
+                      <span class="reason-name">{{ reason.name }}</span>
+                      @if (reason.description) {
+                        <span class="reason-desc">{{ reason.description }}</span>
+                      }
+                    </div>
+                  </label>
+                }
+              }
+            </div>
+          }
         </div>
-      }
 
-      <div class="form-group">
-        <label class="form-label">Motivo de no pago:</label>
-        @if (reasonsLoading()) {
-          <p class="text-loading">Cargando motivos...</p>
-        } @else {
-          <div class="reasons-radio-list">
-            @for (reason of nonPaymentReasons(); track reason.id) {
-              @if (reason.isActive) {
-                <label class="reason-radio-option" [class.selected]="selectedReasonId() === reason.id">
-                  <input
-                    type="radio"
-                    name="nonPaymentReason"
-                    [value]="reason.id"
-                    [checked]="selectedReasonId() === reason.id"
-                    (change)="selectedReasonId.set(reason.id)"
-                  />
-                  <div class="reason-info">
-                    <span class="reason-name">{{ reason.name }}</span>
-                    @if (reason.description) {
-                      <span class="reason-desc">{{ reason.description }}</span>
-                    }
-                  </div>
-                </label>
-              }
-            }
-          </div>
-        }
+        <div class="form-group">
+          <label class="form-label" for="observations-txt">Observaciones adicionales (opcional):</label>
+          <textarea
+            id="observations-txt"
+            class="form-textarea"
+            rows="2"
+            placeholder="Escribe detalles del motivo o acuerdo de pago..."
+            [value]="nonPaymentObservations()"
+            (input)="nonPaymentObservations.set($any($event.target).value)"
+          ></textarea>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="observations-txt">Observaciones adicionales (opcional):</label>
-        <textarea
-          id="observations-txt"
-          class="form-textarea"
-          rows="2"
-          placeholder="Escribe detalles del motivo o acuerdo de pago..."
-          [value]="nonPaymentObservations()"
-          (input)="nonPaymentObservations.set($any($event.target).value)"
-        ></textarea>
-      </div>
-
-      <!-- Sección expandible para gestionar motivos (crear / activar / desactivar) -->
-      <div class="manage-reasons-accordion">
-        <button type="button" class="btn-toggle-manage" (click)="toggleManageReasons()">
-          <span>⚙️ Administrar motivos desde ruta</span>
-          <span>{{ isManageReasonsOpen() ? '▲' : '▼' }}</span>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" (click)="closeWillNotPayModal()">
+          Cancelar
         </button>
-
-        @if (isManageReasonsOpen()) {
-          <div class="manage-reasons-content">
-            <div class="add-reason-row">
-              <input
-                type="text"
-                class="form-input new-reason-input"
-                placeholder="Nombre del nuevo motivo..."
-                [value]="newReasonName()"
-                (input)="newReasonName.set($any($event.target).value)"
-              />
-              <button
-                type="button"
-                class="btn-add-reason"
-                [disabled]="!newReasonName().trim() || savingNewReason()"
-                (click)="createNewReason()"
-              >
-                {{ savingNewReason() ? 'Guardando...' : '+ Crear motivo' }}
-              </button>
-            </div>
-
-            <div class="existing-reasons-list">
-              @for (r of nonPaymentReasons(); track r.id) {
-                <div class="existing-reason-item">
-                  <span class="r-name" [class.inactive]="!r.isActive">{{ r.name }}</span>
-                  <button
-                    type="button"
-                    class="btn-toggle-status"
-                    [class.is-active]="r.isActive"
-                    (click)="toggleReasonStatus(r)"
-                  >
-                    {{ r.isActive ? 'Desactivar' : 'Activar' }}
-                  </button>
-                </div>
-              }
-            </div>
-          </div>
-        }
+        <button
+          type="button"
+          class="btn-submit"
+          [disabled]="submittingNonPayment() || !selectedReasonId()"
+          (click)="submitWillNotPay()"
+        >
+          {{ submittingNonPayment() ? 'Guardando...' : 'Confirmar No Pago' }}
+        </button>
       </div>
-    </div>
-
-    <div class="modal-footer">
-      <button type="button" class="btn-dialog-cancel" (click)="closeWillNotPayModal()">
-        Cancelar
-      </button>
-      <button
-        type="button"
-        class="btn-dialog-confirm"
-        [disabled]="submittingNonPayment() || !selectedReasonId()"
-        (click)="submitWillNotPay()"
-      >
-        {{ submittingNonPayment() ? 'Guardando...' : 'Confirmar No Pago' }}
-      </button>
     </div>
   </div>
   }
 
   <app-payment-modal [isOpen]="isPaymentModalOpen()" [loan]="payingLoan()" (closed)="onPaymentModalClosed()"
     (paymentSuccess)="onPaymentSuccess($event)" />
+
+  <app-nuevo-prestamo
+    [routeId]="selectedRouteId()"
+    (customerSaved)="onCustomerSaved($event)"
+    (loanCreated)="onLoanCreated($event)"
+  />
 </section>

@@ -78,9 +78,17 @@ describe('LoanOriginationModalComponent', () => {
     const comp = fixture.componentInstance;
     comp.isOpen = true;
     await comp.initModal();
+    // Provide 2 templates for route-1 so dropdown is displayed
+    comp.templates.set([
+      comp.templates()[0],
+      { ...comp.templates()[0], id: 'tpl-2', name: 'Microcrédito 30' },
+    ]);
+    comp.selectCustomer(comp.customers()[0]);
     fixture.detectChanges();
+    await fixture.whenStable();
+
     const selector = fixture.nativeElement.querySelector('select[formControlName="loanTemplateId"]') as HTMLSelectElement;
-    comp.selectCustomer(comp.customers()[0]); await fixture.whenStable();
+    expect(selector).toBeTruthy();
     selector.value = 'tpl-1'; selector.dispatchEvent(new Event('change')); fixture.detectChanges();
     expect(comp.form.controls.loanTemplateId.value).toBe('tpl-1');
     for (const name of ['principalAmount', 'interestRate', 'installmentCount'] as const) {
@@ -91,6 +99,20 @@ describe('LoanOriginationModalComponent', () => {
     }
     expect(loansService.previewSchedule).not.toHaveBeenCalled();
     await comp.submitOrigination(); expect(loansService.originate).not.toHaveBeenCalled();
+  });
+
+  it('auto-selects template and hides selector when only one template is available for route', async () => {
+    const fixture = TestBed.createComponent(LoanOriginationModalComponent);
+    const comp = fixture.componentInstance;
+    comp.isOpen = true;
+    await comp.initModal();
+    comp.templates.set([comp.templates()[0]]); // only 1 template
+    comp.selectCustomer(comp.customers()[0]);
+    fixture.detectChanges();
+
+    expect(comp.form.controls.loanTemplateId.value).toBe('tpl-1');
+    expect(fixture.nativeElement.querySelector('select[formControlName="loanTemplateId"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.single-template-badge')).toBeTruthy();
   });
 
   it('preserves manually entered terms when switching templates and previews them on input', async () => {

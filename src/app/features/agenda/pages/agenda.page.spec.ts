@@ -1,9 +1,14 @@
 import { TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LoansService } from '../../loans/data/loans.service';
 import { RoutesService } from '../../routes/data/routes.service';
 import { RouteFinancesService } from '../../route-finances/data/route-finances.service';
+import { CustomersService } from '../../customers/data/customers.service';
+import { LoanTemplatesService } from '../../loan-templates/data/loan-templates.service';
+import { LoanExceptionsService } from '../../loan-exceptions/data/loan-exceptions.service';
+import { AuthService } from '../../../core/auth/auth.service';
 import { AgendaResponse } from '../data/agenda.models';
 import { AgendaService } from '../data/agenda.service';
 import { AgendaPage } from './agenda.page';
@@ -249,6 +254,38 @@ describe('AgendaPage', () => {
         { provide: LoansService, useValue: loansService },
         { provide: RouteFinancesService, useValue: routeFinancesService },
         { provide: Router, useValue: router },
+        {
+          provide: CustomersService,
+          useValue: {
+            search: vi.fn().mockResolvedValue({ items: [], page: 1, pageSize: 100, totalCount: 0 }),
+            get: vi.fn().mockResolvedValue({}),
+            create: vi.fn().mockResolvedValue({ id: 'cust-created' }),
+          },
+        },
+        {
+          provide: LoanTemplatesService,
+          useValue: {
+            listAvailable: vi.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: LoanExceptionsService,
+          useValue: {
+            search: vi.fn().mockResolvedValue({ items: [], page: 1, pageSize: 100, totalCount: 0 }),
+          },
+        },
+        {
+          provide: AuthService,
+          useValue: {
+            context: signal({
+              userId: 'user-1',
+              organizationId: 'org-1',
+              organizationCode: 'ORG',
+              role: 'Collector' as const,
+              displayName: 'Cobrador',
+            }).asReadonly(),
+          },
+        },
       ],
     });
   });
@@ -267,25 +304,34 @@ describe('AgendaPage', () => {
     expect(items.map((i) => i.customerId)).toEqual(['cust-3', 'cust-2']);
   });
 
-  it('renders top balance card with eye toggle to mask/unmask balance', async () => {
+  it('renders header with route name and opening date, and top balance with initial and actual balances', async () => {
     const fixture = TestBed.createComponent(AgendaPage);
     await fixture.whenStable();
     fixture.detectChanges();
 
     const page = fixture.componentInstance;
+    const titleEl = fixture.nativeElement.querySelector('.title');
+    expect(titleEl).toBeTruthy();
+    expect(titleEl.textContent).toContain(page.currentRouteName());
+    expect(titleEl.textContent).toContain('|');
+    expect(titleEl.textContent).toContain(page.boxOpeningDateFormatted());
+
     const balanceEl = fixture.nativeElement.querySelector('.balance-card-top');
     expect(balanceEl).toBeTruthy();
+    expect(balanceEl.textContent).toContain('Balance inicial');
+    expect(balanceEl.textContent).toContain('Balance actual');
 
     const eyeBtn = balanceEl.querySelector('.btn-eye-toggle');
     expect(eyeBtn).toBeTruthy();
 
-    // Toggle balance visibility
+    // Toggle balance visibility - masks BOTH initial and actual balances
     expect(page.isBalanceHidden()).toBe(false);
     page.toggleBalanceVisibility();
     expect(page.isBalanceHidden()).toBe(true);
     fixture.detectChanges();
 
-    expect(balanceEl.querySelector('.balance-val.masked')).toBeTruthy();
+    const maskedEls = balanceEl.querySelectorAll('.balance-val.masked');
+    expect(maskedEls.length).toBe(2);
 
     page.toggleBalanceVisibility();
     expect(page.isBalanceHidden()).toBe(false);
@@ -407,5 +453,18 @@ describe('AgendaPage', () => {
     page.selectSegment('PENDING');
     fixture.detectChanges();
     expect(page.filteredItems()).toHaveLength(2);
+  });
+
+  it('renders nuevo-prestamo component at bottom and delegates actions', async () => {
+    const fixture = TestBed.createComponent(AgendaPage);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const nuevoPrestamo = fixture.nativeElement.querySelector('app-nuevo-prestamo');
+    expect(nuevoPrestamo).toBeTruthy();
+
+    const dockBtn = fixture.nativeElement.querySelector('.dock-card-btn') as HTMLButtonElement;
+    expect(dockBtn).toBeTruthy();
+    expect(dockBtn.textContent).toContain('Nuevo préstamo');
   });
 });

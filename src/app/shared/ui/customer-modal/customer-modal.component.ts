@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+import { CommonModule, CurrencyPipe } from '@angular/common';
 import { Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, inject, signal } from '@angular/core';
 import { LocationPickerComponent, SelectedCoordinates } from '../location-picker/location-picker.component';
 import { FormsModule } from '@angular/forms';
@@ -14,6 +14,10 @@ import {
   CustomerWriteRequest,
 } from '../../../features/customers/data/customer.models';
 import { CustomersService } from '../../../features/customers/data/customers.service';
+import { AvailableLoanTemplate } from '../../../features/loan-templates/data/loan-template.models';
+import { LoanTemplatesService } from '../../../features/loan-templates/data/loan-templates.service';
+import { CalculatedSchedule, PaymentFrequency } from '../../../features/loans/data/loan.models';
+import { LoansService } from '../../../features/loans/data/loans.service';
 
 export interface CustomerDraft {
   identification: string;
@@ -29,10 +33,20 @@ export interface CustomerDraft {
   evidence: CustomerEvidence | null;
 }
 
+export interface CreditDraft {
+  loanTemplateId: string;
+  principalAmount: number | null;
+  interestRate: number | null;
+  paymentFrequency: PaymentFrequency;
+  frequencyNDays: number | null;
+  installmentCount: number | null;
+  startDate: string;
+}
+
 @Component({
   selector: 'app-customer-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, LocationPickerComponent],
+  imports: [CommonModule, FormsModule, LocationPickerComponent, CurrencyPipe],
   templateUrl: './customer-modal.component.html',
   styleUrl: './customer-modal.component.scss',
 })
@@ -40,15 +54,21 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
   @Input() isOpen = false;
   @Input() customerId: string | null = null;
   @Input() defaultRouteId = '';
+  @Input() hideRoute = false;
 
   @Output() readonly closed = new EventEmitter<void>();
   @Output() readonly customerSaved = new EventEmitter<string>();
 
   private readonly customersService = inject(CustomersService);
   private readonly routesService = inject(RoutesService);
+  private readonly templatesService = inject(LoanTemplatesService);
+  private readonly loansService = inject(LoansService);
   private readonly auth = inject(AuthService);
 
   readonly routes = signal<readonly AccessibleRoute[]>([]);
+  readonly templates = signal<readonly AvailableLoanTemplate[]>([]);
+  readonly schedulePreview = signal<CalculatedSchedule | null>(null);
+  readonly previewing = signal(false);
   readonly loading = signal(false);
   readonly saving = signal(false);
   readonly error = signal('');
@@ -66,6 +86,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
   readonly isAdmin = signal(false);
 
   draft: CustomerDraft = this.emptyDraft();
+  creditDraft: CreditDraft = this.emptyCreditDraft();
   fullName = '';
   private originalIdentification = '';
 
@@ -88,8 +109,14 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
     this.isAdmin.set(this.auth.context()?.role === 'Admin');
 
     try {
-      const routesList = await this.routesService.listAccessible();
+      const [routesList, templatesList] = await Promise.all([
+        this.routesService.listAccessible(),
+        this.templatesService.listAvailable().catch(() => []),
+      ]);
       this.routes.set(routesList);
+      this.templates.set(templatesList);
+      this.creditDraft = this.emptyCreditDraft();
+      this.schedulePreview.set(null);
 
       if (this.customerId) {
         const customer = await this.customersService.get(this.customerId);
@@ -99,11 +126,81 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
       } else {
         this.draft = this.emptyDraft();
         this.draft.routeId = this.defaultRouteId || routesList[0]?.id || '';
+        if (this.availableTemplates.length === 1) {
+          this.creditDraft.loanTemplateId = this.availableTemplates[0].id;
+        }
       }
     } catch (err) {
       this.error.set(err instanceof Error ? err.message : 'Error al inicializar formulario.');
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  get availableTemplates(): readonly AvailableLoanTemplate[] {
+    const routeId = this.draft.routeId || this.defaultRouteId;
+    return routeId ? this.templates().filter((t) => t.routeIds.includes(routeId)) : this.templates();
+  }
+
+  onRouteChanged(): void {
+    this.creditDraft.loanTemplateId = '';
+    if (this.availableTemplates.length === 1) {
+      this.creditDraft.loanTemplateId = this.availableTemplates[0].id;
+    }
+    void this.calculateCreditPreview();
+  }
+
+  onCreditTemplateChanged(): void {
+    this.error.set('');
+    void this.calculateCreditPreview();
+  }
+
+  get creditTemplateLimitsError(): string {
+    if (!this.creditDraft.principalAmount && !this.creditDraft.interestRate && !this.creditDraft.installmentCount) {
+      return '';
+    }
+    const template = this.availableTemplates.find((t) => t.id === this.creditDraft.loanTemplateId);
+    if (!template) {
+      return 'Debe seleccionar una plantilla para asignar el crédito.';
+    }
+    if (this.creditDraft.principalAmount !== null) {
+      if (this.creditDraft.principalAmount < template.minPrincipalAmount || this.creditDraft.principalAmount > template.maxPrincipalAmount) {
+        return `El monto debe estar entre ${template.minPrincipalAmount} y ${template.maxPrincipalAmount}.`;
+      }
+    }
+    if (this.creditDraft.interestRate !== null) {
+      if (this.creditDraft.interestRate < template.minPercentage || this.creditDraft.interestRate > template.maxPercentage) {
+        return `El interés debe estar entre ${template.minPercentage}% y ${template.maxPercentage}%.`;
+      }
+    }
+    return '';
+  }
+
+  async calculateCreditPreview(): Promise<void> {
+    const c = this.creditDraft;
+    if (!c.principalAmount || c.principalAmount <= 0 || c.interestRate === null || c.interestRate < 0 || !c.installmentCount || c.installmentCount <= 0 || !c.startDate) {
+      this.schedulePreview.set(null);
+      return;
+    }
+    if (c.paymentFrequency === 'EveryNDays' && (!c.frequencyNDays || c.frequencyNDays <= 0)) {
+      this.schedulePreview.set(null);
+      return;
+    }
+    this.previewing.set(true);
+    try {
+      const schedule = await this.loansService.previewSchedule({
+        principalAmount: c.principalAmount,
+        interestRate: c.interestRate,
+        paymentFrequency: c.paymentFrequency,
+        frequencyNDays: c.paymentFrequency === 'EveryNDays' ? c.frequencyNDays : null,
+        installmentCount: c.installmentCount,
+        startDate: c.startDate,
+      });
+      this.schedulePreview.set(schedule);
+    } catch {
+      this.schedulePreview.set(null);
+    } finally {
+      this.previewing.set(false);
     }
   }
 
@@ -255,6 +352,34 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
     if (this.gpsIndex() !== null || this.mapLocation() || this.saving() || this.loading()) return;
     if (!this.isValid()) return;
 
+    const isAssigningCredit = !this.draft.id && this.creditDraft.principalAmount !== null && this.creditDraft.principalAmount > 0;
+    if (isAssigningCredit) {
+      if (!this.creditDraft.loanTemplateId) {
+        this.error.set('Debe seleccionar una plantilla para asignar el crédito.');
+        return;
+      }
+      if (this.creditDraft.interestRate === null || this.creditDraft.interestRate < 0) {
+        this.error.set('La tasa de interés del crédito es obligatoria.');
+        return;
+      }
+      if (!this.creditDraft.installmentCount || this.creditDraft.installmentCount < 1) {
+        this.error.set('El número de cuotas del crédito es obligatorio.');
+        return;
+      }
+      if (!this.creditDraft.startDate) {
+        this.error.set('La fecha de inicio del crédito es obligatoria.');
+        return;
+      }
+      if (this.creditDraft.paymentFrequency === 'EveryNDays' && (!this.creditDraft.frequencyNDays || this.creditDraft.frequencyNDays < 1)) {
+        this.error.set('El intervalo en días es obligatorio para pagos cada N días.');
+        return;
+      }
+      if (this.creditTemplateLimitsError) {
+        this.error.set(this.creditTemplateLimitsError);
+        return;
+      }
+    }
+
     this.saving.set(true);
     this.error.set('');
     this.success.set('');
@@ -282,9 +407,25 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
       } else {
         const created = await this.customersService.create(request);
         savedId = created.id;
+        this.draft.id = created.id;
         if (this.selectedEvidence()) await this.customersService.uploadEvidence(created.id, this.selectedEvidence()!);
+
+        if (isAssigningCredit) {
+          const template = this.availableTemplates.find(t => t.id === this.creditDraft.loanTemplateId);
+          await this.loansService.originate({
+            customerId: created.id,
+            principalAmount: this.creditDraft.principalAmount!,
+            interestRate: this.creditDraft.interestRate!,
+            paymentFrequency: this.creditDraft.paymentFrequency,
+            frequencyNDays: this.creditDraft.paymentFrequency === 'EveryNDays' ? this.creditDraft.frequencyNDays : null,
+            installmentCount: this.creditDraft.installmentCount!,
+            loanTemplateId: template?.id ?? null,
+            loanTemplateVersion: template?.version ?? null,
+            startDate: this.creditDraft.startDate,
+          });
+        }
       }
-      this.success.set(this.draft.id ? 'Cliente actualizado.' : 'Cliente creado.');
+      this.success.set(isAssigningCredit ? 'Cliente y crédito creados exitosamente.' : this.draft.id ? 'Cliente actualizado.' : 'Cliente creado.');
       this.customerSaved.emit(savedId ?? '');
       this.close();
     } catch (err) {
@@ -383,5 +524,25 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
     const url = this.evidencePreviewUrl();
     if (url) URL.revokeObjectURL(url);
     this.evidencePreviewUrl.set(null);
+  }
+
+  private todayDate(): string {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private emptyCreditDraft(): CreditDraft {
+    return {
+      loanTemplateId: '',
+      principalAmount: null,
+      interestRate: null,
+      paymentFrequency: 'Daily',
+      frequencyNDays: null,
+      installmentCount: null,
+      startDate: this.todayDate(),
+    };
   }
 }

@@ -53,10 +53,6 @@
         <span class="nav-icon"><app-icon name="payment" /></span>
         <span class="nav-text">Balance Ruta</span>
       </a>
-      <a routerLink="/conciliacion" routerLinkActive="active" (click)="closeDrawer()">
-        <span class="nav-icon"><app-icon name="scale" /></span>
-        <span class="nav-text">Conciliación diaria</span>
-      </a>
       <a routerLink="/clientes" routerLinkActive="active" (click)="closeDrawer()">
         <span class="nav-icon"><app-icon name="users" /></span>
         <span class="nav-text">Clientes</span>
@@ -75,10 +71,6 @@
           <span class="nav-text">Plantillas de crédito</span>
         </a>
       }
-      <a routerLink="/excepciones" routerLinkActive="active" (click)="closeDrawer()">
-        <span class="nav-icon"><app-icon name="bolt" /></span>
-        <span class="nav-text">Excepciones</span>
-      </a>
     </nav>
 
     @if (userContext(); as user) {

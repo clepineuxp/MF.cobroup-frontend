@@ -4,6 +4,8 @@ import { CustomerModalComponent } from './customer-modal.component';
 import { CustomersService } from '../../../features/customers/data/customers.service';
 import { RoutesService } from '../../../features/routes/data/routes.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { LoanTemplatesService } from '../../../features/loan-templates/data/loan-templates.service';
+import { LoansService } from '../../../features/loans/data/loans.service';
 
 describe('CustomerModalComponent', () => {
   afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
@@ -29,6 +31,32 @@ describe('CustomerModalComponent', () => {
     ]),
   };
 
+  const loanTemplatesService = {
+    listAvailable: vi.fn().mockResolvedValue([
+      {
+        id: 'tpl-1',
+        name: 'Microcrédito 20',
+        version: 1,
+        maxLoanDays: 20,
+        maxPrincipalAmount: 1000000,
+        minPrincipalAmount: 100000,
+        minPercentage: 10,
+        maxPercentage: 20,
+        routeIds: ['route-1'],
+      },
+    ]),
+  };
+
+  const loansService = {
+    previewSchedule: vi.fn().mockResolvedValue({
+      totalAmount: 550000,
+      interestAmount: 50000,
+      dueDate: '2026-11-20',
+      installments: [{ number: 1, dueDate: '2026-11-01', expectedAmount: 27500 }],
+    }),
+    originate: vi.fn().mockResolvedValue({ id: 'loan-created' }),
+  };
+
   const authService = {
     context: signal({
       userId: 'user-1',
@@ -48,6 +76,8 @@ describe('CustomerModalComponent', () => {
         { provide: CustomersService, useValue: customersService },
         { provide: RoutesService, useValue: routesService },
         { provide: AuthService, useValue: authService },
+        { provide: LoanTemplatesService, useValue: loanTemplatesService },
+        { provide: LoansService, useValue: loansService },
       ],
     }).compileComponents();
   });
@@ -239,5 +269,54 @@ describe('CustomerModalComponent', () => {
     expect(alias.closest('label')!.textContent).toContain('Alias'); expect(alias.value).toBe('Carlos Restrepo');
     expect(name.closest('label')!.textContent).toContain('Nombre completo'); expect(name.value).toBe('Ferretería');
     expect(fixture.nativeElement.querySelector('input[name="identification"]').required).toBe(true);
+  });
+
+  it('hides route field and inherits defaultRouteId when hideRoute is true', async () => {
+    const fixture = TestBed.createComponent(CustomerModalComponent);
+    const comp = fixture.componentInstance;
+    comp.isOpen = true;
+    comp.defaultRouteId = 'route-1';
+    comp.hideRoute = true;
+    await comp.initModal();
+    fixture.detectChanges();
+
+    expect(comp.draft.routeId).toBe('route-1');
+    const select = fixture.nativeElement.querySelector('select[name="routeId"]');
+    expect(select).toBeNull();
+  });
+
+  it('auto-selects single template and creates loan when credit is assigned', async () => {
+    const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
+    comp.isOpen = true;
+    comp.defaultRouteId = 'route-1';
+    comp.hideRoute = true;
+    await comp.initModal();
+
+    expect(comp.availableTemplates).toHaveLength(1);
+    expect(comp.creditDraft.loanTemplateId).toBe('tpl-1');
+
+    comp.draft.identification = '12345678';
+    comp.fullName = 'Nuevo Cliente';
+    comp.draft.phones[0].number = '3001112233';
+    comp.draft.locations[0].latitude = 4.65;
+    comp.draft.locations[0].longitude = -74.05;
+
+    comp.creditDraft.principalAmount = 500000;
+    comp.creditDraft.interestRate = 15;
+    comp.creditDraft.installmentCount = 20;
+    comp.creditDraft.startDate = '2026-11-12';
+
+    await comp.save();
+
+    expect(customersService.create).toHaveBeenCalledWith(expect.objectContaining({ identification: '12345678' }));
+    expect(loansService.originate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customerId: 'cust-created',
+        principalAmount: 500000,
+        interestRate: 15,
+        installmentCount: 20,
+        loanTemplateId: 'tpl-1',
+      })
+    );
   });
 });

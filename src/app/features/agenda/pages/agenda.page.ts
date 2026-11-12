@@ -1,8 +1,9 @@
 import { CommonModule, CurrencyPipe } from '@angular/common';
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, ViewChild, inject, signal, computed } from '@angular/core';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AppIconComponent } from '../../../shared/ui/app-icon/app-icon.component';
+import { NuevoPrestamoComponent } from '../../../shared/ui/nuevo-prestamo/nuevo-prestamo.component';
 import { PaymentModalComponent } from '../../../shared/ui/payment-modal/payment-modal.component';
 import { LoanDetails } from '../../loans/data/loan.models';
 import { LoansService } from '../../loans/data/loans.service';
@@ -35,11 +36,20 @@ export interface FrequencyOption {
 @Component({
   selector: 'app-agenda-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, CurrencyPipe, PaymentModalComponent, AppIconComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    CurrencyPipe,
+    PaymentModalComponent,
+    NuevoPrestamoComponent,
+    AppIconComponent,
+  ],
   templateUrl: './agenda.page.html',
   styleUrl: './agenda.page.scss',
 })
 export class AgendaPage implements OnInit {
+  @ViewChild(NuevoPrestamoComponent) nuevoPrestamoComponent?: NuevoPrestamoComponent;
   private readonly agendaService = inject(AgendaService);
   private readonly routesService = inject(RoutesService);
   private readonly loansService = inject(LoansService);
@@ -47,6 +57,31 @@ export class AgendaPage implements OnInit {
   private readonly router = inject(Router);
 
   readonly routes = signal<readonly AccessibleRoute[]>([]);
+  readonly selectedRouteId = signal<string>('');
+  readonly selectedBusinessDate = signal<string>(new Date().toISOString().substring(0, 10));
+
+  readonly currentRouteName = computed(() => {
+    const routeId = this.selectedRouteId() || this.filterForm.controls.routeId.value;
+    const match = this.routes().find((r) => r.id === routeId);
+    return match?.name || this.routeBalance()?.routeName || this.agenda()?.summary.routeId || 'Ruta';
+  });
+
+  readonly boxOpeningDateFormatted = computed(() => {
+    const rawDate = this.selectedBusinessDate() || this.agenda()?.summary.targetDate || this.filterForm.controls.date.value;
+    if (!rawDate) return '';
+    const parts = rawDate.split('-');
+    if (parts.length !== 3) return rawDate;
+    const year = Number(parts[0]);
+    const month = Number(parts[1]) - 1;
+    const day = Number(parts[2]);
+    const dateObj = new Date(year, month, day);
+    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const dayName = days[dateObj.getDay()];
+    const dd = String(day).padStart(2, '0');
+    const mm = String(month + 1).padStart(2, '0');
+    return `${dd}/${mm}/${year} (${dayName})`;
+  });
+
   readonly agenda = signal<AgendaResponse | null>(null);
   readonly routeBalance = signal<RouteBalance | null>(null);
   readonly balanceLoading = signal(false);
@@ -102,12 +137,6 @@ export class AgendaPage implements OnInit {
   readonly nonPaymentObservations = signal<string>('');
   readonly submittingNonPayment = signal(false);
 
-  // Manage reasons inside modal
-  readonly isManageReasonsOpen = signal(false);
-  readonly newReasonName = signal('');
-  readonly newReasonDescription = signal('');
-  readonly savingNewReason = signal(false);
-
   // Daily "No pagará hoy" state (persisted per route date)
   readonly willNotPayTodayIds = signal<Set<string>>(new Set());
 
@@ -117,6 +146,10 @@ export class AgendaPage implements OnInit {
   // Payment modal state
   readonly isPaymentModalOpen = signal(false);
   readonly payingLoan = signal<LoanDetails | null>(null);
+
+  // Quick Action Modals (Customer & Loan Origination)
+  readonly isCustomerModalOpen = signal(false);
+  readonly isLoanModalOpen = signal(false);
 
   readonly filterForm = new FormGroup({
     routeId: new FormControl<string>('', { nonNullable: true }),
@@ -149,11 +182,23 @@ export class AgendaPage implements OnInit {
     return item.statusLabel;
   }
 
+  isDailyLoan(item?: AgendaItem | null): boolean {
+    if (!item) return false;
+    const freq = (item.paymentFrequency || '').toUpperCase();
+    return freq === 'DAILY' || freq === 'DIARIO';
+  }
+
   isPending(item: AgendaItem): boolean {
     if (item.collectedTodayAmount > 0 || item.status === 'Collected') {
       return false;
     }
     const st = this.effectiveStatus(item);
+    if (st === 'WillNotPayToday') {
+      return false;
+    }
+    if (this.isDailyLoan(item) && item.loanBalance > 0) {
+      return true;
+    }
     return st === 'DueToday' || st === 'Overdue';
   }
 
@@ -175,6 +220,12 @@ export class AgendaPage implements OnInit {
           : item.overdueAmount;
         return sum + oneInstallment;
       }
+      if (this.isDailyLoan(item) && item.loanBalance > 0) {
+        const inst = (item.installmentAmount && item.installmentAmount > 0)
+          ? item.installmentAmount
+          : item.loanBalance;
+        return sum + Math.min(inst, item.loanBalance);
+      }
       return sum;
     }, 0);
   });
@@ -187,7 +238,14 @@ export class AgendaPage implements OnInit {
       if (st === 'WillNotPayToday') {
         return sum;
       }
-      return sum + (item.dueTodayAmount || 0) + (item.overdueAmount || 0);
+      let due = item.dueTodayAmount || 0;
+      if (due === 0 && this.isDailyLoan(item) && item.loanBalance > 0 && st !== 'Collected') {
+        const inst = (item.installmentAmount && item.installmentAmount > 0)
+          ? item.installmentAmount
+          : item.loanBalance;
+        due = Math.min(inst, item.loanBalance);
+      }
+      return sum + due + (item.overdueAmount || 0);
     }, 0);
   });
 
@@ -334,6 +392,7 @@ export class AgendaPage implements OnInit {
       const accessibleRoutes = await this.routesService.listAccessible();
       this.routes.set(accessibleRoutes);
       if (accessibleRoutes.length > 0) {
+        this.selectedRouteId.set(accessibleRoutes[0].id);
         this.filterForm.patchValue({ routeId: accessibleRoutes[0].id });
         await this.loadAgenda();
       }
@@ -347,6 +406,8 @@ export class AgendaPage implements OnInit {
   async loadAgenda(): Promise<void> {
     const routeId = this.filterForm.controls.routeId.value;
     const date = this.filterForm.controls.date.value;
+    this.selectedRouteId.set(routeId);
+    this.selectedBusinessDate.set(date);
     if (!routeId) return;
 
     try {
@@ -714,42 +775,6 @@ export class AgendaPage implements OnInit {
     }
   }
 
-  // Manage reasons
-  toggleManageReasons(): void {
-    this.isManageReasonsOpen.update((v) => !v);
-  }
-
-  async createNewReason(): Promise<void> {
-    const name = this.newReasonName().trim();
-    if (!name) return;
-
-    try {
-      this.savingNewReason.set(true);
-      const created = await this.agendaService.createNonPaymentReason(name, this.newReasonDescription().trim() || undefined);
-      this.nonPaymentReasons.update((list) => [...list, created]);
-      this.selectedReasonId.set(created.id);
-      this.newReasonName.set('');
-      this.newReasonDescription.set('');
-      this.isManageReasonsOpen.set(false);
-    } catch (err: unknown) {
-      this.error.set(err instanceof Error ? err.message : 'Error creando motivo.');
-      setTimeout(() => this.error.set(''), 3500);
-    } finally {
-      this.savingNewReason.set(false);
-    }
-  }
-
-  async toggleReasonStatus(reason: NonPaymentReason): Promise<void> {
-    try {
-      const updated = await this.agendaService.toggleNonPaymentReasonStatus(reason.id, !reason.isActive);
-      this.nonPaymentReasons.update((list) =>
-        list.map((r) => (r.id === updated.id ? { ...r, isActive: updated.isActive } : r))
-      );
-    } catch (err: unknown) {
-      this.error.set(err instanceof Error ? err.message : 'Error actualizando estado del motivo.');
-      setTimeout(() => this.error.set(''), 3500);
-    }
-  }
 
   private getDateKey(dateStr?: string): string {
     const date = dateStr || this.filterForm.controls.date.value || new Date().toISOString().substring(0, 10);
@@ -815,5 +840,29 @@ export class AgendaPage implements OnInit {
     } else {
       void this.router.navigate(['/clientes'], { queryParams: { customerId: item.customerId } });
     }
+  }
+
+  openCreateCustomerModal(): void {
+    this.isCustomerModalOpen.set(true);
+    this.nuevoPrestamoComponent?.openNewCustomer();
+  }
+
+  openNewLoanModal(): void {
+    this.isLoanModalOpen.set(true);
+    this.nuevoPrestamoComponent?.openExistingCustomer();
+  }
+
+  async onCustomerSaved(_customerId: string): Promise<void> {
+    this.isCustomerModalOpen.set(false);
+    this.success.set('Cliente registrado exitosamente.');
+    setTimeout(() => this.success.set(''), 3500);
+    await this.loadAgenda();
+  }
+
+  async onLoanCreated(_loan: LoanDetails): Promise<void> {
+    this.isLoanModalOpen.set(false);
+    this.success.set('Préstamo originado exitosamente.');
+    setTimeout(() => this.success.set(''), 3500);
+    await this.loadAgenda();
   }
 }

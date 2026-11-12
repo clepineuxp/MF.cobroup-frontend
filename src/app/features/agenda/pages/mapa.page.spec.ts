@@ -171,13 +171,15 @@ describe('MapaPage (Home Screen)', () => {
     expect(page.mapPoints()[0].customerId).toBe('cust-2');
   });
 
-  it('enables Cobrar only when customer with loan is selected (Requirement 2.8)', async () => {
+  it('hides Cobrar when no customer is selected and enables it only when customer with loan is selected', async () => {
     const fixture = TestBed.createComponent(MapaPage);
     const page = fixture.componentInstance;
     await page.loadRoutes();
     fixture.detectChanges();
 
+    // Cobrar button is invisible by default (when no customer selected)
     expect(page.canCollect()).toBe(false);
+    expect(fixture.nativeElement.querySelector('.btn-cobrar')).toBeNull();
 
     // Select customer with active loan
     expect(page.mapPoints().length).toBeGreaterThan(0);
@@ -189,13 +191,18 @@ describe('MapaPage (Home Screen)', () => {
     expect(loansService.get).toHaveBeenCalledWith('loan-1');
     expect(page.canCollect()).toBe(true);
 
+    // Cobrar button is now visible and enabled
+    const btnCobrar = fixture.nativeElement.querySelector('.btn-cobrar') as HTMLButtonElement;
+    expect(btnCobrar).toBeTruthy();
+    expect(btnCobrar.disabled).toBe(false);
+
     // Open collect modal
     page.openCollect();
     expect(page.isPaymentModalOpen()).toBe(true);
     expect(page.payingLoan()?.id).toBe('loan-1');
   });
 
-  it('disables Cobrar when selected customer has no active loan', async () => {
+  it('shows disabled Cobrar when selected customer has no active loan', async () => {
     const fixture = TestBed.createComponent(MapaPage);
     const page = fixture.componentInstance;
     await page.loadRoutes();
@@ -207,6 +214,9 @@ describe('MapaPage (Home Screen)', () => {
     fixture.detectChanges();
 
     expect(page.canCollect()).toBe(false);
+    const btnCobrar = fixture.nativeElement.querySelector('.btn-cobrar') as HTMLButtonElement;
+    expect(btnCobrar).toBeTruthy();
+    expect(btnCobrar.disabled).toBe(true);
   });
 
   it('marks customer as WillNotPayToday, removes them from map, and allows restoring', async () => {
@@ -242,14 +252,22 @@ describe('MapaPage (Home Screen)', () => {
     expect(page.mapPoints()[0].customerId).toBe('cust-1');
   });
 
-  it('opens Nuevo Prestamo and Nuevo Cliente modals (Requirements 2.6, 2.7)', async () => {
+  it('opens Cliente Existente and Nuevo Cliente modals and renders buttons in order', async () => {
     const fixture = TestBed.createComponent(MapaPage);
     await fixture.whenStable();
     fixture.detectChanges();
 
     const page = fixture.componentInstance;
 
-    page.openNewLoan();
+    // Verify buttons in DOM
+    const btnCliente = fixture.nativeElement.querySelector('.btn-cliente') as HTMLButtonElement;
+    const btnExistente = fixture.nativeElement.querySelector('.btn-cliente-existente') as HTMLButtonElement;
+    expect(btnCliente).toBeTruthy();
+    expect(btnCliente.textContent).toContain('Nuevo Cliente');
+    expect(btnExistente).toBeTruthy();
+    expect(btnExistente.textContent).toContain('Cliente Existente');
+
+    page.openExistingCustomer();
     expect(page.isOriginationModalOpen()).toBe(true);
 
     page.openNewCustomer();

@@ -393,8 +393,12 @@ export class MapaPage implements OnInit {
 
   // --- Actions ---
 
-  openNewLoan(): void {
+  openExistingCustomer(): void {
     this.isOriginationModalOpen.set(true);
+  }
+
+  openNewLoan(): void {
+    this.openExistingCustomer();
   }
 
   openCollect(): void {
