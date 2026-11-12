@@ -2,11 +2,11 @@
   <!-- Clean Header with Day Closing Status & Route Selector -->
   <header class="page-header">
     <div class="header-titles">
-      <h1 class="page-title">Balance Ruta</h1>
+      <h1 class="page-title">Caja de Ruta</h1>
       @if (dayClosing(); as closing) {
         <div class="closing-badge" [class.closed]="closing.isClosed" [class.open]="!closing.isClosed">
           <span class="status-dot"></span>
-          <span class="status-text">{{ closing.isClosed ? 'Día Cerrado' : 'Día Abierto' }}</span>
+          <span class="status-text">{{ closing.isClosed ? 'Caja Cerrada' : 'Caja Abierta' }}</span>
           @if (closing.isClosed && closing.closedByDisplayName) {
             <span class="closed-by">({{ closing.closedByDisplayName }})</span>
           }
@@ -37,32 +37,26 @@
             class="btn-close-day"
             (click)="closeDay()"
             [disabled]="closingInProgress()"
-            title="Cerrar la jornada diaria para esta ruta"
+            title="Cerrar la caja para esta ruta"
           >
             <app-icon name="lock" />
-            <span>Cerrar Día</span>
+            <span>Cerrar Caja</span>
           </button>
-        } @else if (canReopenDay()) {
-          <button
-            type="button"
-            class="btn-reopen-day"
-            (click)="reopenDay()"
-            [disabled]="closingInProgress()"
-            title="Reabrir la jornada diaria para esta ruta"
-          >
-            <app-icon name="unlock" />
-            <span>Reabrir Día</span>
-          </button>
+        } @else {
+          <span class="badge-closed-caja" title="Solo la administración puede reabrir una caja cerrada">
+            <app-icon name="lock" />
+            <span>Caja Cerrada</span>
+          </span>
         }
       } @else {
         <button
           type="button"
           class="btn-close-day"
           (click)="promptSelectRouteForClosing()"
-          title="Selecciona una ruta específica para cerrar la jornada"
+          title="Selecciona una ruta específica para cerrar la caja"
         >
           <app-icon name="lock" />
-          <span>Cerrar Día</span>
+          <span>Cerrar Caja</span>
         </button>
       }
     </div>
@@ -183,9 +177,23 @@
           <option value="daily">Diario</option>
           <option value="weekly">Semanal</option>
           <option value="monthly">Mensual</option>
+          <option value="yearly">Anual</option>
+          <option value="range">Rango de fechas</option>
         </select>
       </div>
     </div>
+    @if (periodType() === 'range') {
+      <div class="range-date-inputs">
+        <label class="range-label">
+          <span>Desde:</span>
+          <input type="date" class="range-input" [value]="rangeStartDate()" (input)="setRangeStartDate($any($event.target).value)" />
+        </label>
+        <label class="range-label">
+          <span>Hasta:</span>
+          <input type="date" class="range-input" [value]="rangeEndDate()" (input)="setRangeEndDate($any($event.target).value)" />
+        </label>
+      </div>
+    }
   </section>
 
   <!-- Tabs & Movements Container -->

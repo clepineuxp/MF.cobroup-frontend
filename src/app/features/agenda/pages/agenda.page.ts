@@ -10,8 +10,9 @@ import { LoansService } from '../../loans/data/loans.service';
 import { PaymentDetails } from '../../payments/data/payment.models';
 import { AccessibleRoute } from '../../routes/data/route.models';
 import { RoutesService } from '../../routes/data/routes.service';
-import { RouteBalance } from '../../route-finances/data/route-finance.models';
+import { RouteBalance, RouteDayClosingStatus } from '../../route-finances/data/route-finance.models';
 import { RouteFinancesService } from '../../route-finances/data/route-finances.service';
+import { CajaBlockedDialogComponent } from '../../../shared/ui/caja-blocked-dialog/caja-blocked-dialog.component';
 import {
   AgendaItem,
   AgendaResponse,
@@ -44,6 +45,7 @@ export interface FrequencyOption {
     PaymentModalComponent,
     NuevoPrestamoComponent,
     AppIconComponent,
+    CajaBlockedDialogComponent,
   ],
   templateUrl: './agenda.page.html',
   styleUrl: './agenda.page.scss',
@@ -60,6 +62,64 @@ export class AgendaPage implements OnInit {
   readonly selectedRouteId = signal<string>('');
   readonly selectedBusinessDate = signal<string>(new Date().toISOString().substring(0, 10));
 
+  readonly dayClosingStatus = signal<RouteDayClosingStatus | null>(null);
+  readonly isCajaBlocked = computed(() => {
+    const status = this.dayClosingStatus();
+    if (!status) return false;
+    return (status.isCutoffExceeded ?? false) && !status.isClosed;
+  });
+  readonly cajaBlockedMessage = computed(() => {
+    return 'Debes cerrar caja para continuar.';
+  });
+  readonly showCajaBlockedModal = signal<boolean>(false);
+
+  readonly displayInitialBalance = computed(() => {
+    const bal = this.routeBalance();
+    if (!bal) return 0;
+    // Si la caja está cerrada, balance inicial y actual siempre van igual
+    if (this.dayClosingStatus()?.isClosed) {
+      return bal.netBalance;
+    }
+    return bal.initialBalance;
+  });
+
+  readonly displayActualBalance = computed(() => {
+    return this.routeBalance()?.netBalance ?? 0;
+  });
+
+  readonly displayCollected = computed(() => {
+    if (this.dayClosingStatus()?.isClosed) return 0;
+    return this.routeBalance()?.paymentCollections ?? 0;
+  });
+
+  readonly displayIncome = computed(() => {
+    if (this.dayClosingStatus()?.isClosed) return 0;
+    return this.routeBalance()?.incomeInvestments ?? 0;
+  });
+
+  readonly displayDisbursed = computed(() => {
+    if (this.dayClosingStatus()?.isClosed) return 0;
+    return this.routeBalance()?.loanDisbursements ?? 0;
+  });
+
+  readonly displayExpenses = computed(() => {
+    if (this.dayClosingStatus()?.isClosed) return 0;
+    return this.routeBalance()?.expenses ?? 0;
+  });
+
+  checkCajaBlocked(): boolean {
+    if (this.isCajaBlocked()) {
+      this.showCajaBlockedModal.set(true);
+      return true;
+    }
+    return false;
+  }
+
+  goToBalance(): void {
+    this.showCajaBlockedModal.set(false);
+    void this.router.navigate(['/balance-ruta'], { queryParams: { routeId: this.selectedRouteId() } });
+  }
+
   readonly currentRouteName = computed(() => {
     const routeId = this.selectedRouteId() || this.filterForm.controls.routeId.value;
     const match = this.routes().find((r) => r.id === routeId);
@@ -67,19 +127,34 @@ export class AgendaPage implements OnInit {
   });
 
   readonly boxOpeningDateFormatted = computed(() => {
-    const rawDate = this.selectedBusinessDate() || this.agenda()?.summary.targetDate || this.filterForm.controls.date.value;
-    if (!rawDate) return '';
+    const status = this.dayClosingStatus();
+    if (status?.isClosed) {
+      return 'Caja Cerrada';
+    }
+
+    const rawDate = status?.businessDate || this.selectedBusinessDate() || this.agenda()?.summary.targetDate || this.filterForm.controls.date.value;
+    if (!rawDate) {
+      return status ? 'Caja Cerrada' : '';
+    }
+
     const parts = rawDate.split('-');
-    if (parts.length !== 3) return rawDate;
-    const year = Number(parts[0]);
-    const month = Number(parts[1]) - 1;
-    const day = Number(parts[2]);
-    const dateObj = new Date(year, month, day);
-    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    const dayName = days[dateObj.getDay()];
-    const dd = String(day).padStart(2, '0');
-    const mm = String(month + 1).padStart(2, '0');
-    return `${dd}/${mm}/${year} (${dayName})`;
+    if (parts.length === 3) {
+      const year = parts[0];
+      const month = parts[1].padStart(2, '0');
+      const day = parts[2].padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    return rawDate;
+  });
+
+  readonly boxName = computed(() => {
+    const routeName = this.currentRouteName();
+    const status = this.dayClosingStatus();
+    if (status?.boxName) {
+      return status.boxName;
+    }
+    const subtitle = this.boxOpeningDateFormatted();
+    return `${routeName} | ${subtitle}`;
   });
 
   readonly agenda = signal<AgendaResponse | null>(null);
@@ -452,10 +527,15 @@ export class AgendaPage implements OnInit {
     }
     try {
       this.balanceLoading.set(true);
-      const bal = await this.routeFinancesService.getBalance(targetRouteId);
+      const [bal, closingStatus] = await Promise.all([
+        this.routeFinancesService.getBalance(targetRouteId).catch(() => null),
+        this.routeFinancesService.getDayClosingStatus(targetRouteId).catch(() => null),
+      ]);
       this.routeBalance.set(bal);
+      this.dayClosingStatus.set(closingStatus);
     } catch {
       this.routeBalance.set(null);
+      this.dayClosingStatus.set(null);
     } finally {
       this.balanceLoading.set(false);
     }
@@ -642,6 +722,7 @@ export class AgendaPage implements OnInit {
 
   // Non-Payment modal workflows (persisted to Backend + local fallback)
   async openWillNotPayModal(item: AgendaItem): Promise<void> {
+    if (this.checkCajaBlocked()) return;
     this.targetWillNotPayItem.set(item);
     this.selectedReasonId.set('');
     this.customReasonName.set('');
@@ -805,6 +886,7 @@ export class AgendaPage implements OnInit {
   }
 
   async openCollectModal(item: AgendaItem): Promise<void> {
+    if (this.checkCajaBlocked()) return;
     if (!item.activeLoanId) {
       this.goToCollect(item);
       return;
@@ -835,6 +917,7 @@ export class AgendaPage implements OnInit {
   }
 
   goToCollect(item: AgendaItem): void {
+    if (this.checkCajaBlocked()) return;
     if (item.activeLoanId) {
       void this.router.navigate(['/prestamos'], { queryParams: { loanId: item.activeLoanId } });
     } else {
@@ -843,11 +926,13 @@ export class AgendaPage implements OnInit {
   }
 
   openCreateCustomerModal(): void {
+    if (this.checkCajaBlocked()) return;
     this.isCustomerModalOpen.set(true);
     this.nuevoPrestamoComponent?.openNewCustomer();
   }
 
   openNewLoanModal(): void {
+    if (this.checkCajaBlocked()) return;
     this.isLoanModalOpen.set(true);
     this.nuevoPrestamoComponent?.openExistingCustomer();
   }

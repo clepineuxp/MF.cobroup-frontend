@@ -357,4 +357,11 @@
     (closed)="isPaymentModalOpen.set(false)"
     (paymentSuccess)="onPaymentSuccess($event)"
   />
+
+  <app-caja-blocked-dialog
+    [isOpen]="showCajaBlockedModal()"
+    [message]="cajaBlockedMessage()"
+    [routeId]="selectedRouteId()"
+    (closed)="showCajaBlockedModal.set(false)"
+  />
 </div>

@@ -5,8 +5,9 @@ import { AppIconComponent } from '../../../shared/ui/app-icon/app-icon.component
 import { MapPoint, MapViewComponent } from '../../../shared/ui/map-view/map-view.component';
 import { AccessibleRoute } from '../../routes/data/route.models';
 import { RoutesService } from '../../routes/data/routes.service';
-import { RouteBalance } from '../../route-finances/data/route-finance.models';
+import { RouteBalance, RouteDayClosingStatus } from '../../route-finances/data/route-finance.models';
 import { RouteFinancesService } from '../../route-finances/data/route-finances.service';
+import { CajaBlockedDialogComponent } from '../../../shared/ui/caja-blocked-dialog/caja-blocked-dialog.component';
 import { AgendaStatus, CustomerMapLocation } from '../data/agenda.models';
 import { AgendaService } from '../data/agenda.service';
 import { LoansService } from '../../loans/data/loans.service';
@@ -29,6 +30,7 @@ export type MapStatusFilter = 'PENDING' | 'OVERDUE' | 'DUE' | 'WILL_NOT_PAY' | '
     CustomerModalComponent,
     LoanOriginationModalComponent,
     PaymentModalComponent,
+    CajaBlockedDialogComponent,
   ],
   templateUrl: './mapa.page.html',
   styleUrl: './mapa.page.scss',
@@ -57,6 +59,25 @@ export class MapaPage implements OnInit {
 
   readonly filterMenuOpen = signal(false);
   readonly routeMenuOpen = signal(false);
+
+  readonly dayClosingStatus = signal<RouteDayClosingStatus | null>(null);
+  readonly isCajaBlocked = computed(() => {
+    const status = this.dayClosingStatus();
+    if (!status) return false;
+    return (status.isCutoffExceeded ?? false) && !status.isClosed;
+  });
+  readonly cajaBlockedMessage = computed(() => {
+    return 'Debes cerrar caja para continuar.';
+  });
+  readonly showCajaBlockedModal = signal<boolean>(false);
+
+  checkCajaBlocked(): boolean {
+    if (this.isCajaBlocked()) {
+      this.showCajaBlockedModal.set(true);
+      return true;
+    }
+    return false;
+  }
 
   // Shared Modals State
   readonly isOriginationModalOpen = signal(false);
@@ -211,10 +232,15 @@ export class MapaPage implements OnInit {
 
     try {
       this.balanceLoading.set(true);
-      const bal = await this.routeFinancesService.getBalance(targetRouteId);
+      const [bal, closingStatus] = await Promise.all([
+        this.routeFinancesService.getBalance(targetRouteId).catch(() => null),
+        this.routeFinancesService.getDayClosingStatus(targetRouteId).catch(() => null),
+      ]);
       this.routeBalance.set(bal);
+      this.dayClosingStatus.set(closingStatus);
     } catch {
       this.routeBalance.set(null);
+      this.dayClosingStatus.set(null);
     } finally {
       this.balanceLoading.set(false);
     }
@@ -323,6 +349,7 @@ export class MapaPage implements OnInit {
   }
 
   markWillNotPayToday(customerId: string): void {
+    if (this.checkCajaBlocked()) return;
     this.willNotPayTodayIds.update((set) => {
       const next = new Set(set);
       next.add(customerId);
@@ -336,6 +363,7 @@ export class MapaPage implements OnInit {
   }
 
   unmarkWillNotPayToday(customerId: string): void {
+    if (this.checkCajaBlocked()) return;
     this.willNotPayTodayIds.update((set) => {
       const next = new Set(set);
       next.delete(customerId);
@@ -394,6 +422,7 @@ export class MapaPage implements OnInit {
   // --- Actions ---
 
   openExistingCustomer(): void {
+    if (this.checkCajaBlocked()) return;
     this.isOriginationModalOpen.set(true);
   }
 
@@ -402,6 +431,7 @@ export class MapaPage implements OnInit {
   }
 
   openCollect(): void {
+    if (this.checkCajaBlocked()) return;
     const loan = this.selectedCustomerLoan();
     if (loan) {
       this.payingLoan.set(loan);
@@ -410,6 +440,7 @@ export class MapaPage implements OnInit {
   }
 
   openNewCustomer(): void {
+    if (this.checkCajaBlocked()) return;
     this.isCustomerModalOpen.set(true);
   }
 

@@ -18,6 +18,11 @@ export const machineRouteGuard: CanActivateFn = async () => {
     return router.createUrlTree(['/login']);
   }
 
+  // Administradores no requieren autorización de máquina
+  if (auth.context()?.role === 'Admin') {
+    return true;
+  }
+
   const authorized = await machineAuth.refreshAuthorizedRouteAccess();
   return authorized ? true : router.createUrlTree(['/machine-auth']);
 };

@@ -19,7 +19,7 @@ import { RouteFinancesService } from '../data/route-finances.service';
 import { PaymentDetails, PaymentMethodItem } from '../../payments/data/payment.models';
 import { LoanSearchItem } from '../../loans/data/loan.models';
 
-export type FilterPeriod = 'daily' | 'weekly' | 'monthly';
+export type FilterPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'range';
 
 export interface FinancialMovementItem {
   readonly id: string;
@@ -80,6 +80,8 @@ export class RouteFinancePage {
   // Period & Date Filter State
   readonly periodType = signal<FilterPeriod>('daily');
   readonly selectedDate = signal<Date>(new Date());
+  readonly rangeStartDate = signal<string>('');
+  readonly rangeEndDate = signal<string>('');
 
   // Raw Movements
   readonly movements = signal<readonly FinancialMovementItem[]>([]);
@@ -185,6 +187,29 @@ export class RouteFinancePage {
           itemDate.getMonth() === target.getMonth()
         );
       }
+      if (period === 'yearly') {
+        return itemDate.getFullYear() === target.getFullYear();
+      }
+      if (period === 'range') {
+        const startStr = this.rangeStartDate();
+        const endStr = this.rangeEndDate();
+        if (!startStr && !endStr) return true;
+        if (startStr && !endStr) {
+          const s = new Date(startStr);
+          s.setHours(0, 0, 0, 0);
+          return itemDate >= s;
+        }
+        if (!startStr && endStr) {
+          const e = new Date(endStr);
+          e.setHours(23, 59, 59, 999);
+          return itemDate <= e;
+        }
+        const s = new Date(startStr);
+        s.setHours(0, 0, 0, 0);
+        const e = new Date(endStr);
+        e.setHours(23, 59, 59, 999);
+        return itemDate >= s && itemDate <= e;
+      }
       return true;
     });
   });
@@ -229,7 +254,24 @@ export class RouteFinancePage {
       return `Semana del ${start.getDate()} ${months[start.getMonth()].slice(0, 3)} al ${end.getDate()} ${months[end.getMonth()].slice(0, 3)} ${target.getFullYear()}`;
     }
 
-    return `Mes de ${months[target.getMonth()]} de ${target.getFullYear()}`;
+    if (period === 'monthly') {
+      return `Mes de ${months[target.getMonth()]} de ${target.getFullYear()}`;
+    }
+
+    if (period === 'yearly') {
+      return `Año ${target.getFullYear()}`;
+    }
+
+    if (period === 'range') {
+      const s = this.rangeStartDate();
+      const e = this.rangeEndDate();
+      if (!s && !e) return 'Rango de fechas sin seleccionar';
+      if (s && !e) return `Desde ${s}`;
+      if (!s && e) return `Hasta ${e}`;
+      return `Del ${s} al ${e}`;
+    }
+
+    return '';
   });
 
   // Day buttons strip for daily selector: 7 days of the week around selectedDate
@@ -290,8 +332,18 @@ export class RouteFinancePage {
       curr.setDate(curr.getDate() + direction * 7);
     } else if (period === 'monthly') {
       curr.setMonth(curr.getMonth() + direction);
+    } else if (period === 'yearly') {
+      curr.setFullYear(curr.getFullYear() + direction);
     }
     this.selectedDate.set(curr);
+  }
+
+  setRangeStartDate(val: string): void {
+    this.rangeStartDate.set(val);
+  }
+
+  setRangeEndDate(val: string): void {
+    this.rangeEndDate.set(val);
   }
 
   openCreateModal(section: 'income' | 'expense'): void {
@@ -384,7 +436,7 @@ export class RouteFinancePage {
   async closeDay(): Promise<void> {
     const routeId = this.selectedRouteId();
     if (!routeId || this.isDayClosed()) return;
-    if (!confirm('¿Deseas cerrar el día para esta ruta? Al cerrar el día, no se podrán realizar cobros, préstamos, ingresos ni gastos hasta el día siguiente.')) {
+    if (!confirm('¿Deseas cerrar la caja para esta ruta? Al cerrar la caja, no se podrán realizar cobros, préstamos, ingresos ni gastos hasta que se abra una nueva caja o se reabra desde el panel administrativo.')) {
       return;
     }
     this.closingInProgress.set(true);
@@ -392,10 +444,10 @@ export class RouteFinancePage {
     try {
       const status = await this.finances.closeDay(routeId);
       this.dayClosing.set(status);
-      this.success.set('Día cerrado exitosamente.');
+      this.success.set('Caja cerrada exitosamente.');
       await this.reload();
     } catch (err) {
-      this.error.set(err instanceof Error ? err.message : 'No fue posible cerrar el día.');
+      this.error.set(err instanceof Error ? err.message : 'No fue posible cerrar la caja.');
     } finally {
       this.closingInProgress.set(false);
     }

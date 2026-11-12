@@ -43,4 +43,9 @@ export interface RouteDayClosingStatus {
   readonly closedAtUtc: string | null;
   readonly closedByDisplayName: string | null;
   readonly canReopen: boolean;
+  readonly openedAtUtc?: string | null;
+  readonly openedByDisplayName?: string | null;
+  readonly isCutoffExceeded?: boolean;
+  readonly cutoffUtc?: string | null;
+  readonly boxName?: string | null;
 }

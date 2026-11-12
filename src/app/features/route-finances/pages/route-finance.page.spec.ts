@@ -154,7 +154,7 @@ describe('RouteFinancePage', () => {
     expect(component.activeTab()).toBe('income');
 
     // Net balance rendered
-    expect(fixture.nativeElement.textContent).toContain('Balance Ruta');
+    expect(fixture.nativeElement.textContent).toContain('Caja de Ruta');
     expect(fixture.nativeElement.textContent).toContain('Todas las rutas (General)');
     // Both manual incomes and cobros are in Income tab
     expect(fixture.nativeElement.textContent).toContain('Aporte socios inicial');
@@ -176,7 +176,7 @@ describe('RouteFinancePage', () => {
     expect(fixture.nativeElement.textContent).toContain('Préstamo a Juan Pérez');
   });
 
-  it('navigates days with day buttons strip and period selector', async () => {
+  it('navigates days with day buttons strip, yearly and range selectors', async () => {
     const fixture = TestBed.createComponent(RouteFinancePage);
     const component = fixture.componentInstance;
     await fixture.whenStable();
@@ -192,6 +192,18 @@ describe('RouteFinancePage', () => {
     // Change period to monthly
     component.setPeriod('monthly');
     expect(component.periodType()).toBe('monthly');
+
+    // Change period to yearly
+    component.setPeriod('yearly');
+    expect(component.periodType()).toBe('yearly');
+    expect(component.viewingText()).toContain(`Año ${new Date().getFullYear()}`);
+
+    // Change period to range
+    component.setPeriod('range');
+    component.setRangeStartDate('2026-01-01');
+    component.setRangeEndDate('2026-12-31');
+    expect(component.periodType()).toBe('range');
+    expect(component.viewingText()).toBe('Del 2026-01-01 al 2026-12-31');
   });
 
   it('opens modal for nuevo ingreso, selects target route and creates entry', async () => {

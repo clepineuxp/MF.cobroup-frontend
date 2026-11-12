@@ -192,6 +192,7 @@ describe('AgendaPage', () => {
   };
   let routeFinancesService: {
     getBalance: ReturnType<typeof vi.fn>;
+    getDayClosingStatus: ReturnType<typeof vi.fn>;
   };
   let router: {
     navigate: ReturnType<typeof vi.fn>;
@@ -241,6 +242,12 @@ describe('AgendaPage', () => {
     };
     routeFinancesService = {
       getBalance: vi.fn().mockResolvedValue(sampleRouteBalance),
+      getDayClosingStatus: vi.fn().mockResolvedValue({
+        routeId: 'route-1',
+        businessDate: '2026-10-26',
+        isClosed: false,
+        isCutoffExceeded: false,
+      }),
     };
     router = {
       navigate: vi.fn().mockResolvedValue(true),
@@ -337,6 +344,25 @@ describe('AgendaPage', () => {
     expect(page.isBalanceHidden()).toBe(false);
     fixture.detectChanges();
     expect(balanceEl.querySelector('.balance-val.masked')).toBeNull();
+  });
+
+  it('renders "Caja Cerrada" in header when the cash box is closed', async () => {
+    routeFinancesService.getDayClosingStatus.mockResolvedValue({
+      routeId: 'route-1',
+      businessDate: '2026-10-26',
+      isClosed: true,
+      boxName: 'Centro | Caja Cerrada'
+    });
+    const fixture = TestBed.createComponent(AgendaPage);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const page = fixture.componentInstance;
+    const titleEl = fixture.nativeElement.querySelector('.title');
+    expect(titleEl).toBeTruthy();
+    expect(page.boxOpeningDateFormatted()).toBe('Caja Cerrada');
+    expect(titleEl.textContent).toContain('Caja Cerrada');
+    expect(page.boxName()).toContain('Caja Cerrada');
   });
 
   it('renders left block (recaudos + microseguros) and right block (ventas + gastos)', async () => {

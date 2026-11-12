@@ -7,13 +7,16 @@ import { AuthService } from './auth.service';
 import { machineRouteGuard } from './machine-route.guard';
 
 describe('machineRouteGuard', () => {
-  let mockAuth: { isAuthenticated: ReturnType<typeof vi.fn> };
+  let mockAuth: { isAuthenticated: ReturnType<typeof vi.fn>; context: ReturnType<typeof vi.fn> };
   let mockRoutes: { listAccessible: ReturnType<typeof vi.fn> };
   let mockMachineAuth: { refreshAuthorizedRouteAccess: ReturnType<typeof vi.fn> };
   let mockRouter: { createUrlTree: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
-    mockAuth = { isAuthenticated: vi.fn().mockReturnValue(true) };
+    mockAuth = {
+      isAuthenticated: vi.fn().mockReturnValue(true),
+      context: vi.fn().mockReturnValue({ role: 'Collector' }),
+    };
     mockRoutes = { listAccessible: vi.fn() };
     mockMachineAuth = { refreshAuthorizedRouteAccess: vi.fn() };
     mockRouter = { createUrlTree: vi.fn().mockReturnValue('/machine-auth-url-tree') };
@@ -54,5 +57,14 @@ describe('machineRouteGuard', () => {
     expect(mockRouter.createUrlTree).toHaveBeenCalledWith(['/login']);
     expect(result).toBe('/machine-auth-url-tree');
     expect(mockRoutes.listAccessible).not.toHaveBeenCalled();
+  });
+
+  it('allows access without machine authorization when user role is Admin', async () => {
+    mockAuth.context.mockReturnValue({ role: 'Admin' });
+
+    const result = await TestBed.runInInjectionContext(() => machineRouteGuard({} as any, {} as any));
+
+    expect(result).toBe(true);
+    expect(mockMachineAuth.refreshAuthorizedRouteAccess).not.toHaveBeenCalled();
   });
 });

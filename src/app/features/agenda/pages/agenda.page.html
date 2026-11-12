@@ -1,11 +1,11 @@
 <section class="agenda-container">
-  <!-- 1. Header con título: Nombre de la ruta | Fecha apertura de caja(día) -->
+  <!-- 1. Header con título: Nombre de la ruta | Fecha de caja (año-mes-día) o Caja Cerrada -->
   <div class="header-row">
     <div>
-      <h2 class="title">
+      <h2 class="title" [attr.aria-label]="boxName()">
         <span class="route-header-name">{{ currentRouteName() }}</span>
         <span class="route-header-sep"> | </span>
-        <span class="route-header-date">{{ boxOpeningDateFormatted() }}</span>
+        <span class="route-header-date" [class.caja-cerrada]="dayClosingStatus()?.isClosed">{{ boxOpeningDateFormatted() }}</span>
       </h2>
     </div>
   </div>
@@ -61,8 +61,8 @@
           } @else if (balanceLoading()) {
           <span class="balance-val loading">Consultando…</span>
           } @else {
-          <strong class="balance-val initial-val">
-            {{ (routeBalance()?.initialBalance ?? 0) | currency:'COP':'symbol-narrow':'1.0-0' }}
+          <strong class="balance-val initial-val" [class.negative]="displayInitialBalance() < 0">
+            {{ displayInitialBalance() | currency:'COP':'symbol-narrow':'1.0-0' }}
           </strong>
           }
         </div>
@@ -79,8 +79,8 @@
           } @else if (balanceLoading()) {
           <span class="balance-val loading">Consultando…</span>
           } @else {
-          <strong class="balance-val actual-val" [class.negative]="(routeBalance()?.netBalance ?? 0) < 0">
-            {{ (routeBalance()?.netBalance ?? 0) | currency:'COP':'symbol-narrow':'1.0-0' }}
+          <strong class="balance-val actual-val" [class.negative]="displayActualBalance() < 0">
+            {{ displayActualBalance() | currency:'COP':'symbol-narrow':'1.0-0' }}
           </strong>
           }
         </div>
@@ -95,15 +95,14 @@
       <div class="finance-sub-section top-sub">
         <span class="sub-section-label">Recaudos</span>
         <strong class="sub-section-val val-collected">
-          {{ (routeBalance()?.paymentCollections ?? ag.summary.totalCollectedToday) |
-          currency:'COP':'symbol-narrow':'1.0-0' }}
+          {{ displayCollected() | currency:'COP':'symbol-narrow':'1.0-0' }}
         </strong>
       </div>
       <div class="finance-section-divider"></div>
       <div class="finance-sub-section bottom-sub">
         <span class="sub-section-label">Microseguros e inversiones</span>
         <strong class="sub-section-val val-income">
-          {{ (routeBalance()?.incomeInvestments ?? 0) | currency:'COP':'symbol-narrow':'1.0-0' }}
+          {{ displayIncome() | currency:'COP':'symbol-narrow':'1.0-0' }}
         </strong>
       </div>
     </div>
@@ -113,14 +112,14 @@
       <div class="finance-sub-section top-sub">
         <span class="sub-section-label">Ventas</span>
         <strong class="sub-section-val val-disbursed">
-          {{ (routeBalance()?.loanDisbursements ?? totalLoanedToday()) | currency:'COP':'symbol-narrow':'1.0-0' }}
+          {{ displayDisbursed() | currency:'COP':'symbol-narrow':'1.0-0' }}
         </strong>
       </div>
       <div class="finance-section-divider"></div>
       <div class="finance-sub-section bottom-sub">
         <span class="sub-section-label">Gastos</span>
         <strong class="sub-section-val val-expenses">
-          {{ (routeBalance()?.expenses ?? 0) | currency:'COP':'symbol-narrow':'1.0-0' }}
+          {{ displayExpenses() | currency:'COP':'symbol-narrow':'1.0-0' }}
         </strong>
       </div>
     </div>
@@ -484,7 +483,16 @@
 
   <app-nuevo-prestamo
     [routeId]="selectedRouteId()"
+    [isBlocked]="isCajaBlocked()"
+    (blockedAttempt)="checkCajaBlocked()"
     (customerSaved)="onCustomerSaved($event)"
     (loanCreated)="onLoanCreated($event)"
+  />
+
+  <app-caja-blocked-dialog
+    [isOpen]="showCajaBlockedModal()"
+    [message]="cajaBlockedMessage()"
+    [routeId]="selectedRouteId()"
+    (closed)="showCajaBlockedModal.set(false)"
   />
 </section>

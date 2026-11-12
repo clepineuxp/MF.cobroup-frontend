@@ -1,0 +1,14 @@
+@if (isOpen) {
+  <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="caja-blocked-title">
+    <div class="modal-card">
+      <div class="dialog-icon-badge" aria-hidden="true">🔒</div>
+      <h3 id="caja-blocked-title" class="dialog-title">Horario de Caja Vencido</h3>
+      <p class="dialog-message">{{ message }}</p>
+      <div class="dialog-actions">
+        <button type="button" class="btn-dismiss" (click)="close()">Entendido</button>
+        <button type="button" class="btn-go-to-caja" (click)="goToCaja()">Ir a Caja</button>
+      </div>
+    </div>
+  </div>
+}
+

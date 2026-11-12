@@ -28,6 +28,12 @@ describe('MapaPage (Home Screen)', () => {
       expenses: 10000,
       netBalance: 840000,
     }),
+    getDayClosingStatus: vi.fn().mockResolvedValue({
+      routeId: 'route-1',
+      businessDate: '2026-11-12',
+      isClosed: false,
+      isCutoffExceeded: false,
+    }),
   };
 
   const routesService = {
