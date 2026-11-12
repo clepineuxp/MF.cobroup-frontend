@@ -1,6 +1,6 @@
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AppIconComponent } from '../../../shared/ui/app-icon/app-icon.component';
 import { PaymentModalComponent } from '../../../shared/ui/payment-modal/payment-modal.component';
@@ -11,15 +11,31 @@ import { AccessibleRoute } from '../../routes/data/route.models';
 import { RoutesService } from '../../routes/data/routes.service';
 import { RouteBalance } from '../../route-finances/data/route-finance.models';
 import { RouteFinancesService } from '../../route-finances/data/route-finances.service';
-import { AgendaItem, AgendaResponse, AgendaStatus } from '../data/agenda.models';
+import {
+  AgendaItem,
+  AgendaResponse,
+  AgendaStatus,
+  NonPaymentReason,
+  RegisterWillNotPayRequest,
+} from '../data/agenda.models';
 import { AgendaService } from '../data/agenda.service';
 
-export type StatusFilter = 'ALL' | 'PENDING' | 'OVERDUE' | 'DUE_TODAY' | 'WILL_NOT_PAY' | 'COLLECTED';
+export type SegmentNav = 'PENDING' | 'PAID' | 'WILL_NOT_PAY' | 'ADVANCED';
+
+export interface FilterStatusOption {
+  key: string;
+  label: string;
+}
+
+export interface FrequencyOption {
+  key: string;
+  label: string;
+}
 
 @Component({
   selector: 'app-agenda-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, CurrencyPipe, PaymentModalComponent, AppIconComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, CurrencyPipe, PaymentModalComponent, AppIconComponent],
   templateUrl: './agenda.page.html',
   styleUrl: './agenda.page.scss',
 })
@@ -38,12 +54,59 @@ export class AgendaPage implements OnInit {
   readonly loading = signal(false);
   readonly error = signal('');
   readonly success = signal('');
-  readonly activeFilter = signal<StatusFilter>('PENDING');
   readonly searchQuery = signal('');
+
+  // 4-segment navigation & filters
+  readonly activeNavSegment = signal<SegmentNav>('PENDING');
+
+  // Advanced filter dialog state
+  readonly isFilterModalOpen = signal(false);
+  readonly selectedStatuses = signal<Set<string>>(new Set());
+  readonly selectedFrequencies = signal<Set<string>>(new Set());
+
+  // Temp state inside filter modal
+  readonly tempStatuses = signal<Set<string>>(new Set());
+  readonly tempFrequencies = signal<Set<string>>(new Set());
+
+  readonly statusOptions: FilterStatusOption[] = [
+    { key: 'ALL', label: 'Todos' },
+    { key: 'OVERDUE', label: 'En mora' },
+    { key: 'DUE_TODAY', label: 'Cobro hoy' },
+    { key: 'COLLECTED', label: 'Pagos' },
+    { key: 'WILL_NOT_PAY', label: 'No pagará hoy' },
+    { key: 'UP_TO_DATE', label: 'Al día' },
+  ];
+
+  readonly frequencyOptions: FrequencyOption[] = [
+    { key: 'ALL', label: 'Todos' },
+    { key: 'DAILY', label: 'Diario' },
+    { key: 'WEEKLY', label: 'Semanal' },
+    { key: 'MONTHLY', label: 'Mensual' },
+  ];
+
+  readonly hasCustomFilters = computed(() => {
+    return this.selectedStatuses().size > 0 || this.selectedFrequencies().size > 0;
+  });
 
   // Metrics
   readonly totalLoanedToday = signal(0);
   readonly loanedCountToday = signal(0);
+
+  // Non-payment reasons & modal state
+  readonly isWillNotPayModalOpen = signal(false);
+  readonly targetWillNotPayItem = signal<AgendaItem | null>(null);
+  readonly nonPaymentReasons = signal<readonly NonPaymentReason[]>([]);
+  readonly reasonsLoading = signal(false);
+  readonly selectedReasonId = signal<string>('');
+  readonly customReasonName = signal<string>('');
+  readonly nonPaymentObservations = signal<string>('');
+  readonly submittingNonPayment = signal(false);
+
+  // Manage reasons inside modal
+  readonly isManageReasonsOpen = signal(false);
+  readonly newReasonName = signal('');
+  readonly newReasonDescription = signal('');
+  readonly savingNewReason = signal(false);
 
   // Daily "No pagará hoy" state (persisted per route date)
   readonly willNotPayTodayIds = signal<Set<string>>(new Set());
@@ -65,22 +128,31 @@ export class AgendaPage implements OnInit {
   }
 
   effectiveStatus(item: AgendaItem): AgendaStatus {
+    if (item.collectedTodayAmount > 0 || item.status === 'Collected') {
+      return 'Collected';
+    }
     const key = this.itemKey(item);
-    if (this.willNotPayTodayIds().has(key) || this.willNotPayTodayIds().has(item.customerId)) {
+    if (this.willNotPayTodayIds().has(key) || this.willNotPayTodayIds().has(item.customerId) || item.status === 'WillNotPayToday') {
       return 'WillNotPayToday';
     }
     return item.status;
   }
 
   effectiveStatusLabel(item: AgendaItem): string {
-    const key = this.itemKey(item);
-    if (this.willNotPayTodayIds().has(key) || this.willNotPayTodayIds().has(item.customerId)) {
-      return 'Hoy no pagará';
+    const st = this.effectiveStatus(item);
+    if (st === 'Collected') {
+      return 'Cobrado hoy';
+    }
+    if (st === 'WillNotPayToday') {
+      return item.nonPaymentReasonName ? `No paga hoy (${item.nonPaymentReasonName})` : 'Hoy no pagará';
     }
     return item.statusLabel;
   }
 
   isPending(item: AgendaItem): boolean {
+    if (item.collectedTodayAmount > 0 || item.status === 'Collected') {
+      return false;
+    }
     const st = this.effectiveStatus(item);
     return st === 'DueToday' || st === 'Overdue';
   }
@@ -119,7 +191,7 @@ export class AgendaPage implements OnInit {
     }, 0);
   });
 
-  // Filter counts
+  // Segment counts
   readonly allCount = computed(() => {
     return this.agenda()?.items?.length ?? 0;
   });
@@ -127,6 +199,16 @@ export class AgendaPage implements OnInit {
   readonly pendingCount = computed(() => {
     const items = this.agenda()?.items ?? [];
     return items.filter((i) => this.isPending(i)).length;
+  });
+
+  readonly collectedCount = computed(() => {
+    const items = this.agenda()?.items ?? [];
+    return items.filter((i) => this.effectiveStatus(i) === 'Collected' || i.collectedTodayAmount > 0).length;
+  });
+
+  readonly willNotPayCount = computed(() => {
+    const items = this.agenda()?.items ?? [];
+    return items.filter((i) => this.effectiveStatus(i) === 'WillNotPayToday').length;
   });
 
   readonly overdueCount = computed(() => {
@@ -137,16 +219,6 @@ export class AgendaPage implements OnInit {
   readonly dueTodayCount = computed(() => {
     const items = this.agenda()?.items ?? [];
     return items.filter((i) => this.effectiveStatus(i) === 'DueToday').length;
-  });
-
-  readonly willNotPayCount = computed(() => {
-    const items = this.agenda()?.items ?? [];
-    return items.filter((i) => this.effectiveStatus(i) === 'WillNotPayToday').length;
-  });
-
-  readonly collectedCount = computed(() => {
-    const items = this.agenda()?.items ?? [];
-    return items.filter((i) => this.effectiveStatus(i) === 'Collected').length;
   });
 
   // Ordered items (respecting custom user sequence and finalizing loans to bottom)
@@ -175,28 +247,55 @@ export class AgendaPage implements OnInit {
     });
   });
 
-  // Filtered by status tab
+  // Filtered by active segment and advanced filters
   readonly filteredByStatusItems = computed(() => {
     const items = this.orderedItems();
-    const filter = this.activeFilter();
-    switch (filter) {
-      case 'PENDING':
-        return items.filter((i) => this.isPending(i));
-      case 'OVERDUE':
-        return items.filter((i) => this.effectiveStatus(i) === 'Overdue');
-      case 'DUE_TODAY':
-        return items.filter((i) => this.effectiveStatus(i) === 'DueToday');
-      case 'WILL_NOT_PAY':
-        return items.filter((i) => this.effectiveStatus(i) === 'WillNotPayToday');
-      case 'COLLECTED':
-        return items.filter((i) => this.effectiveStatus(i) === 'Collected');
-      case 'ALL':
-      default:
-        return items;
+    const seg = this.activeNavSegment();
+
+    if (seg === 'PENDING') {
+      return items.filter((i) => this.isPending(i));
     }
+    if (seg === 'PAID') {
+      return items.filter((i) => this.effectiveStatus(i) === 'Collected' || i.collectedTodayAmount > 0);
+    }
+    if (seg === 'WILL_NOT_PAY') {
+      return items.filter((i) => this.effectiveStatus(i) === 'WillNotPayToday');
+    }
+
+    // seg === 'ADVANCED'
+    const statusSet = this.selectedStatuses();
+    const freqSet = this.selectedFrequencies();
+
+    return items.filter((item) => {
+      // 1. Status matching
+      let statusMatches = true;
+      if (statusSet.size > 0 && !statusSet.has('ALL')) {
+        const st = this.effectiveStatus(item);
+        const matchOverdue = statusSet.has('OVERDUE') && st === 'Overdue';
+        const matchDueToday = statusSet.has('DUE_TODAY') && st === 'DueToday';
+        const matchCollected = statusSet.has('COLLECTED') && (st === 'Collected' || item.collectedTodayAmount > 0);
+        const matchWillNotPay = statusSet.has('WILL_NOT_PAY') && st === 'WillNotPayToday';
+        const matchUpToDate = statusSet.has('UP_TO_DATE') && st === 'UpToDate';
+
+        statusMatches = matchOverdue || matchDueToday || matchCollected || matchWillNotPay || matchUpToDate;
+      }
+
+      // 2. Frequency matching
+      let freqMatches = true;
+      if (freqSet.size > 0 && !freqSet.has('ALL')) {
+        const itemFreq = (item.paymentFrequency || '').toUpperCase();
+        const matchDaily = freqSet.has('DAILY') && (itemFreq === 'DAILY' || itemFreq === 'DIARIO');
+        const matchWeekly = freqSet.has('WEEKLY') && (itemFreq === 'WEEKLY' || itemFreq === 'SEMANAL');
+        const matchMonthly = freqSet.has('MONTHLY') && (itemFreq === 'MONTHLY' || itemFreq === 'MENSUAL');
+
+        freqMatches = matchDaily || matchWeekly || matchMonthly;
+      }
+
+      return statusMatches && freqMatches;
+    });
   });
 
-  // Filtered items (status tab + search query)
+  // Filtered items (status + search query)
   readonly filteredItems = computed(() => {
     const items = this.filteredByStatusItems();
     const query = this.searchQuery().trim().toLowerCase();
@@ -322,8 +421,74 @@ export class AgendaPage implements OnInit {
     });
   }
 
-  setFilter(filter: StatusFilter): void {
-    this.activeFilter.set(filter);
+  selectSegment(seg: SegmentNav): void {
+    this.activeNavSegment.set(seg);
+  }
+
+  openFilterModal(): void {
+    this.tempStatuses.set(new Set(this.selectedStatuses()));
+    this.tempFrequencies.set(new Set(this.selectedFrequencies()));
+    this.isFilterModalOpen.set(true);
+  }
+
+  closeFilterModal(): void {
+    this.isFilterModalOpen.set(false);
+  }
+
+  toggleTempStatus(key: string): void {
+    this.tempStatuses.update((set) => {
+      const next = new Set(set);
+      if (key === 'ALL') {
+        next.clear();
+        next.add('ALL');
+        return next;
+      }
+      next.delete('ALL');
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
+  toggleTempFrequency(key: string): void {
+    this.tempFrequencies.update((set) => {
+      const next = new Set(set);
+      if (key === 'ALL') {
+        next.clear();
+        next.add('ALL');
+        return next;
+      }
+      next.delete('ALL');
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
+  applyFilters(): void {
+    const statuses = new Set(this.tempStatuses());
+    const freqs = new Set(this.tempFrequencies());
+
+    this.selectedStatuses.set(statuses);
+    this.selectedFrequencies.set(freqs);
+
+    this.isFilterModalOpen.set(false);
+    this.activeNavSegment.set('ADVANCED');
+  }
+
+  clearFilters(): void {
+    this.tempStatuses.set(new Set());
+    this.tempFrequencies.set(new Set());
+    this.selectedStatuses.set(new Set());
+    this.selectedFrequencies.set(new Set());
+    this.activeNavSegment.set('PENDING');
+    this.isFilterModalOpen.set(false);
   }
 
   onSearchInput(event: Event): void {
@@ -335,9 +500,9 @@ export class AgendaPage implements OnInit {
     this.searchQuery.set('');
   }
 
-  // Card Reordering
+  // Card Reordering (relative to displayed list, persisted globally)
   getItemIndex(item: AgendaItem): number {
-    return this.orderedItems().findIndex((i) => this.itemKey(i) === this.itemKey(item));
+    return this.filteredItems().findIndex((i) => this.itemKey(i) === this.itemKey(item));
   }
 
   isFirst(item: AgendaItem): boolean {
@@ -346,17 +511,23 @@ export class AgendaPage implements OnInit {
 
   isLast(item: AgendaItem): boolean {
     const idx = this.getItemIndex(item);
-    return idx < 0 || idx >= this.orderedItems().length - 1;
+    return idx < 0 || idx >= this.filteredItems().length - 1;
   }
 
   moveItemUp(item: AgendaItem): void {
-    const currentList = [...this.orderedItems()];
-    const idx = currentList.findIndex((i) => this.itemKey(i) === this.itemKey(item));
-    if (idx <= 0) return;
+    const displayedList = [...this.filteredItems()];
+    const dispIdx = displayedList.findIndex((i) => this.itemKey(i) === this.itemKey(item));
+    if (dispIdx <= 0) return;
 
-    const prevItem = currentList[idx - 1];
-    currentList[idx - 1] = item;
-    currentList[idx] = prevItem;
+    const prevItem = displayedList[dispIdx - 1];
+
+    const currentList = [...this.orderedItems()];
+    const itemIdx = currentList.findIndex((i) => this.itemKey(i) === this.itemKey(item));
+    const prevIdx = currentList.findIndex((i) => this.itemKey(i) === this.itemKey(prevItem));
+    if (itemIdx < 0 || prevIdx < 0) return;
+
+    currentList[itemIdx] = prevItem;
+    currentList[prevIdx] = item;
 
     const newOrder = currentList.map((i) => this.itemKey(i));
     this.customOrderIds.set(newOrder);
@@ -364,13 +535,19 @@ export class AgendaPage implements OnInit {
   }
 
   moveItemDown(item: AgendaItem): void {
-    const currentList = [...this.orderedItems()];
-    const idx = currentList.findIndex((i) => this.itemKey(i) === this.itemKey(item));
-    if (idx < 0 || idx >= currentList.length - 1) return;
+    const displayedList = [...this.filteredItems()];
+    const dispIdx = displayedList.findIndex((i) => this.itemKey(i) === this.itemKey(item));
+    if (dispIdx < 0 || dispIdx >= displayedList.length - 1) return;
 
-    const nextItem = currentList[idx + 1];
-    currentList[idx + 1] = item;
-    currentList[idx] = nextItem;
+    const nextItem = displayedList[dispIdx + 1];
+
+    const currentList = [...this.orderedItems()];
+    const itemIdx = currentList.findIndex((i) => this.itemKey(i) === this.itemKey(item));
+    const nextIdx = currentList.findIndex((i) => this.itemKey(i) === this.itemKey(nextItem));
+    if (itemIdx < 0 || nextIdx < 0) return;
+
+    currentList[itemIdx] = nextItem;
+    currentList[nextIdx] = item;
 
     const newOrder = currentList.map((i) => this.itemKey(i));
     this.customOrderIds.set(newOrder);
@@ -402,32 +579,176 @@ export class AgendaPage implements OnInit {
     }
   }
 
-  markWillNotPayToday(item: AgendaItem): void {
-    const date = this.filterForm.controls.date.value;
-    const key = this.itemKey(item);
-    this.willNotPayTodayIds.update((set) => {
-      const next = new Set(set);
-      next.add(key);
-      next.add(item.customerId);
-      this.persistWillNotPayTodayIds(next, date);
-      return next;
-    });
-    this.success.set('Préstamo marcado: Hoy no pagará.');
-    setTimeout(() => this.success.set(''), 3500);
+  // Non-Payment modal workflows (persisted to Backend + local fallback)
+  async openWillNotPayModal(item: AgendaItem): Promise<void> {
+    this.targetWillNotPayItem.set(item);
+    this.selectedReasonId.set('');
+    this.customReasonName.set('');
+    this.nonPaymentObservations.set('');
+    this.isWillNotPayModalOpen.set(true);
+
+    try {
+      this.reasonsLoading.set(true);
+      const reasons = await this.agendaService.getNonPaymentReasons(false);
+      this.nonPaymentReasons.set(reasons);
+      if (reasons.length > 0) {
+        this.selectedReasonId.set(reasons[0].id);
+      }
+    } catch {
+      // If reasons endpoint fails, fallback list is available
+      this.nonPaymentReasons.set([
+        { id: '1', name: 'Cliente ausente / viaje', isActive: true, displayOrder: 1 },
+        { id: '2', name: 'Sin dinero / iliquidez', isActive: true, displayOrder: 2 },
+        { id: '3', name: 'Comercio cerrado', isActive: true, displayOrder: 3 },
+        { id: '4', name: 'Fecha postergada', isActive: true, displayOrder: 4 },
+        { id: '5', name: 'Emergencia familiar', isActive: true, displayOrder: 5 },
+        { id: 'custom', name: 'Otro motivo', isActive: true, displayOrder: 6 },
+      ]);
+      this.selectedReasonId.set('1');
+    } finally {
+      this.reasonsLoading.set(false);
+    }
   }
 
-  unmarkWillNotPayToday(item: AgendaItem): void {
+  closeWillNotPayModal(): void {
+    this.isWillNotPayModalOpen.set(false);
+    this.targetWillNotPayItem.set(null);
+  }
+
+  async submitWillNotPay(): Promise<void> {
+    const item = this.targetWillNotPayItem();
+    if (!item) return;
+
     const date = this.filterForm.controls.date.value;
     const key = this.itemKey(item);
-    this.willNotPayTodayIds.update((set) => {
-      const next = new Set(set);
-      next.delete(key);
-      next.delete(item.customerId);
-      this.persistWillNotPayTodayIds(next, date);
-      return next;
-    });
-    this.success.set('Préstamo restablecido en la ruta de cobro.');
-    setTimeout(() => this.success.set(''), 3500);
+    const reasonId = this.selectedReasonId();
+    const isCustom = reasonId === 'custom' || !reasonId;
+
+    let reasonName = '';
+    if (isCustom) {
+      reasonName = this.customReasonName().trim() || 'No especificado';
+    } else {
+      const found = this.nonPaymentReasons().find((r) => r.id === reasonId);
+      reasonName = found?.name || 'No pagará hoy';
+    }
+
+    try {
+      this.submittingNonPayment.set(true);
+
+      const request: RegisterWillNotPayRequest = {
+        routeId: item.routeId,
+        customerId: item.customerId,
+        loanId: item.activeLoanId,
+        businessDate: date,
+        reasonId: isCustom ? null : reasonId,
+        reasonName,
+        observations: this.nonPaymentObservations().trim() || null,
+      };
+
+      await this.agendaService.registerWillNotPay(request);
+
+      // Local optimistic update
+      this.willNotPayTodayIds.update((set) => {
+        const next = new Set(set);
+        next.add(key);
+        next.add(item.customerId);
+        this.persistWillNotPayTodayIds(next, date);
+        return next;
+      });
+
+      this.closeWillNotPayModal();
+      this.success.set(`Se registró motivo de no pago: "${reasonName}".`);
+      setTimeout(() => this.success.set(''), 3500);
+
+      // Reload fresh data from backend
+      await this.loadAgenda();
+    } catch (err: unknown) {
+      // Fallback local update if network issue
+      this.willNotPayTodayIds.update((set) => {
+        const next = new Set(set);
+        next.add(key);
+        next.add(item.customerId);
+        this.persistWillNotPayTodayIds(next, date);
+        return next;
+      });
+      this.closeWillNotPayModal();
+      this.success.set(`Guardado localmente: "${reasonName}".`);
+      setTimeout(() => this.success.set(''), 3500);
+    } finally {
+      this.submittingNonPayment.set(false);
+    }
+  }
+
+  async unmarkWillNotPayToday(item: AgendaItem): Promise<void> {
+    const date = this.filterForm.controls.date.value;
+    const key = this.itemKey(item);
+
+    try {
+      this.loading.set(true);
+      await this.agendaService.cancelWillNotPay(item.routeId, item.customerId, item.activeLoanId, date);
+
+      this.willNotPayTodayIds.update((set) => {
+        const next = new Set(set);
+        next.delete(key);
+        next.delete(item.customerId);
+        this.persistWillNotPayTodayIds(next, date);
+        return next;
+      });
+
+      this.success.set('Préstamo restablecido en la ruta de cobro.');
+      setTimeout(() => this.success.set(''), 3500);
+      await this.loadAgenda();
+    } catch {
+      // Fallback local removal
+      this.willNotPayTodayIds.update((set) => {
+        const next = new Set(set);
+        next.delete(key);
+        next.delete(item.customerId);
+        this.persistWillNotPayTodayIds(next, date);
+        return next;
+      });
+      this.success.set('Préstamo restablecido localmente.');
+      setTimeout(() => this.success.set(''), 3500);
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  // Manage reasons
+  toggleManageReasons(): void {
+    this.isManageReasonsOpen.update((v) => !v);
+  }
+
+  async createNewReason(): Promise<void> {
+    const name = this.newReasonName().trim();
+    if (!name) return;
+
+    try {
+      this.savingNewReason.set(true);
+      const created = await this.agendaService.createNonPaymentReason(name, this.newReasonDescription().trim() || undefined);
+      this.nonPaymentReasons.update((list) => [...list, created]);
+      this.selectedReasonId.set(created.id);
+      this.newReasonName.set('');
+      this.newReasonDescription.set('');
+      this.isManageReasonsOpen.set(false);
+    } catch (err: unknown) {
+      this.error.set(err instanceof Error ? err.message : 'Error creando motivo.');
+      setTimeout(() => this.error.set(''), 3500);
+    } finally {
+      this.savingNewReason.set(false);
+    }
+  }
+
+  async toggleReasonStatus(reason: NonPaymentReason): Promise<void> {
+    try {
+      const updated = await this.agendaService.toggleNonPaymentReasonStatus(reason.id, !reason.isActive);
+      this.nonPaymentReasons.update((list) =>
+        list.map((r) => (r.id === updated.id ? { ...r, isActive: updated.isActive } : r))
+      );
+    } catch (err: unknown) {
+      this.error.set(err instanceof Error ? err.message : 'Error actualizando estado del motivo.');
+      setTimeout(() => this.error.set(''), 3500);
+    }
   }
 
   private getDateKey(dateStr?: string): string {

@@ -20,6 +20,12 @@ export interface AgendaItem {
   statusLabel: string;
   markerColor: string;
   distanceKm: number | null;
+  installmentAmount?: number;
+  overdueInstallmentsCount?: number;
+  paymentFrequency?: string | null;
+  nonPaymentReasonId?: string | null;
+  nonPaymentReasonName?: string | null;
+  nonPaymentObservations?: string | null;
 }
 
 export interface AgendaSummary {
@@ -33,6 +39,25 @@ export interface AgendaSummary {
   dueTodayCount: number;
   collectedCount: number;
   upToDateCount: number;
+  willNotPayCount?: number;
+}
+
+export interface NonPaymentReason {
+  id: string;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  displayOrder: number;
+}
+
+export interface RegisterWillNotPayRequest {
+  routeId: string;
+  customerId: string;
+  loanId?: string | null;
+  businessDate: string;
+  reasonId?: string | null;
+  reasonName?: string | null;
+  observations?: string | null;
 }
 
 export interface AgendaResponse {

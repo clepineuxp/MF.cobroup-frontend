@@ -4,7 +4,9 @@ import { API_CONFIG } from '../../../core/config/api.config';
 import {
   AgendaResponse,
   CustomerMapLocation,
+  NonPaymentReason,
   PortfolioAnalytics,
+  RegisterWillNotPayRequest,
 } from './agenda.models';
 
 @Injectable({ providedIn: 'root' })
@@ -70,6 +72,60 @@ export class AgendaService {
     const response = await this.auth.authorizedFetch(`${this.config.baseUrl}/agenda/route-analytics${queryString}`);
     if (!response.ok) throw new Error(await this.message(response, 'No fue posible consultar la analítica de ruta.'));
     return (await response.json()) as PortfolioAnalytics;
+  }
+
+  async getNonPaymentReasons(includeInactive = false): Promise<readonly NonPaymentReason[]> {
+    const query = new URLSearchParams();
+    if (includeInactive) query.set('includeInactive', 'true');
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    const response = await this.auth.authorizedFetch(`${this.config.baseUrl}/agenda/non-payment-reasons${queryString}`);
+    if (!response.ok) throw new Error(await this.message(response, 'No fue posible consultar los motivos de no pago.'));
+    return (await response.json()) as readonly NonPaymentReason[];
+  }
+
+  async createNonPaymentReason(name: string, description?: string, displayOrder = 0): Promise<NonPaymentReason> {
+    const response = await this.auth.authorizedFetch(`${this.config.baseUrl}/agenda/non-payment-reasons`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, description: description ?? null, displayOrder }),
+    });
+    if (!response.ok) throw new Error(await this.message(response, 'No fue posible crear el motivo de no pago.'));
+    return (await response.json()) as NonPaymentReason;
+  }
+
+  async toggleNonPaymentReasonStatus(id: string, isActive: boolean): Promise<NonPaymentReason> {
+    const response = await this.auth.authorizedFetch(`${this.config.baseUrl}/agenda/non-payment-reasons/${id}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isActive }),
+    });
+    if (!response.ok) throw new Error(await this.message(response, 'No fue posible actualizar el estado del motivo.'));
+    return (await response.json()) as NonPaymentReason;
+  }
+
+  async registerWillNotPay(request: RegisterWillNotPayRequest): Promise<boolean> {
+    const response = await this.auth.authorizedFetch(`${this.config.baseUrl}/agenda/will-not-pay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) throw new Error(await this.message(response, 'No fue posible registrar la marca de no pagará hoy.'));
+    return (await response.json()) as boolean;
+  }
+
+  async cancelWillNotPay(routeId: string, customerId: string, loanId: string | null | undefined, businessDate: string): Promise<boolean> {
+    const query = new URLSearchParams({
+      routeId,
+      customerId,
+      businessDate,
+    });
+    if (loanId) query.set('loanId', loanId);
+
+    const response = await this.auth.authorizedFetch(`${this.config.baseUrl}/agenda/will-not-pay?${query.toString()}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error(await this.message(response, 'No fue posible desmarcar el no pago.'));
+    return (await response.json()) as boolean;
   }
 
   private async message(response: Response, fallback: string): Promise<string> {

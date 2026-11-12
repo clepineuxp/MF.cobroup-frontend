@@ -24,6 +24,7 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
       @case ('lock') { <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/> }
       @case ('unlock') { <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/> }
       @case ('trash') { <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/> }
+      @case ('filter') { <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/> }
       @default { <circle cx="12" cy="12" r="9"/> }
     }
   </svg>`,

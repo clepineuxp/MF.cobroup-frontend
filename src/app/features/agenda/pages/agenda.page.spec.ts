@@ -174,6 +174,9 @@ describe('AgendaPage', () => {
   let agendaService: {
     getAgenda: ReturnType<typeof vi.fn>;
     optimizeSequence: ReturnType<typeof vi.fn>;
+    getNonPaymentReasons: ReturnType<typeof vi.fn>;
+    registerWillNotPay: ReturnType<typeof vi.fn>;
+    cancelWillNotPay: ReturnType<typeof vi.fn>;
   };
   let routesService: {
     listAccessible: ReturnType<typeof vi.fn>;
@@ -199,6 +202,11 @@ describe('AgendaPage', () => {
     agendaService = {
       getAgenda: vi.fn().mockResolvedValue(sampleAgenda),
       optimizeSequence: vi.fn().mockResolvedValue(sampleAgenda),
+      getNonPaymentReasons: vi.fn().mockResolvedValue([
+        { id: 'reason-1', name: 'Cliente ausente / viaje', isActive: true, displayOrder: 1 },
+      ]),
+      registerWillNotPay: vi.fn().mockResolvedValue(true),
+      cancelWillNotPay: vi.fn().mockResolvedValue(true),
     };
     routesService = {
       listAccessible: vi.fn().mockResolvedValue(sampleRoutes),
@@ -251,12 +259,12 @@ describe('AgendaPage', () => {
     fixture.detectChanges();
 
     const page = fixture.componentInstance;
-    expect(page.activeFilter()).toBe('PENDING');
+    expect(page.activeNavSegment()).toBe('PENDING');
 
-    // Only cust-2 (Overdue) and cust-3 (DueToday) are pending
+    // Only cust-2 (Overdue) and cust-3 (DueToday) are pending, sorted alphabetically by name: Camilo (cust-3), Jhonny (cust-2)
     const items = page.filteredItems();
     expect(items).toHaveLength(2);
-    expect(items.map((i) => i.customerId)).toEqual(['cust-2', 'cust-3']);
+    expect(items.map((i) => i.customerId)).toEqual(['cust-3', 'cust-2']);
   });
 
   it('renders top balance card with eye toggle to mask/unmask balance', async () => {
@@ -285,7 +293,7 @@ describe('AgendaPage', () => {
     expect(balanceEl.querySelector('.balance-val.masked')).toBeNull();
   });
 
-  it('renders left block (cobros/recaudos + otros ingresos) and right block (prestamos + demas gastos)', async () => {
+  it('renders left block (recaudos + microseguros) and right block (ventas + gastos)', async () => {
     const fixture = TestBed.createComponent(AgendaPage);
     await fixture.whenStable();
     fixture.detectChanges();
@@ -293,15 +301,15 @@ describe('AgendaPage', () => {
     const cards = fixture.nativeElement.querySelectorAll('.finance-block-card');
     expect(cards.length).toBe(2);
 
-    // Left card: Cobros y Recaudos + Otros Ingresos
+    // Left card: Recaudos + Microseguros e inversiones
     const leftCard = cards[0];
-    expect(leftCard.textContent).toContain('Cobros y Recaudos');
-    expect(leftCard.textContent).toContain('Otros Ingresos');
+    expect(leftCard.textContent).toContain('Recaudos');
+    expect(leftCard.textContent).toContain('Microseguros e inversiones');
 
-    // Right card: Gastos por préstamos + Demás Gastos
+    // Right card: Ventas + Gastos
     const rightCard = cards[1];
-    expect(rightCard.textContent).toContain('Gastos por préstamos realizados');
-    expect(rightCard.textContent).toContain('Demás Gastos');
+    expect(rightCard.textContent).toContain('Ventas');
+    expect(rightCard.textContent).toContain('Gastos');
   });
 
   it('computes Estimado de cobro hoy and Estimado pago Total accurately', async () => {
@@ -328,7 +336,8 @@ describe('AgendaPage', () => {
     fixture.detectChanges();
 
     const page = fixture.componentInstance;
-    page.setFilter('ALL');
+    page.activeNavSegment.set('ADVANCED');
+    page.selectedStatuses.set(new Set());
 
     // Search by alias "Mecanico"
     page.searchQuery.set('Mecanico');
@@ -354,18 +363,18 @@ describe('AgendaPage', () => {
     fixture.detectChanges();
 
     const page = fixture.componentInstance;
-    // Currently pending: cust-2 first, cust-3 second
+    // Currently pending: cust-3 first, cust-2 second
     const pendingItems = page.filteredItems();
-    expect(pendingItems[0].customerId).toBe('cust-2');
-    expect(pendingItems[1].customerId).toBe('cust-3');
+    expect(pendingItems[0].customerId).toBe('cust-3');
+    expect(pendingItems[1].customerId).toBe('cust-2');
 
-    // Move cust-3 up
+    // Move cust-2 up
     page.moveItemUp(pendingItems[1]);
     fixture.detectChanges();
 
     const reordered = page.filteredItems();
-    expect(reordered[0].customerId).toBe('cust-3');
-    expect(reordered[1].customerId).toBe('cust-2');
+    expect(reordered[0].customerId).toBe('cust-2');
+    expect(reordered[1].customerId).toBe('cust-3');
   });
 
   it('marks customer loan as No pagará hoy, updates counts, and allows restoring', async () => {
@@ -377,24 +386,25 @@ describe('AgendaPage', () => {
     expect(page.filteredItems()).toHaveLength(2);
     expect(page.pendingCount()).toBe(2);
 
-    const jhonnyItem = page.filteredItems()[0];
-    page.markWillNotPayToday(jhonnyItem);
+    const targetItem = page.filteredItems()[0]; // cust-3
+    await page.openWillNotPayModal(targetItem);
+    await page.submitWillNotPay();
     fixture.detectChanges();
 
     expect(page.willNotPayCount()).toBe(1);
     expect(page.pendingCount()).toBe(1);
     expect(page.filteredItems()).toHaveLength(1);
-    expect(page.filteredItems()[0].customerId).toBe('cust-3');
-
-    // Switch to WILL_NOT_PAY tab
-    page.setFilter('WILL_NOT_PAY');
-    fixture.detectChanges();
-    expect(page.filteredItems()).toHaveLength(1);
     expect(page.filteredItems()[0].customerId).toBe('cust-2');
 
+    // Switch to WILL_NOT_PAY segment
+    page.selectSegment('WILL_NOT_PAY');
+    fixture.detectChanges();
+    expect(page.filteredItems()).toHaveLength(1);
+    expect(page.filteredItems()[0].customerId).toBe('cust-3');
+
     // Restore
-    page.unmarkWillNotPayToday(jhonnyItem);
-    page.setFilter('PENDING');
+    await page.unmarkWillNotPayToday(targetItem);
+    page.selectSegment('PENDING');
     fixture.detectChanges();
     expect(page.filteredItems()).toHaveLength(2);
   });

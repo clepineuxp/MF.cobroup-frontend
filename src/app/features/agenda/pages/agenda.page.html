@@ -70,15 +70,13 @@
           {{ (routeBalance()?.paymentCollections ?? ag.summary.totalCollectedToday) |
           currency:'COP':'symbol-narrow':'1.0-0' }}
         </strong>
-        <span class="sub-section-meta">{{ ag.summary.collectedCount }} cobros realizados</span>
       </div>
       <div class="finance-section-divider"></div>
       <div class="finance-sub-section bottom-sub">
-        <span class="sub-section-label">mICROSEGUROS E INVERSIONES</span>
+        <span class="sub-section-label">Microseguros e inversiones</span>
         <strong class="sub-section-val val-income">
           {{ (routeBalance()?.incomeInvestments ?? 0) | currency:'COP':'symbol-narrow':'1.0-0' }}
         </strong>
-        <span class="sub-section-meta">Inversiones y entradas operativas</span>
       </div>
     </div>
 
@@ -89,7 +87,6 @@
         <strong class="sub-section-val val-disbursed">
           {{ (routeBalance()?.loanDisbursements ?? totalLoanedToday()) | currency:'COP':'symbol-narrow':'1.0-0' }}
         </strong>
-        <span class="sub-section-meta">{{ loanedCountToday() }} préstamos entregados</span>
       </div>
       <div class="finance-section-divider"></div>
       <div class="finance-sub-section bottom-sub">
@@ -97,7 +94,6 @@
         <strong class="sub-section-val val-expenses">
           {{ (routeBalance()?.expenses ?? 0) | currency:'COP':'symbol-narrow':'1.0-0' }}
         </strong>
-        <span class="sub-section-meta">Gastos operativos de la ruta</span>
       </div>
     </div>
   </div>
@@ -107,52 +103,84 @@
     <div class="estimate-card card-estimate-today">
       <div class="estimate-header">
         <span class="estimate-title">Estimado de cobro hoy</span>
-        <span class="estimate-pill">Cobro proyectado</span>
       </div>
       <strong class="estimate-value val-estimate-due">
         {{ estimatedDueToday() | currency:'COP':'symbol-narrow':'1.0-0' }}
       </strong>
-      <span class="estimate-helper">Cuotas exigibles hoy + 1 cuota por clientes en mora</span>
     </div>
 
     <div class="estimate-card card-estimate-total">
       <div class="estimate-header">
         <span class="estimate-title">Estimado pago Total</span>
-        <span class="estimate-pill pill-total">Total cartera exigible</span>
       </div>
       <strong class="estimate-value val-estimate-total">
         {{ estimatedTotalPayment() | currency:'COP':'symbol-narrow':'1.0-0' }}
       </strong>
-      <span class="estimate-helper">Todas las cuotas de hoy + todas las cuotas atrasadas</span>
     </div>
   </div>
 
-  <!-- 6. Filtros: (todos)(cobro hoy/mora)(mora)(cobro)(no paga hoy)(cobrado hoy) -->
-  <div class="tabs-bar" role="tablist">
-    <button type="button" class="tab-btn" [class.active]="activeFilter() === 'ALL'" (click)="setFilter('ALL')">
-      Todos ({{ allCount() }})
+  <!-- 4. Barra de Segmentos (Pendientes, Pagos, No pagará hoy, Filtro ∇) -->
+  <nav class="agenda-segmented-nav" aria-label="Filtros principales de agenda">
+    <!-- Segmento 1: Pendientes (azul/celeste) -->
+    <button
+      type="button"
+      class="seg-item seg-pending"
+      [class.active]="activeNavSegment() === 'PENDING'"
+      (click)="selectSegment('PENDING')"
+      aria-label="Ver clientes pendientes"
+    >
+      <span class="seg-count">{{ pendingCount() }}</span>
+      <span class="seg-label">Pendientes</span>
     </button>
-    <button type="button" class="tab-btn pending" [class.active]="activeFilter() === 'PENDING'"
-      (click)="setFilter('PENDING')">
-      Cobro hoy / Mora ({{ pendingCount() }})
+
+    <div class="seg-divider"></div>
+
+    <!-- Segmento 2: Pagos (verde lima) -->
+    <button
+      type="button"
+      class="seg-item seg-paid"
+      [class.active]="activeNavSegment() === 'PAID'"
+      (click)="selectSegment('PAID')"
+      aria-label="Ver clientes que pagaron hoy"
+    >
+      <span class="seg-count">{{ collectedCount() }}</span>
+      <span class="seg-label">Pagos</span>
     </button>
-    <button type="button" class="tab-btn overdue" [class.active]="activeFilter() === 'OVERDUE'"
-      (click)="setFilter('OVERDUE')">
-      Mora ({{ overdueCount() }})
+
+    <div class="seg-divider"></div>
+
+    <!-- Segmento 3: No pagará hoy (rosado) -->
+    <button
+      type="button"
+      class="seg-item seg-will-not-pay"
+      [class.active]="activeNavSegment() === 'WILL_NOT_PAY'"
+      (click)="selectSegment('WILL_NOT_PAY')"
+      aria-label="Ver clientes que no pagarán hoy"
+    >
+      <span class="seg-count">{{ willNotPayCount() }}</span>
+      <span class="seg-label">No pagará hoy</span>
     </button>
-    <button type="button" class="tab-btn due" [class.active]="activeFilter() === 'DUE_TODAY'"
-      (click)="setFilter('DUE_TODAY')">
-      Cobro hoy ({{ dueTodayCount() }})
+
+    <div class="seg-divider"></div>
+
+    <!-- Segmento 4: Símbolo de filtro (lila / lavanda) -->
+    <button
+      type="button"
+      class="seg-item seg-filter"
+      [class.active]="activeNavSegment() === 'ADVANCED'"
+      [class.has-active]="hasCustomFilters()"
+      (click)="openFilterModal()"
+      title="Filtros avanzados"
+      aria-label="Abrir filtros avanzados"
+    >
+      <span class="seg-filter-icon">
+        <app-icon name="filter" />
+      </span>
+      @if (hasCustomFilters()) {
+        <span class="seg-filter-badge" title="Filtros activos"></span>
+      }
     </button>
-    <button type="button" class="tab-btn will-not-pay" [class.active]="activeFilter() === 'WILL_NOT_PAY'"
-      (click)="setFilter('WILL_NOT_PAY')">
-      No paga hoy ({{ willNotPayCount() }})
-    </button>
-    <button type="button" class="tab-btn collected" [class.active]="activeFilter() === 'COLLECTED'"
-      (click)="setFilter('COLLECTED')">
-      Cobrado hoy ({{ collectedCount() }})
-    </button>
-  </div>
+  </nav>
 
   <!-- 7. Campo de búsqueda -->
   <div class="search-bar-wrap">
@@ -213,7 +241,7 @@
             [class.is-uptodate]="effectiveStatus(item) === 'UpToDate'"
             [class.is-collected]="effectiveStatus(item) === 'Collected'"
             [class.is-will-not-pay]="effectiveStatus(item) === 'WillNotPayToday'"
-            [style.--pill-color]="effectiveStatus(item) === 'WillNotPayToday' ? '#f97316' : item.markerColor">
+            [style.--pill-color]="effectiveStatus(item) === 'WillNotPayToday' ? '#f43f5e' : item.markerColor">
             {{ effectiveStatusLabel(item) }}
           </span>
           @if (item.address) {
@@ -262,7 +290,7 @@
           Restablecer
         </button>
         } @else {
-        <button type="button" class="btn-card-action btn-will-not-pay" (click)="markWillNotPayToday(item)"
+        <button type="button" class="btn-card-action btn-will-not-pay" (click)="openWillNotPayModal(item)"
           [disabled]="effectiveStatus(item) === 'Collected'" aria-label="Marcar que hoy no pagará este préstamo">
           No pagará hoy
         </button>
@@ -272,6 +300,202 @@
     } @empty {
     <div class="empty-state">No hay préstamos para los filtros o búsqueda especificados.</div>
     }
+  </div>
+  }
+
+  <!-- Modal de Filtros Avanzados (4.4) -->
+  @if (isFilterModalOpen()) {
+  <div class="modal-backdrop" (click)="closeFilterModal()" aria-hidden="true"></div>
+  <div class="filter-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="filter-modal-title">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <span class="modal-icon"><app-icon name="filter" /></span>
+        <h3 id="filter-modal-title" class="modal-title">Filtros de Agenda</h3>
+      </div>
+      <button type="button" class="btn-modal-close" (click)="closeFilterModal()" aria-label="Cerrar modal">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Sección 1: Filtro por estados (multiselección) -->
+      <div class="filter-group">
+        <h4 class="filter-group-title">Estado del crédito / cobro</h4>
+        <p class="filter-group-desc">Selecciona uno o varios estados:</p>
+        <div class="filter-chips-grid">
+          @for (opt of statusOptions; track opt.key) {
+            <button
+              type="button"
+              class="filter-chip"
+              [class.active]="tempStatuses().has(opt.key) || (opt.key === 'ALL' && tempStatuses().size === 0)"
+              (click)="toggleTempStatus(opt.key)"
+            >
+              {{ opt.label }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Sección 2: Filtro por frecuencia de pago (diario / semanal / mensual) -->
+      <div class="filter-group">
+        <h4 class="filter-group-title">Frecuencia de pago</h4>
+        <p class="filter-group-desc">Filtra por periodicidad:</p>
+        <div class="filter-chips-grid">
+          @for (freq of frequencyOptions; track freq.key) {
+            <button
+              type="button"
+              class="filter-chip freq-chip"
+              [class.active]="tempFrequencies().has(freq.key) || (freq.key === 'ALL' && tempFrequencies().size === 0)"
+              (click)="toggleTempFrequency(freq.key)"
+            >
+              {{ freq.label }}
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn-filter-clear" (click)="clearFilters()">
+        Restablecer
+      </button>
+      <button type="button" class="btn-filter-apply" (click)="applyFilters()">
+        Aplicar filtros
+      </button>
+    </div>
+  </div>
+  }
+
+  <!-- Modal de Registro de 'No pagará hoy' (4.3) -->
+  @if (isWillNotPayModalOpen()) {
+  <div class="modal-backdrop" (click)="closeWillNotPayModal()" aria-hidden="true"></div>
+  <div class="will-not-pay-dialog" role="dialog" aria-modal="true" aria-labelledby="non-pay-title">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <span class="modal-icon icon-rose">⚠️</span>
+        <div>
+          <h3 id="non-pay-title" class="modal-title">Registrar: No pagará hoy</h3>
+          @if (targetWillNotPayItem(); as it) {
+            <span class="modal-subtitle">{{ it.customerName }}</span>
+          }
+        </div>
+      </div>
+      <button type="button" class="btn-modal-close" (click)="closeWillNotPayModal()" aria-label="Cerrar modal">✕</button>
+    </div>
+
+    <div class="modal-body">
+      @if (targetWillNotPayItem(); as it) {
+        <div class="target-loan-summary">
+          <div class="summary-field">
+            <span class="field-label">Saldo total</span>
+            <strong class="field-val">{{ it.loanBalance | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+          </div>
+          <div class="summary-field">
+            <span class="field-label">Cuota hoy</span>
+            <strong class="field-val">{{ (it.dueTodayAmount > 0 ? it.dueTodayAmount : (it.installmentAmount || 0)) | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+          </div>
+        </div>
+      }
+
+      <div class="form-group">
+        <label class="form-label">Motivo de no pago:</label>
+        @if (reasonsLoading()) {
+          <p class="text-loading">Cargando motivos...</p>
+        } @else {
+          <div class="reasons-radio-list">
+            @for (reason of nonPaymentReasons(); track reason.id) {
+              @if (reason.isActive) {
+                <label class="reason-radio-option" [class.selected]="selectedReasonId() === reason.id">
+                  <input
+                    type="radio"
+                    name="nonPaymentReason"
+                    [value]="reason.id"
+                    [checked]="selectedReasonId() === reason.id"
+                    (change)="selectedReasonId.set(reason.id)"
+                  />
+                  <div class="reason-info">
+                    <span class="reason-name">{{ reason.name }}</span>
+                    @if (reason.description) {
+                      <span class="reason-desc">{{ reason.description }}</span>
+                    }
+                  </div>
+                </label>
+              }
+            }
+          </div>
+        }
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="observations-txt">Observaciones adicionales (opcional):</label>
+        <textarea
+          id="observations-txt"
+          class="form-textarea"
+          rows="2"
+          placeholder="Escribe detalles del motivo o acuerdo de pago..."
+          [value]="nonPaymentObservations()"
+          (input)="nonPaymentObservations.set($any($event.target).value)"
+        ></textarea>
+      </div>
+
+      <!-- Sección expandible para gestionar motivos (crear / activar / desactivar) -->
+      <div class="manage-reasons-accordion">
+        <button type="button" class="btn-toggle-manage" (click)="toggleManageReasons()">
+          <span>⚙️ Administrar motivos desde ruta</span>
+          <span>{{ isManageReasonsOpen() ? '▲' : '▼' }}</span>
+        </button>
+
+        @if (isManageReasonsOpen()) {
+          <div class="manage-reasons-content">
+            <div class="add-reason-row">
+              <input
+                type="text"
+                class="form-input new-reason-input"
+                placeholder="Nombre del nuevo motivo..."
+                [value]="newReasonName()"
+                (input)="newReasonName.set($any($event.target).value)"
+              />
+              <button
+                type="button"
+                class="btn-add-reason"
+                [disabled]="!newReasonName().trim() || savingNewReason()"
+                (click)="createNewReason()"
+              >
+                {{ savingNewReason() ? 'Guardando...' : '+ Crear motivo' }}
+              </button>
+            </div>
+
+            <div class="existing-reasons-list">
+              @for (r of nonPaymentReasons(); track r.id) {
+                <div class="existing-reason-item">
+                  <span class="r-name" [class.inactive]="!r.isActive">{{ r.name }}</span>
+                  <button
+                    type="button"
+                    class="btn-toggle-status"
+                    [class.is-active]="r.isActive"
+                    (click)="toggleReasonStatus(r)"
+                  >
+                    {{ r.isActive ? 'Desactivar' : 'Activar' }}
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn-dialog-cancel" (click)="closeWillNotPayModal()">
+        Cancelar
+      </button>
+      <button
+        type="button"
+        class="btn-dialog-confirm"
+        [disabled]="submittingNonPayment() || !selectedReasonId()"
+        (click)="submitWillNotPay()"
+      >
+        {{ submittingNonPayment() ? 'Guardando...' : 'Confirmar No Pago' }}
+      </button>
+    </div>
   </div>
   }
 
