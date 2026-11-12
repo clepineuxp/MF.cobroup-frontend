@@ -149,6 +149,47 @@
             </div>
           </div>
 
+          <div class="form-section evidence-section">
+            <div class="section-header">
+              <div>
+                <h3 class="section-title">Foto o evidencia</h3>
+                <p class="section-help">Carga una imagen para respaldar la información del cliente.</p>
+              </div>
+              @if (draft.evidence && !selectedEvidence()) {
+                <button type="button" class="btn-action-small" (click)="viewExistingEvidence()" [disabled]="evidenceViewing()">
+                  {{ evidenceViewing() ? 'Abriendo…' : 'Ver evidencia actual' }}
+                </button>
+              }
+            </div>
+
+            @if (selectedEvidence(); as file) {
+              <div class="evidence-selected">
+                @if (evidencePreviewUrl(); as preview) {
+                  <img [src]="preview" alt="Vista previa de la evidencia seleccionada" />
+                }
+                <div class="evidence-file-info">
+                  <strong>{{ file.name }}</strong>
+                  <span>{{ (file.size / 1024 / 1024) | number:'1.1-2' }} MB · Nueva evidencia</span>
+                </div>
+                <button type="button" class="btn-item-delete" (click)="clearSelectedEvidence()" aria-label="Quitar evidencia seleccionada">✕</button>
+              </div>
+            } @else if (draft.evidence) {
+              <div class="evidence-current">
+                <span class="evidence-icon" aria-hidden="true">✓</span>
+                <div>
+                  <strong>{{ draft.evidence.fileName }}</strong>
+                  <span>{{ (draft.evidence.byteSize / 1024 / 1024) | number:'1.1-2' }} MB · Evidencia guardada</span>
+                </div>
+              </div>
+            }
+
+            <label class="file-dropzone" [class.has-file]="!!selectedEvidence()">
+              <span class="file-dropzone-icon" aria-hidden="true">↑</span>
+              <span><strong>{{ draft.evidence ? 'Reemplazar evidencia' : 'Seleccionar una imagen' }}</strong><small>JPEG, PNG o WebP · máximo 10 MB</small></span>
+              <input type="file" accept="image/jpeg,image/png,image/webp" (change)="selectEvidence($event)" />
+            </label>
+          </div>
+
           @if (gpsIndex() !== null) { <p role="status">Cargando GPS… Espera la respuesta para continuar.</p> }
           @if (gpsMessage()) { <p role="status">{{ gpsMessage() }}</p> }
           @if (gpsError()) { <p class="alert-box error" role="alert">{{ gpsError() }}</p> }

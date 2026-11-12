@@ -114,6 +114,101 @@
   color: var(--color-text);
 }
 
+.section-help {
+  margin: 0.2rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
+.file-dropzone {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px dashed var(--color-border-strong, var(--color-border));
+  border-radius: 0.9rem;
+  padding: 0.9rem 1rem;
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+
+  &:hover,
+  &:focus-within {
+    border-color: var(--color-primary);
+    background: var(--color-background);
+  }
+
+  input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  strong,
+  small {
+    display: block;
+  }
+
+  small {
+    margin-top: 0.2rem;
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+  }
+}
+
+.file-dropzone-icon,
+.evidence-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 2rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  font-weight: 800;
+}
+
+.evidence-current,
+.evidence-selected {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.85rem;
+  background: var(--color-background);
+
+  img {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 0.6rem;
+    object-fit: cover;
+    border: 1px solid var(--color-border);
+  }
+
+  strong,
+  span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  span {
+    margin-top: 0.15rem;
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+  }
+
+  .evidence-file-info {
+    min-width: 0;
+    flex: 1;
+  }
+}
+
 .btn-action-small {
   background: transparent;
   color: var(--color-primary);

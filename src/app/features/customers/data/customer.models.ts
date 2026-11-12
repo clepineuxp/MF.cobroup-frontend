@@ -44,6 +44,14 @@ export interface CustomerDetails {
   readonly locations: readonly CustomerLocation[];
   readonly createdAtUtc: string;
   readonly updatedAtUtc: string;
+  readonly evidence: CustomerEvidence | null;
+}
+
+export interface CustomerEvidence {
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly byteSize: number;
+  readonly uploadedAtUtc: string;
 }
 
 export interface CustomerPage {

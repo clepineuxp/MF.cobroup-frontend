@@ -468,3 +468,12 @@
 
 - Solicitud expresa del usuario: hacer commits del alcance de identificación obligatoria, intercambio visual de etiquetas, migración, pruebas y documentación.
 - Se conservan las verificaciones y la migración de Dev a 7 clientes. Commit autorizado: SÍ. Sin push, merge, tag, PR ni despliegue.
+
+### 2026-11-11 — Carga de evidencia en modal de cliente y commits autorizados
+
+- Solicitud expresa del usuario: hacer commits de frontend y backend ("hacer commitds de frontend y backend").
+- Interfaz y modelos: `CustomerEvidenceDto` y campos de evidencia integrados en `customer.models.ts`. Métodos de carga y obtención de evidencia en `CustomersService`.
+- Modal de clientes: sección de captura/carga de evidencia en `customer-modal.component.html`, `.scss` y `.ts`, permitiendo seleccionar o capturar fotos/documentos de soporte, previsualización y retroalimentación de estado.
+- Verificación: compilación de producción exitosa (`npm run build`) generando bundles sin errores de TypeScript ni de plantillas.
+- Git: commit autorizado por el usuario; sin push, merge, tag, PR ni despliegue.
+

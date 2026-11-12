@@ -31,6 +31,22 @@ export class CustomersService {
     return (await response.json()) as CustomerDetails;
   }
 
+  async uploadEvidence(customerId: string, file: File): Promise<CustomerDetails> {
+    const body = new FormData();
+    body.append('file', file, file.name);
+    const response = await this.auth.authorizedFetch(`${this.config.baseUrl}/customers/${customerId}/evidence/upload`, {
+      method: 'POST', body,
+    });
+    if (!response.ok) throw new Error(await this.message(response, 'No fue posible cargar la evidencia.'));
+    return (await response.json()) as CustomerDetails;
+  }
+
+  async downloadEvidence(customerId: string): Promise<Blob> {
+    const response = await this.auth.authorizedFetch(`${this.config.baseUrl}/customers/${customerId}/evidence`);
+    if (!response.ok) throw new Error(await this.message(response, 'No fue posible consultar la evidencia.'));
+    return response.blob();
+  }
+
   async update(customerId: string, request: CustomerWriteRequest): Promise<CustomerDetails> {
     const response = await this.auth.authorizedFetch(`${this.config.baseUrl}/customers/${customerId}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request),
