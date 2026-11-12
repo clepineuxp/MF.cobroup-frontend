@@ -7,6 +7,7 @@ import { AccessibleRoute } from '../../../features/routes/data/route.models';
 import { RoutesService } from '../../../features/routes/data/routes.service';
 import {
   CustomerDetails,
+  CustomerEvidence,
   CustomerLocation,
   CustomerPhone,
   CustomerStatus,
@@ -25,6 +26,7 @@ export interface CustomerDraft {
   status: CustomerStatus;
   phones: CustomerPhone[];
   locations: CustomerLocation[];
+  evidence: CustomerEvidence | null;
 }
 
 @Component({
@@ -54,6 +56,9 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
   readonly gpsIndex = signal<number | null>(null);
   readonly gpsMessage = signal('');
   readonly gpsError = signal('');
+  readonly selectedEvidence = signal<File | null>(null);
+  readonly evidencePreviewUrl = signal<string | null>(null);
+  readonly evidenceViewing = signal(false);
   readonly mapLocation = signal<CustomerLocation | null>(null);
   private gpsRequest = 0;
   private gpsTimer: ReturnType<typeof setTimeout> | null = null;
@@ -73,6 +78,8 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
 
   async initModal(): Promise<void> {
     this.cancelLocationWork();
+    this.clearEvidencePreview();
+    this.selectedEvidence.set(null);
     this.fullName = '';
     this.originalIdentification = '';
     this.error.set('');
@@ -102,6 +109,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
 
   close(): void {
     this.cancelLocationWork();
+    this.clearEvidencePreview();
     this.closed.emit();
   }
 
@@ -208,6 +216,41 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
   }
   ngOnDestroy(): void { this.cancelLocationWork(); }
 
+  selectEvidence(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    input.value = '';
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) {
+      this.error.set('La evidencia debe ser JPEG, PNG o WebP y no superar 10 MB.');
+      return;
+    }
+    this.error.set('');
+    this.clearEvidencePreview();
+    this.selectedEvidence.set(file);
+    this.evidencePreviewUrl.set(URL.createObjectURL(file));
+  }
+
+  clearSelectedEvidence(): void {
+    this.selectedEvidence.set(null);
+    this.clearEvidencePreview();
+  }
+
+  async viewExistingEvidence(): Promise<void> {
+    if (!this.draft.id || !this.draft.evidence || this.evidenceViewing()) return;
+    this.evidenceViewing.set(true);
+    try {
+      const blob = await this.customersService.downloadEvidence(this.draft.id);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      this.error.set(err instanceof Error ? err.message : 'No fue posible abrir la evidencia.');
+    } finally {
+      this.evidenceViewing.set(false);
+    }
+  }
+
   async save(): Promise<void> {
     if (this.gpsIndex() !== null || this.mapLocation() || this.saving() || this.loading()) return;
     if (!this.isValid()) return;
@@ -235,9 +278,11 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
       let savedId = this.draft.id;
       if (this.draft.id) {
         await this.customersService.update(this.draft.id, request);
+        if (this.selectedEvidence()) await this.customersService.uploadEvidence(this.draft.id, this.selectedEvidence()!);
       } else {
         const created = await this.customersService.create(request);
         savedId = created.id;
+        if (this.selectedEvidence()) await this.customersService.uploadEvidence(created.id, this.selectedEvidence()!);
       }
       this.success.set(this.draft.id ? 'Cliente actualizado.' : 'Cliente creado.');
       this.customerSaved.emit(savedId ?? '');
@@ -310,6 +355,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
       status: 'Active',
       phones: [{ number: '', isPrimary: true }],
       locations: [this.emptyLocation(true)],
+      evidence: null,
     };
   }
 
@@ -329,6 +375,13 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
       status: customer.status,
       phones: customer.phones.map((p) => ({ ...p })),
       locations: customer.locations.map((l) => ({ ...l })),
+      evidence: customer.evidence,
     };
+  }
+
+  private clearEvidencePreview(): void {
+    const url = this.evidencePreviewUrl();
+    if (url) URL.revokeObjectURL(url);
+    this.evidencePreviewUrl.set(null);
   }
 }
