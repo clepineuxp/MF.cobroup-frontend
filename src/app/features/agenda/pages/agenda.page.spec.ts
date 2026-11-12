@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LoansService } from '../../loans/data/loans.service';
 import { RoutesService } from '../../routes/data/routes.service';
+import { RouteFinancesService } from '../../route-finances/data/route-finances.service';
 import { AgendaResponse } from '../data/agenda.models';
 import { AgendaService } from '../data/agenda.service';
 import { AgendaPage } from './agenda.page';
@@ -42,6 +43,7 @@ describe('AgendaPage', () => {
         daysOverdue: 0,
         dueTodayAmount: 0,
         collectedTodayAmount: 0,
+        installmentAmount: 25000,
         status: 'UpToDate',
         statusLabel: 'Al día',
         markerColor: '#3b82f6',
@@ -59,12 +61,14 @@ describe('AgendaPage', () => {
         address: 'Porton blanco',
         activeLoanId: 'loan-2',
         loanBalance: 1150000,
-        overdueAmount: 50000,
-        daysOverdue: 1,
+        overdueAmount: 100000,
+        daysOverdue: 2,
         dueTodayAmount: 50000,
         collectedTodayAmount: 0,
+        installmentAmount: 50000,
+        overdueInstallmentsCount: 2,
         status: 'Overdue',
-        statusLabel: 'En mora (1d)',
+        statusLabel: 'En mora (2d)',
         markerColor: '#ef4444',
         distanceKm: 2.5,
       },
@@ -84,6 +88,7 @@ describe('AgendaPage', () => {
         daysOverdue: 0,
         dueTodayAmount: 80000,
         collectedTodayAmount: 0,
+        installmentAmount: 80000,
         status: 'DueToday',
         statusLabel: 'Cobro hoy',
         markerColor: '#f59e0b',
@@ -105,12 +110,24 @@ describe('AgendaPage', () => {
         daysOverdue: 0,
         dueTodayAmount: 0,
         collectedTodayAmount: 150000,
+        installmentAmount: 30000,
         status: 'Collected',
         statusLabel: 'Cobrado',
         markerColor: '#10b981',
         distanceKm: 3.1,
       },
     ],
+  };
+
+  const sampleRouteBalance = {
+    routeId: 'route-1',
+    routeName: 'Ruta 1',
+    initialBalance: 500000,
+    loanDisbursements: 350000,
+    paymentCollections: 150000,
+    incomeInvestments: 50000,
+    expenses: 20000,
+    netBalance: 330000,
   };
 
   const todayStr = new Date().toISOString().substring(0, 10);
@@ -165,12 +182,19 @@ describe('AgendaPage', () => {
     search: ReturnType<typeof vi.fn>;
     get: ReturnType<typeof vi.fn>;
   };
+  let routeFinancesService: {
+    getBalance: ReturnType<typeof vi.fn>;
+  };
   let router: {
     navigate: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
-    localStorage.clear();
+    try {
+      localStorage.clear();
+    } catch {
+      // ignore
+    }
 
     agendaService = {
       getAgenda: vi.fn().mockResolvedValue(sampleAgenda),
@@ -202,6 +226,9 @@ describe('AgendaPage', () => {
         installments: [],
       }),
     };
+    routeFinancesService = {
+      getBalance: vi.fn().mockResolvedValue(sampleRouteBalance),
+    };
     router = {
       navigate: vi.fn().mockResolvedValue(true),
     };
@@ -212,12 +239,13 @@ describe('AgendaPage', () => {
         { provide: AgendaService, useValue: agendaService },
         { provide: RoutesService, useValue: routesService },
         { provide: LoansService, useValue: loansService },
+        { provide: RouteFinancesService, useValue: routeFinancesService },
         { provide: Router, useValue: router },
       ],
     });
   });
 
-  it('initially selects first route and shows only pending (DueToday/Overdue) items', async () => {
+  it('initially selects first route and enters directly in PENDING (cobro hoy / mora)', async () => {
     const fixture = TestBed.createComponent(AgendaPage);
     await fixture.whenStable();
     fixture.detectChanges();
@@ -231,97 +259,116 @@ describe('AgendaPage', () => {
     expect(items.map((i) => i.customerId)).toEqual(['cust-2', 'cust-3']);
   });
 
-  it('renders Total prestado hoy and Total cobrado hoy cards in "$amount | count" format', async () => {
+  it('renders top balance card with eye toggle to mask/unmask balance', async () => {
     const fixture = TestBed.createComponent(AgendaPage);
     await fixture.whenStable();
     fixture.detectChanges();
 
     const page = fixture.componentInstance;
-    // 2 loans totaling 350,000 COP
-    expect(page.totalLoanedToday()).toBe(350000);
-    expect(page.loanedCountToday()).toBe(2);
+    const balanceEl = fixture.nativeElement.querySelector('.balance-card-top');
+    expect(balanceEl).toBeTruthy();
 
-    const cards = fixture.nativeElement.querySelectorAll('.metric-card');
-    expect(cards.length).toBe(5);
+    const eyeBtn = balanceEl.querySelector('.btn-eye-toggle');
+    expect(eyeBtn).toBeTruthy();
 
-    // Metric 3: Total prestado hoy
-    const loanedCard = cards[2];
-    expect(loanedCard.textContent).toContain('Total prestado hoy');
-    expect(loanedCard.textContent).toMatch(/350[,.]000\s*\|\s*2/);
+    // Toggle balance visibility
+    expect(page.isBalanceHidden()).toBe(false);
+    page.toggleBalanceVisibility();
+    expect(page.isBalanceHidden()).toBe(true);
+    fixture.detectChanges();
 
-    // Metric 4: Total cobrado hoy
-    const collectedCard = cards[3];
-    expect(collectedCard.textContent).toContain('Total cobrado hoy');
-    expect(collectedCard.textContent).toMatch(/150[,.]000\s*\|\s*1/);
+    expect(balanceEl.querySelector('.balance-val.masked')).toBeTruthy();
+
+    page.toggleBalanceVisibility();
+    expect(page.isBalanceHidden()).toBe(false);
+    fixture.detectChanges();
+    expect(balanceEl.querySelector('.balance-val.masked')).toBeNull();
   });
 
-  it('renders single-line title with ellipsis and dedicated status line', async () => {
+  it('renders left block (cobros/recaudos + otros ingresos) and right block (prestamos + demas gastos)', async () => {
     const fixture = TestBed.createComponent(AgendaPage);
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const firstCard = fixture.nativeElement.querySelector('.stop-card');
-    expect(firstCard).toBeTruthy();
+    const cards = fixture.nativeElement.querySelectorAll('.finance-block-card');
+    expect(cards.length).toBe(2);
 
-    const aliasEl = firstCard.querySelector('.client-alias');
-    expect(aliasEl).toBeTruthy();
-    expect(aliasEl.textContent.trim()).toBe('Jhonny Mecanico');
+    // Left card: Cobros y Recaudos + Otros Ingresos
+    const leftCard = cards[0];
+    expect(leftCard.textContent).toContain('Cobros y Recaudos');
+    expect(leftCard.textContent).toContain('Otros Ingresos');
 
-    const nameEl = firstCard.querySelector('.name-row');
-    expect(nameEl).toBeTruthy();
-    expect(nameEl.textContent.trim()).toBe('· Jhonny Arroyave');
-
-    const statusRow = firstCard.querySelector('.status-row');
-    expect(statusRow).toBeTruthy();
-    const pill = statusRow.querySelector('.status-pill');
-    expect(pill.textContent.trim()).toBe('En mora (1d)');
+    // Right card: Gastos por préstamos + Demás Gastos
+    const rightCard = cards[1];
+    expect(rightCard.textContent).toContain('Gastos por préstamos realizados');
+    expect(rightCard.textContent).toContain('Demás Gastos');
   });
 
-  it('does NOT show Cobrar or No pagara hoy for UpToDate or Collected items', async () => {
+  it('computes Estimado de cobro hoy and Estimado pago Total accurately', async () => {
     const fixture = TestBed.createComponent(AgendaPage);
     await fixture.whenStable();
     fixture.detectChanges();
 
     const page = fixture.componentInstance;
-    // Switch filter to ALL to see Gloria (UpToDate) and Sindy (Collected)
+    // cust-2 (overdue, 1 installment = 50,000) + cust-3 (due today = 80,000) = 130,000
+    expect(page.estimatedDueToday()).toBe(130000);
+
+    // cust-2 (due 50k + overdue 100k = 150k) + cust-3 (due 80k = 80k) = 230,000
+    expect(page.estimatedTotalPayment()).toBe(230000);
+
+    const estCards = fixture.nativeElement.querySelectorAll('.estimate-card');
+    expect(estCards.length).toBe(2);
+    expect(estCards[0].textContent).toContain('Estimado de cobro hoy');
+    expect(estCards[1].textContent).toContain('Estimado pago Total');
+  });
+
+  it('filters items dynamically by search input (name, alias, address, or amount)', async () => {
+    const fixture = TestBed.createComponent(AgendaPage);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const page = fixture.componentInstance;
     page.setFilter('ALL');
+
+    // Search by alias "Mecanico"
+    page.searchQuery.set('Mecanico');
     fixture.detectChanges();
+    expect(page.filteredItems()).toHaveLength(1);
+    expect(page.filteredItems()[0].customerId).toBe('cust-2');
 
-    const cards = fixture.nativeElement.querySelectorAll('.stop-card');
-    expect(cards).toHaveLength(4);
+    // Search by address "Porton"
+    page.searchQuery.set('Porton');
+    fixture.detectChanges();
+    expect(page.filteredItems()).toHaveLength(1);
+    expect(page.filteredItems()[0].customerId).toBe('cust-2');
 
-    // Card 0 is Gloria (UpToDate)
-    const cardGloria = cards[0];
-    const gloriaActionCol = cardGloria.querySelector('.action-col');
-    expect(gloriaActionCol.querySelector('.btn-collect')).toBeNull();
-    expect(gloriaActionCol.querySelector('.btn-will-not-pay')).toBeNull();
-
-    // Card 3 is Sindy (Collected)
-    const cardSindy = cards[3];
-    const sindyActionCol = cardSindy.querySelector('.action-col');
-    expect(sindyActionCol.querySelector('.btn-collect')).toBeNull();
-    expect(sindyActionCol.querySelector('.btn-will-not-pay')).toBeNull();
+    // Clear search
+    page.clearSearch();
+    fixture.detectChanges();
+    expect(page.filteredItems()).toHaveLength(4);
   });
 
-  it('shows both Cobrar (gray) and No pagará hoy (red) for pending items', async () => {
+  it('reorders loan cards with up/down arrows and persists order', async () => {
     const fixture = TestBed.createComponent(AgendaPage);
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const cards = fixture.nativeElement.querySelectorAll('.stop-card');
-    expect(cards).toHaveLength(2);
+    const page = fixture.componentInstance;
+    // Currently pending: cust-2 first, cust-3 second
+    const pendingItems = page.filteredItems();
+    expect(pendingItems[0].customerId).toBe('cust-2');
+    expect(pendingItems[1].customerId).toBe('cust-3');
 
-    const firstActionCol = cards[0].querySelector('.action-col');
-    const collectBtn = firstActionCol.querySelector('.btn-collect');
-    const willNotPayBtn = firstActionCol.querySelector('.btn-will-not-pay');
+    // Move cust-3 up
+    page.moveItemUp(pendingItems[1]);
+    fixture.detectChanges();
 
-    expect(collectBtn).toBeTruthy();
-    expect(collectBtn.textContent.trim()).toBe('Cobrar');
-    expect(willNotPayBtn).toBeTruthy();
-    expect(willNotPayBtn.textContent.trim()).toBe('No pagará hoy');
+    const reordered = page.filteredItems();
+    expect(reordered[0].customerId).toBe('cust-3');
+    expect(reordered[1].customerId).toBe('cust-2');
   });
 
-  it('marks customer as No pagará hoy, removes them from pending, and allows restoring', async () => {
+  it('marks customer loan as No pagará hoy, updates counts, and allows restoring', async () => {
     const fixture = TestBed.createComponent(AgendaPage);
     await fixture.whenStable();
     fixture.detectChanges();
@@ -330,30 +377,25 @@ describe('AgendaPage', () => {
     expect(page.filteredItems()).toHaveLength(2);
     expect(page.pendingCount()).toBe(2);
 
-    // Mark Jhonny (cust-2) as "No pagará hoy"
-    page.markWillNotPayToday('cust-2');
+    const jhonnyItem = page.filteredItems()[0];
+    page.markWillNotPayToday(jhonnyItem);
     fixture.detectChanges();
 
     expect(page.willNotPayCount()).toBe(1);
     expect(page.pendingCount()).toBe(1);
-    // Only Camilo (cust-3) remains in pending
     expect(page.filteredItems()).toHaveLength(1);
     expect(page.filteredItems()[0].customerId).toBe('cust-3');
 
     // Switch to WILL_NOT_PAY tab
     page.setFilter('WILL_NOT_PAY');
     fixture.detectChanges();
-
     expect(page.filteredItems()).toHaveLength(1);
     expect(page.filteredItems()[0].customerId).toBe('cust-2');
-    expect(page.effectiveStatusLabel(page.filteredItems()[0])).toBe('Hoy no pagará');
 
-    // Restore customer
-    page.unmarkWillNotPayToday('cust-2');
+    // Restore
+    page.unmarkWillNotPayToday(jhonnyItem);
     page.setFilter('PENDING');
     fixture.detectChanges();
-
     expect(page.filteredItems()).toHaveLength(2);
-    expect(page.pendingCount()).toBe(2);
   });
 });

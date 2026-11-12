@@ -20,6 +20,8 @@ export interface AgendaItem {
   statusLabel: string;
   markerColor: string;
   distanceKm: number | null;
+  installmentAmount?: number;
+  overdueInstallmentsCount?: number;
 }
 
 export interface AgendaSummary {

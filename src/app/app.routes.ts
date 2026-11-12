@@ -6,9 +6,8 @@ export const routes: Routes = [
   { path: 'machine-auth', canActivate: [authGuard], loadComponent: () => import('./features/machine-auth/pages/machine-auth.page').then((module) => module.MachineAuthPage), title: 'Autorizar dispositivo | COBROUP' },
   {
     path: '',
-    canActivate: [authGuard],
-    loadComponent: () => import('./features/agenda/pages/mapa.page').then((module) => module.MapaPage),
-    title: 'Cobro UP',
+    pathMatch: 'full',
+    redirectTo: 'agenda',
   },
   {
     path: 'rutas',

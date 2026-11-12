@@ -477,3 +477,12 @@
 - Verificación: compilación de producción exitosa (`npm run build`) generando bundles sin errores de TypeScript ni de plantillas.
 - Git: commit autorizado por el usuario; sin push, merge, tag, PR ni despliegue.
 
+### 2026-11-12 — Navegación inicial a agenda diaria y renovación de tarjetas
+
+- Solicitud expresa del usuario: redirección inicial a agenda diaria, ocultar GPS, tarjeta de balance con ojito, bloques de ingresos/gastos y estimados, buscador en tiempo real, reordenamiento de tarjetas y commit autorizado ("hacer commit de lo actual").
+- Navegación: `app.routes.ts` redirige la raíz a `/agenda`; menú lateral incluye accesos explícitos a Agenda diaria y Mapa de ruta.
+- Agenda diaria: tarjeta de balance superior con visibilidad persistente; tarjetas métricas agrupadas; estimados de cobro hoy y total; buscador global por texto y montos; reordenamiento de tarjetas con flechas arriba/abajo persistidas en `localStorage` y envío al fondo de préstamos finalizados.
+- Verificación: compilación de producción exitosa (`npm run build`) cumpliendo con presupuestos de estilos (0 errores).
+- Git: commit autorizado por el usuario sobre rama `feature/frontend-adjustment-filters`; sin push, merge, tag ni PR.
+
+

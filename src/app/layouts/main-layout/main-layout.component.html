@@ -41,13 +41,13 @@
 
   @if (isAuthenticated()) {
     <nav class="drawer-nav" aria-label="Módulos del sistema">
-      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" (click)="closeDrawer()">
-        <span class="nav-icon"><app-icon name="map" /></span>
-        <span class="nav-text">Home / Mapa</span>
-      </a>
       <a routerLink="/agenda" routerLinkActive="active" (click)="closeDrawer()">
         <span class="nav-icon"><app-icon name="calendar" /></span>
         <span class="nav-text">Agenda diaria</span>
+      </a>
+      <a routerLink="/mapa" routerLinkActive="active" (click)="closeDrawer()">
+        <span class="nav-icon"><app-icon name="map" /></span>
+        <span class="nav-text">Mapa de ruta</span>
       </a>
       <a routerLink="/balance-ruta" routerLinkActive="active" (click)="closeDrawer()">
         <span class="nav-icon"><app-icon name="payment" /></span>
