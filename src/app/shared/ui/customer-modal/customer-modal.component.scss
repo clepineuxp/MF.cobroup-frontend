@@ -697,3 +697,5 @@
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
 }
+
+.location-coordinates { margin: .5rem 0 0; color: var(--color-text-muted); font-size: .75rem; overflow-wrap: anywhere; }

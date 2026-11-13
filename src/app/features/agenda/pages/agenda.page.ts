@@ -1,3 +1,4 @@
+import { CustomersService } from '../../customers/data/customers.service';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, OnInit, ViewChild, inject, signal, computed, HostListener } from '@angular/core';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -19,7 +20,6 @@ import {
   GeneratedLoanVoucher,
   LoanPaymentHistoryItem,
   LoanStatusVoucherData,
-  LoanVoucherInstallment,
   shareLoanStatusVoucher,
 } from '../../../shared/utils/loan-voucher';
 import {
@@ -69,6 +69,7 @@ export function getLocalIsoDate(d = new Date()): string {
 })
 export class AgendaPage implements OnInit {
   @ViewChild(NuevoPrestamoComponent) nuevoPrestamoComponent?: NuevoPrestamoComponent;
+  private readonly customersService = inject(CustomersService);
   private readonly agendaService = inject(AgendaService);
   private readonly routesService = inject(RoutesService);
   private readonly loansService = inject(LoansService);
@@ -1175,17 +1176,11 @@ export class AgendaPage implements OnInit {
         notes: p.notes,
       }));
 
-      const pendingInstallments: LoanVoucherInstallment[] = loan.installments
-        .filter((inst) => inst.status !== 'Paid')
-        .map((inst) => ({
-          number: inst.number,
-          dueDate: inst.dueDate,
-          expectedAmount: inst.expectedAmount - inst.paidAmount,
-        }));
+      const customer = await this.customersService.get(loan.customerId);
 
       const data: LoanStatusVoucherData = {
         customerName: loan.customerName,
-        customerIdentification: undefined,
+        customerIdentification: customer.identification,
         customerPhone: item?.primaryPhone || undefined,
         routeName: loan.routeName,
         principalAmount: loan.principalAmount,
@@ -1197,7 +1192,6 @@ export class AgendaPage implements OnInit {
         paymentFrequency: loan.paymentFrequency,
         frequencyNDays: loan.frequencyNDays,
         paymentHistory,
-        pendingInstallments,
       };
 
       const voucher = await generateLoanStatusVoucherImage(data);

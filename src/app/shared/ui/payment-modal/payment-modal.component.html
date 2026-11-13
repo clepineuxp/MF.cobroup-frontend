@@ -125,8 +125,8 @@
           <form [formGroup]="form" (ngSubmit)="submitPayment()" class="modal-body">
             <div class="form-section">
               <div class="inputs-grid">
-                <label class="clean-field">
-                  <span class="field-label">Importe a Cobrar ($) *</span>
+                <div class="clean-field">
+                  <label for="paymentAmount" class="field-label">Importe a Cobrar ($) *</label>
                   <input
                     id="paymentAmount"
                     type="number"
@@ -136,7 +136,17 @@
                     [max]="loan.balanceAmount"
                     placeholder="Ej: 30000"
                   />
-                </label>
+                  <span class="field-label">Cuotas a abonar</span>
+                  <span class="installment-shortcuts">
+                    @for (count of quickInstallmentCounts; track count) {
+                      <button type="button" (click)="selectInstallmentCount(count)" [disabled]="count > pendingInstallments.length" [attr.aria-pressed]="selectedInstallmentCount() === count" [attr.aria-label]="'Abonar ' + count + ' cuotas'">{{ count }}</button>
+                    }
+                    <input id="paymentInstallmentCount" type="number" min="1" [max]="pendingInstallments.length" step="1" inputmode="numeric" aria-label="Cantidad de cuotas a abonar" placeholder="Otra" [value]="selectedInstallmentCount() ?? ''" (input)="onInstallmentCountInput($event)" />
+                  </span>
+                  @if (installmentCountError()) {
+                    <span class="count-error" role="alert">{{ installmentCountError() }}</span>
+                  }
+                </div>
 
                 <label class="clean-field">
                   <span class="field-label">Medio de Pago Autorizado *</span>
@@ -148,30 +158,35 @@
                 </label>
               </div>
 
-              <label class="clean-field">
-                <span class="field-label">Observaciones (Opcional)</span>
-                <input
-                  id="paymentNotes"
-                  type="text"
-                  formControlName="notes"
-                  placeholder="Ej: Recibo manual #104, pagado por el titular"
-                />
-              </label>
+              <button type="button" class="btn-optionals" (click)="showOptionals.set(!showOptionals())" [attr.aria-expanded]="showOptionals()" aria-controls="payment-optionals">Opcionales {{ showOptionals() ? '−' : '+' }}</button>
+              @if (showOptionals()) {
+                <div id="payment-optionals" class="optional-fields">
+                  <label class="clean-field">
+                    <span class="field-label">Observaciones (Opcional)</span>
+                    <input
+                      id="paymentNotes"
+                      type="text"
+                      formControlName="notes"
+                      placeholder="Ej: Recibo manual #104, pagado por el titular"
+                    />
+                  </label>
 
-              <div class="evidence-box">
-                <label class="btn-evidence">
-                  <span>📷 Adjuntar foto de evidencia (Opcional)</span>
-                  <input
-                    id="evidenceFile"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    (change)="onEvidenceFileSelected($event)"
-                  />
-                </label>
-                @if (evidenceFileName()) {
-                  <span class="file-tag">✓ Archivo: {{ evidenceFileName() }}</span>
-                }
-              </div>
+                  <div class="evidence-box">
+                    <label class="btn-evidence">
+                      <span>📷 Adjuntar foto de evidencia (Opcional)</span>
+                      <input
+                        id="evidenceFile"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        (change)="onEvidenceFileSelected($event)"
+                      />
+                    </label>
+                    @if (evidenceFileName()) {
+                      <span class="file-tag">✓ Archivo: {{ evidenceFileName() }}</span>
+                    }
+                  </div>
+                </div>
+              }
             </div>
 
             @if (allocationPreview().length > 0) {
@@ -199,7 +214,7 @@
                 id="btn-confirm-payment"
                 type="submit"
                 class="btn-submit"
-                [disabled]="form.invalid || submitting()"
+                [disabled]="form.invalid || submitting() || !!installmentCountError()"
               >
                 {{ submitting() ? 'Generando comprobante...' : 'Registrar Cobro' }}
               </button>

@@ -91,6 +91,7 @@ describe('Operative LoansPage', () => {
   };
 
   const customersService = {
+    get: vi.fn().mockResolvedValue({ identification: '001234567' }),
     search: vi.fn().mockResolvedValue({
       items: [
         {

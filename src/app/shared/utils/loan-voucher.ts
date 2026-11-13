@@ -44,7 +44,6 @@ export interface LoanStatusVoucherData {
   readonly paymentFrequency?: string;
   readonly frequencyNDays?: number | null;
   readonly paymentHistory: readonly LoanPaymentHistoryItem[];
-  readonly pendingInstallments: readonly LoanVoucherInstallment[];
 }
 
 export interface GeneratedLoanVoucher {
@@ -449,10 +448,6 @@ export async function generateLoanStatusVoucherImage(data: LoanStatusVoucherData
     return { dataUrl: 'data:image/png;base64,dummy', blob: dummyBlob };
   }
 
-  const isMultiColInstallments = data.pendingInstallments.length > 12;
-  const rowsInstallmentsCount = isMultiColInstallments
-    ? Math.ceil(data.pendingInstallments.length / 2)
-    : Math.max(1, data.pendingInstallments.length);
   const rowsPaymentsCount = Math.max(1, data.paymentHistory.length);
 
   const width = 640;
@@ -462,8 +457,6 @@ export async function generateLoanStatusVoucherImage(data: LoanStatusVoucherData
   const financialBoxHeight = 135;
   const paymentsHeaderHeight = 45;
   const paymentsTableHeight = rowsPaymentsCount * rowHeight;
-  const installmentsHeaderHeight = 45;
-  const installmentsTableHeight = rowsInstallmentsCount * rowHeight;
   const footerHeight = 70;
 
   const height =
@@ -472,8 +465,6 @@ export async function generateLoanStatusVoucherImage(data: LoanStatusVoucherData
     financialBoxHeight +
     paymentsHeaderHeight +
     paymentsTableHeight +
-    installmentsHeaderHeight +
-    installmentsTableHeight +
     footerHeight;
 
   // Scale 2x for sharp retina text
@@ -651,51 +642,6 @@ export async function generateLoanStatusVoucherImage(data: LoanStatusVoucherData
     y += rowsPaymentsCount * rowHeight;
   }
 
-  // --- CUOTAS PENDIENTES (SEGUNDO) ---
-  y += 16;
-  ctx.fillStyle = '#0f172a';
-  ctx.font = 'bold 13px Inter, system-ui, sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillText(`CUOTAS PENDIENTES POR PAGAR (${data.pendingInstallments.length})`, 32, y);
-
-  y += 8;
-  if (data.pendingInstallments.length === 0) {
-    ctx.fillStyle = '#f0fdf4';
-    drawRoundedRect(ctx, 30, y, width - 60, 32, 6);
-    ctx.fill();
-    ctx.strokeStyle = '#bbf7d0';
-    ctx.stroke();
-
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#16a34a';
-    ctx.font = 'bold 12px Inter, system-ui, sans-serif';
-    ctx.fillText('✓ ¡Crédito completamente cancelado! No registra cuotas pendientes.', width / 2, y + 20);
-    y += 36;
-  } else if (!isMultiColInstallments) {
-    const colW = width - 60;
-    drawTableHeader(ctx, 30, y, colW);
-    y += 28;
-
-    data.pendingInstallments.forEach((inst, idx) => {
-      drawTableRow(ctx, 30, y + idx * rowHeight, colW, inst, idx % 2 === 1);
-    });
-    y += rowsInstallmentsCount * rowHeight;
-  } else {
-    const colW = (width - 70) / 2;
-    drawTableHeader(ctx, 30, y, colW);
-    drawTableHeader(ctx, 30 + colW + 10, y, colW);
-    y += 28;
-
-    data.pendingInstallments.forEach((inst, idx) => {
-      const isRightCol = idx >= rowsInstallmentsCount;
-      const colX = isRightCol ? 30 + colW + 10 : 30;
-      const colRowIdx = isRightCol ? idx - rowsInstallmentsCount : idx;
-      const rowY = y + colRowIdx * rowHeight;
-      drawTableRow(ctx, colX, rowY, colW, inst, colRowIdx % 2 === 1);
-    });
-    y += rowsInstallmentsCount * rowHeight;
-  }
-
   // --- FOOTER ---
   y += 20;
   ctx.strokeStyle = '#e2e8f0';
@@ -773,8 +719,7 @@ export async function shareLoanStatusVoucher(
       `Estimado/a ${data.customerName}:\n` +
       `• *Monto Prestado:* ${formatCurrencyCop(data.principalAmount)}\n` +
       `• *Total Pagado:* ${formatCurrencyCop(data.totalPaidAmount)}\n` +
-      `• *Saldo Pendiente:* ${formatCurrencyCop(data.balanceAmount)}\n` +
-      `• *Cuotas Pendientes:* ${data.pendingInstallments.length}\n\n` +
+      `• *Saldo Pendiente:* ${formatCurrencyCop(data.balanceAmount)}\n\n` +
       `El comprobante gráfico en imagen ha sido descargado. ¡Muchas gracias!`;
     const waUrl = phoneParam
       ? `https://wa.me/${phoneParam}?text=${encodeURIComponent(message)}`

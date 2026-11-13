@@ -296,7 +296,7 @@ describe('AgendaPage', () => {
           provide: CustomersService,
           useValue: {
             search: vi.fn().mockResolvedValue({ items: [], page: 1, pageSize: 100, totalCount: 0 }),
-            get: vi.fn().mockResolvedValue({}),
+            get: vi.fn().mockResolvedValue({ identification: '001234567' }),
             create: vi.fn().mockResolvedValue({ id: 'cust-created' }),
           },
         },
@@ -753,6 +753,7 @@ describe('AgendaPage', () => {
     expect(page.isStatusVoucherOpen()).toBe(true);
     expect(page.statusVoucherData()).toBeTruthy();
     expect(page.statusVoucherData()?.customerName).toBe('Jhonny Arroyave');
+    expect(page.statusVoucherData()?.customerIdentification).toBe('001234567');
     expect(page.statusVoucherData()?.principalAmount).toBe(1000000);
     expect(page.statusVoucherData()?.balanceAmount).toBe(1150000);
     expect(page.statusVoucherData()?.paymentHistory).toHaveLength(1);

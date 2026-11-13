@@ -154,31 +154,26 @@
                   </div>
 
                   <div class="inputs-grid">
-                    <label class="clean-field">
-                      <span class="field-label">Alias</span>
-                      <input [name]="'alias-' + index" [(ngModel)]="loc.alias" maxlength="120" placeholder="Ej: Casa, Negocio" />
-                    </label>
+                    @if (draft.id) {
+                      <label class="clean-field">
+                        <span class="field-label">Alias</span>
+                        <input [name]="'alias-' + index" [(ngModel)]="loc.alias" maxlength="120" placeholder="Ej: Casa, Negocio" />
+                      </label>
+                    }
                     <label class="clean-field">
                       <span class="field-label">Dirección</span>
                       <input [name]="'address-' + index" [(ngModel)]="loc.address" maxlength="300" placeholder="Ej: Cra 15 # 45-20" />
                     </label>
-                    <label class="clean-field">
-                      <span class="field-label">Latitud</span>
-                      <input type="number" [name]="'lat-' + index" [(ngModel)]="loc.latitude" [disabled]="gpsIndex() !== null" (ngModelChange)="loc.source = 'Manual'" min="-90" max="90" step="0.000001" required />
-                    </label>
-                    <label class="clean-field">
-                      <span class="field-label">Longitud</span>
-                      <input type="number" [name]="'lon-' + index" [(ngModel)]="loc.longitude" [disabled]="gpsIndex() !== null" (ngModelChange)="loc.source = 'Manual'" min="-180" max="180" step="0.000001" required />
-                    </label>
                   </div>
 
                   <div class="location-footer">
-                    <span class="gps-tag">{{ loc.source === 'Gps' ? '📍 Obtenida por GPS' : '✏️ Captura manual' }}</span>
+                    <span class="gps-tag">{{ loc.source === 'Gps' ? '📍 Obtenida por GPS' : '🗺️ Ubicación en mapa' }}</span>
                     <button type="button" class="btn-gps" (click)="openMap(index)" [disabled]="gpsIndex() !== null || saving()">Seleccionar en mapa</button>
                     <button type="button" class="btn-gps" (click)="useCurrentLocation(index)" [disabled]="gpsIndex() !== null || saving()" [attr.aria-busy]="gpsIndex() === index">
                       {{ gpsIndex() === index ? 'Cargando GPS…' : 'Usar ubicación actual' }}
                     </button>
                   </div>
+                  <p class="location-coordinates">Latitud: {{ loc.latitude | number:'1.6-6' }}, Longitud: {{ loc.longitude | number:'1.6-6' }}</p>
                 </div>
               }
             </div>

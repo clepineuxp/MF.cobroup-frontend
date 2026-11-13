@@ -145,7 +145,7 @@ describe('CustomerModalComponent', () => {
     vi.stubGlobal('navigator', { userAgent: 'Vitest', geolocation: { getCurrentPosition: vi.fn((callback) => { resolve = callback; }) } });
     const fixture = TestBed.createComponent(CustomerModalComponent);
     const comp = fixture.componentInstance; comp.isOpen = true; await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567';
-    comp.useCurrentLocation(0); fixture.detectChanges();
+    expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledTimes(1); fixture.detectChanges();
     expect(comp.gpsIndex()).toBe(0);
     expect(fixture.nativeElement.querySelector('button[type="submit"]').disabled).toBe(true);
     expect(fixture.nativeElement.textContent).toContain('Cargando GPS');
@@ -172,11 +172,11 @@ describe('CustomerModalComponent', () => {
     let resolve!: PositionCallback;
     vi.stubGlobal('navigator', { userAgent: 'Vitest', geolocation: { getCurrentPosition: vi.fn((callback) => { resolve = callback; }) } });
     const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
-    comp.isOpen = true; await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567'; vi.useFakeTimers();
+    vi.useFakeTimers(); comp.isOpen = true; await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567';
     comp.useCurrentLocation(0); vi.advanceTimersByTime(12001);
     expect(comp.gpsIndex()).toBeNull(); expect(comp.gpsError()).toContain('demasiado');
     resolve({ coords: { latitude: 10, longitude: 20 } } as GeolocationPosition);
-    expect(Number.isNaN(comp.draft.locations[0].latitude)).toBe(true);
+    expect(comp.draft.locations[0].latitude).toBe(4.5709);
   });
 
   it('ignores GPS callbacks after closing and reopening the form', async () => {
@@ -184,28 +184,59 @@ describe('CustomerModalComponent', () => {
     vi.stubGlobal('navigator', { userAgent: 'Vitest', geolocation: { getCurrentPosition: vi.fn((callback) => { resolve = callback; }) } });
     const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
     comp.isOpen = true; await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567'; comp.useCurrentLocation(0);
+    const previousResolve = resolve;
     comp.close(); await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567';
-    resolve({ coords: { latitude: 10, longitude: 20 } } as GeolocationPosition);
-    expect(Number.isNaN(comp.draft.locations[0].latitude)).toBe(true); expect(comp.gpsMessage()).toBe('');
+    previousResolve({ coords: { latitude: 10, longitude: 20 } } as GeolocationPosition);
+    expect(comp.draft.locations[0].latitude).toBe(4.5709); expect(comp.gpsMessage()).toBe('');
   });
 
   it('keeps map changes provisional until confirmed and preserves other location fields', async () => {
     const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
     comp.isOpen = true; await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567';
     comp.draft.locations[0].alias = 'Casa'; comp.openMap(0);
-    expect(Number.isNaN(comp.draft.locations[0].latitude)).toBe(true);
-    comp.mapLocation.set(null); expect(Number.isNaN(comp.draft.locations[0].latitude)).toBe(true);
+    expect(comp.draft.locations[0].latitude).toBe(4.5709);
+    comp.mapLocation.set(null); expect(comp.draft.locations[0].latitude).toBe(4.5709);
     comp.openMap(0); comp.confirmMap({ latitude: 4.7, longitude: -74.1 });
     expect(comp.draft.locations[0]).toMatchObject({ latitude: 4.7, longitude: -74.1, alias: 'Casa', source: 'Manual', isPrimary: true });
     expect(comp.mapLocation()).toBeNull(); expect(comp.gpsMessage()).toContain('mapa');
   });
 
-  it('offers manual capture when GPS is unavailable and rejects empty coordinates', async () => {
+  it('uses the displayed fallback when GPS is unavailable', async () => {
     vi.stubGlobal('navigator', { userAgent: 'Vitest' });
     const comp = TestBed.createComponent(CustomerModalComponent).componentInstance; comp.isOpen = true; await comp.initModal(); if (!comp.draft.id) comp.draft.identification = '001234567';
     comp.useCurrentLocation(0); expect(comp.gpsError()).toContain('no ofrece GPS'); expect(comp.gpsIndex()).toBeNull();
     comp.draft.routeId = 'route-1'; comp.fullName = 'Ana Pérez'; comp.draft.phones[0].number = '3001234567';
-    await comp.save(); expect(customersService.create).not.toHaveBeenCalled(); expect(comp.error()).toContain('coordenadas válidas');
+    await comp.save(); expect(customersService.create).toHaveBeenCalledWith(expect.objectContaining({ locations: [expect.objectContaining({ latitude: 4.5709, longitude: -74.2973 })] }));
+  });
+
+  it('shows coordinates as plain text below location actions without editable coordinate inputs', async () => {
+    const fixture = TestBed.createComponent(CustomerModalComponent);
+    const comp = fixture.componentInstance;
+    comp.isOpen = true; await comp.initModal();
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('input[name="lat-0"]')).toBeNull();
+    expect(root.querySelector('input[name="lon-0"]')).toBeNull();
+    expect(root.querySelector('.location-coordinates')?.textContent).toContain('Latitud: 4.570900, Longitud: -74.297300');
+  });
+
+  it('preserves saved coordinates and does not request GPS when editing', async () => {
+    const getCurrentPosition = vi.fn();
+    vi.stubGlobal('navigator', { geolocation: { getCurrentPosition } });
+    const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
+    comp.isOpen = true; comp.customerId = 'cust-1'; await comp.initModal();
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+    expect(comp.draft.locations[0]).toMatchObject({ latitude: 4.65, longitude: -74.05 });
+  });
+
+  it('keeps displayed fallback and permits saving when location permission is denied', async () => {
+    vi.stubGlobal('navigator', { geolocation: { getCurrentPosition: vi.fn((_success, failure) => failure({ code: 1 })) } });
+    const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
+    comp.isOpen = true; await comp.initModal();
+    expect(comp.gpsError()).toContain('denegado');
+    comp.draft.identification = '001234567'; comp.fullName = 'Ana Pérez'; comp.draft.phones[0].number = '3001234567';
+    await comp.save();
+    expect(customersService.create).toHaveBeenCalledWith(expect.objectContaining({ locations: [expect.objectContaining({ latitude: 4.5709, longitude: -74.2973 })] }));
   });
 
   it('renders one full-name field and the customer alias label', async () => {

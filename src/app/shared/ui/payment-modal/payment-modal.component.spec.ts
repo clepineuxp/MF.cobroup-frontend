@@ -1,3 +1,4 @@
+import { CustomersService } from '../../../features/customers/data/customers.service';
 import { TestBed } from '@angular/core/testing';
 import { PaymentModalComponent } from './payment-modal.component';
 import { PaymentsService } from '../../../features/payments/data/payments.service';
@@ -56,6 +57,7 @@ describe('PaymentModalComponent', () => {
       imports: [PaymentModalComponent],
       providers: [
         { provide: PaymentsService, useValue: paymentsService },
+        { provide: CustomersService, useValue: { get: vi.fn().mockResolvedValue({ identification: '001234567' }) } },
       ],
     }).compileComponents();
   });
@@ -90,6 +92,53 @@ describe('PaymentModalComponent', () => {
     expect(comp.allocationPreview()[1].isFullyCovered).toBe(true);
   });
 
+  it('hides optional fields initially and preserves their values when toggled', async () => {
+    const fixture = TestBed.createComponent(PaymentModalComponent);
+    const comp = fixture.componentInstance;
+    comp.isOpen = true; comp.loan = mockLoan; await comp.initModal(); fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('#paymentNotes')).toBeNull();
+    expect(root.querySelector('#evidenceFile')).toBeNull();
+    (root.querySelector('.btn-optionals') as HTMLButtonElement).click(); fixture.detectChanges();
+    expect(root.querySelector('#paymentNotes')).toBeTruthy();
+    expect(root.querySelector('#evidenceFile')).toBeTruthy();
+    comp.form.controls.notes.setValue('Recibo entregado');
+    comp.evidenceFileName.set('foto.png');
+    (root.querySelector('.btn-optionals') as HTMLButtonElement).click(); fixture.detectChanges();
+    expect(root.querySelector('#paymentNotes')).toBeNull();
+    expect(comp.form.controls.notes.value).toBe('Recibo entregado');
+    expect(comp.evidenceFileName()).toBe('foto.png');
+    await comp.initModal(); expect(comp.showOptionals()).toBe(false);
+  });
+
+  it('adds the actual remaining amounts including partial payments and the final rounding installment', async () => {
+    const fixture = TestBed.createComponent(PaymentModalComponent);
+    const comp = fixture.componentInstance;
+    comp.isOpen = true;
+    comp.loan = { ...mockLoan, balanceAmount: 80.01, installments: [
+      { ...mockLoan.installments[0], number: 3, expectedAmount: 30.01, paidAmount: 0 },
+      { ...mockLoan.installments[0], number: 1, expectedAmount: 30, paidAmount: 10, status: 'PartiallyPaid' },
+      { ...mockLoan.installments[0], number: 2, expectedAmount: 30, paidAmount: 0 },
+    ] };
+    await comp.initModal(); fixture.detectChanges();
+    expect(comp.form.controls.amount.value).toBe(20);
+    const root = fixture.nativeElement as HTMLElement;
+    (root.querySelector('[aria-label="Abonar 2 cuotas"]') as HTMLButtonElement).click();
+    expect(comp.form.controls.amount.value).toBe(50);
+    expect(comp.allocationPreview()).toHaveLength(2);
+    const custom = root.querySelector('#paymentInstallmentCount') as HTMLInputElement;
+    custom.value = '3'; custom.dispatchEvent(new Event('input'));
+    expect(comp.form.controls.amount.value).toBe(80.01);
+    expect(comp.allocationPreview()).toHaveLength(3);
+    expect((root.querySelector('[aria-label="Abonar 4 cuotas"]') as HTMLButtonElement).disabled).toBe(true);
+    comp.selectInstallmentCount(4); expect(comp.installmentCountError()).toBeTruthy();
+    expect(comp.form.controls.amount.value).toBe(80.01);
+    comp.selectInstallmentCount(1.5); expect(comp.installmentCountError()).toBeTruthy();
+    comp.form.controls.amount.setValue(15); comp.onAmountChanged();
+    expect(comp.selectedInstallmentCount()).toBeNull(); expect(comp.installmentCountError()).toBe('');
+    expect(comp.allocationPreview()[0].newAllocatedAmount).toBe(15);
+  });
+
   it('generates voucher on submit, allows correction and confirms payment', async () => {
     const fixture = TestBed.createComponent(PaymentModalComponent);
     const comp = fixture.componentInstance;
@@ -105,6 +154,7 @@ describe('PaymentModalComponent', () => {
 
     expect(comp.voucherStep()).toBe(true);
     expect(comp.voucherData()).toBeTruthy();
+    expect(comp.voucherData()?.customerIdentification).toBe('001234567');
     expect(comp.voucherImage()).toBeTruthy();
     expect(paymentsService.registerPayment).not.toHaveBeenCalled();
 

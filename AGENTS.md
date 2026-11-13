@@ -521,3 +521,36 @@
 
 - Solicitud expresa: hacer commits del ajuste de plantillas con 0 % de interés, pruebas y registro asociado.
 - Se conservan las verificaciones previas; sin cambios funcionales adicionales. Commit local autorizado; sin push ni despliegue.
+
+### 2026-11-13 — Ubicación automática y coordenadas de solo lectura en clientes
+
+- Solicitud: quitar edición de latitud/longitud, mostrar coordenadas como texto bajo las acciones y consultar ubicación actual al abrir alta; si no se autoriza, conservar la ubicación predeterminada.
+- Implementación: modal compartido solicita GPS al inicializar un cliente nuevo; conserva el bloqueo de guardar durante la consulta y descarta callbacks vencidos/cancelados. Ubicaciones nuevas parten del centro predeterminado del selector (4.570900, -74.297300); GPS exitoso lo reemplaza y mapa confirmado permite cambiarlo. Edición mantiene coordenadas guardadas sin solicitud automática. Texto inferior con seis decimales y botones de mapa/GPS.
+- Verificación: 136/136 pruebas frontend aprobadas; build productivo exitoso. Regresiones de solicitud automática, permisos denegados con guardado, texto sin inputs, conservación en edición y callbacks tardíos. Sin prueba de permisos en navegador real; mensajes de canvas de JSDOM preexistentes sin fallos.
+- Git: cambios locales en feature/cash-drawers-days, sin commit, push ni despliegue para este alcance.
+
+### 2026-11-13 — Alias de dirección disponible solo al editar
+
+- Solicitud aclarada: ocultar únicamente el alias de la dirección al crear cliente y permitir asignarlo después en edición.
+- Cambio: campo loc.alias condicionado a draft.id en el modal compartido; alias del cliente y dirección conservan su comportamiento.
+- Validación: build de producción exitoso y diff sin errores de espacios. Cambio visual reversible; sin pruebas nuevas. Se conservan los cambios pendientes de ubicación automática. Sin commit ni despliegue.
+
+### 2026-11-13 — Comprobante de estado con historial e identificación real
+
+- Solicitud: generar comprobante con historial de pagos sin plan y corregir identificación que aparece N/A.
+- Causa: agenda asignaba explícitamente undefined a identificación; modal de cobro dependía de un input que sus consumidores no suministran. Ambos consultan ahora CustomersService.get por customerId para obtener identificación conservando ceros iniciales; el modal respeta un input explícito existente.
+- Cambio: imagen de estado/cobro conserva resumen e historial, elimina tabla de cuotas pendientes y su espacio; contrato/proyecciones y mensaje de WhatsApp dejan de incluir cuotas pendientes. Comprobante de originación independiente no modificado.
+- Verificación: 138/138 pruebas aprobadas, incluidas regresiones de mapeo y render canvas con/sin pagos, identificación y ausencia de plan; build de producción exitoso. Sin validación visual en navegador real ni datos reales.
+- Git: conserva cambios pendientes de clientes; sin commit, push ni despliegue de este alcance.
+
+### 2026-11-13 — Cobro rápido por número de cuotas y opcionales plegados
+
+- Solicitud: ocultar observaciones/evidencias bajo botón Opcionales y agregar botones de 1–5 cuotas más entrada de cantidad a la derecha, actualizando importe.
+- Implementación: modal compartido inicia opcionales cerrados; alternarlos conserva notas/evidencia. Cantidad seleccionada suma saldos pendientes reales de las primeras cuotas por número, incluidos abonos parciales y redondeo final, con tope en saldo del préstamo. Deshabilita accesos superiores a cuotas disponibles y valida entero positivo dentro del pendiente. Edición manual del importe limpia selección y mantiene simulación.
+- Verificación: 140/140 pruebas aprobadas (incluye interacción DOM, opcionales, parcial, última cuota, cantidad personalizada y límites); build productivo final exitoso. Ajuste responsive de columnas; sin prueba visual en navegador real.
+- Git: cambios locales en feature/cash-drawers-days; conserva trabajo previo pendiente. Sin commit, push ni despliegue.
+
+### 2026-11-13 — Commit autorizado de mejoras operativas
+
+- Solicitud expresa: hacer commit de los cambios pendientes antes de implementar hasta cinco evidencias por cliente.
+- Alcance: ubicación automática y coordenadas de solo lectura, alias de dirección solo en edición, comprobante con historial e identificación real, cobro por cantidad de cuotas y opcionales plegados. Validación previa: 140/140 pruebas y build correcto. Sin push ni despliegue.
