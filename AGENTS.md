@@ -508,3 +508,16 @@
 
 
 
+
+
+### 2026-11-13 — Préstamos con plantilla de interés cero
+
+- Solicitud: validar frontend/backend para repartir el saldo entre las cuotas solicitadas sin intereses cuando la plantilla permite 0 %.
+- Cambio: LoansPage acepta tasa cero y la envía al preview; mantiene tasa obligatoria y rechazo de negativos. El modal compartido ya admitía cero; se agregó regresión de preview y originación conservando el valor 0 y los límites de plantilla.
+- Verificación: 133/133 pruebas frontend aprobadas; build de producción exitoso. JSDOM informa falta de implementación de canvas en pruebas de comprobantes, sin fallos.
+- Git: cambios locales en feature/cash-drawers-days, sin commit, push ni despliegue.
+
+### 2026-11-13 — Commit autorizado de interés cero
+
+- Solicitud expresa: hacer commits del ajuste de plantillas con 0 % de interés, pruebas y registro asociado.
+- Se conservan las verificaciones previas; sin cambios funcionales adicionales. Commit local autorizado; sin push ni despliegue.

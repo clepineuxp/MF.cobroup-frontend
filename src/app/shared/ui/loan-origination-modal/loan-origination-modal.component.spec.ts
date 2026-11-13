@@ -134,6 +134,25 @@ describe('LoanOriginationModalComponent', () => {
     expect(loansService.previewSchedule).toHaveBeenCalledWith(expect.objectContaining({ principalAmount: 500000, interestRate: 12.5, installmentCount: 15 }));
   });
 
+  it('previews and originates a zero interest template without treating zero as missing', async () => {
+    const comp = TestBed.createComponent(LoanOriginationModalComponent).componentInstance;
+    await comp.initModal();
+    comp.templates.set([{ ...comp.templates()[0], allowedPercentages: [0], minPercentage: 0, maxPercentage: 0 }]);
+    comp.form.patchValue({ customerId: 'cust-1', loanTemplateId: 'tpl-1', principalAmount: 500000,
+      interestRate: 0, installmentCount: 3 });
+    expect(comp.form.valid).toBe(true);
+    expect(comp.templateLimitsError).toBe('');
+    await comp.calculatePreview();
+    expect(loansService.previewSchedule).toHaveBeenCalledWith(expect.objectContaining({ interestRate: 0, installmentCount: 3 }));
+    await comp.submitOrigination();
+    await comp.confirmVoucherOnly();
+    expect(loansService.originate).toHaveBeenCalledWith(expect.objectContaining({ interestRate: 0, installmentCount: 3 }));
+    comp.form.controls.interestRate.setValue(-1);
+    expect(comp.form.controls.interestRate.hasError('min')).toBe(true);
+    comp.form.controls.interestRate.setValue(null);
+    expect(comp.form.controls.interestRate.hasError('required')).toBe(true);
+  });
+
   it('filters templates by customer route and resets selection when changing customers', async () => {
     const comp = TestBed.createComponent(LoanOriginationModalComponent).componentInstance;
     await comp.initModal();

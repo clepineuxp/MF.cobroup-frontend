@@ -225,6 +225,22 @@ describe('Operative LoansPage', () => {
     expect(page.schedulePreview()).not.toBeNull();
   });
 
+  it('accepts zero interest and sends it to the schedule preview', async () => {
+    const fixture = TestBed.createComponent(LoansPage);
+    await fixture.whenStable();
+    const page = fixture.componentInstance;
+    page.openOrigination();
+    page.templates.set([{ ...page.templates()[0], allowedPercentages: [0], minPercentage: 0, maxPercentage: 0 }]);
+    page.form.patchValue({ customerId: 'cust-1', loanTemplateId: 'tpl-1', principalAmount: 500000,
+      interestRate: 0, installmentCount: 3 });
+    expect(page.form.controls.interestRate.valid).toBe(true);
+    expect(page.templateLimitsError).toBe('');
+    await page.calculatePreview();
+    expect(loansService.previewSchedule).toHaveBeenCalledWith(expect.objectContaining({ interestRate: 0, installmentCount: 3 }));
+    page.form.controls.interestRate.setValue(-1);
+    expect(page.form.controls.interestRate.hasError('min')).toBe(true);
+  });
+
   it('opens payment modal and processes cascade payment', async () => {
     const fixture = TestBed.createComponent(LoansPage);
     await fixture.whenStable();
