@@ -73,6 +73,7 @@ export interface OriginateLoanRequest {
   readonly loanTemplateVersion?: number | null;
   readonly exceptionRequestId?: string | null;
   readonly startDate: string;
+  readonly microinsuranceAmount?: number | null;
 }
 
 export interface CalculatedInstallment {

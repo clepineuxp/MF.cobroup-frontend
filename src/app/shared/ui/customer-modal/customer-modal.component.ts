@@ -18,6 +18,12 @@ import { AvailableLoanTemplate } from '../../../features/loan-templates/data/loa
 import { LoanTemplatesService } from '../../../features/loan-templates/data/loan-templates.service';
 import { CalculatedSchedule, PaymentFrequency } from '../../../features/loans/data/loan.models';
 import { LoansService } from '../../../features/loans/data/loans.service';
+import {
+  GeneratedLoanVoucher,
+  LoanVoucherData,
+  generateLoanVoucherImage,
+  shareLoanVoucher,
+} from '../../utils/loan-voucher';
 
 export interface CustomerDraft {
   identification: string;
@@ -41,6 +47,7 @@ export interface CreditDraft {
   frequencyNDays: number | null;
   installmentCount: number | null;
   startDate: string;
+  microinsuranceAmount: number | null;
 }
 
 @Component({
@@ -68,6 +75,11 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
   readonly routes = signal<readonly AccessibleRoute[]>([]);
   readonly templates = signal<readonly AvailableLoanTemplate[]>([]);
   readonly schedulePreview = signal<CalculatedSchedule | null>(null);
+
+  readonly voucherStep = signal(false);
+  readonly voucherImage = signal<string | null>(null);
+  readonly voucherData = signal<LoanVoucherData | null>(null);
+  readonly voucherGenerated = signal<GeneratedLoanVoucher | null>(null);
   readonly previewing = signal(false);
   readonly loading = signal(false);
   readonly saving = signal(false);
@@ -117,6 +129,10 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
       this.templates.set(templatesList);
       this.creditDraft = this.emptyCreditDraft();
       this.schedulePreview.set(null);
+      this.voucherStep.set(false);
+      this.voucherImage.set(null);
+      this.voucherData.set(null);
+      this.voucherGenerated.set(null);
 
       if (this.customerId) {
         const customer = await this.customersService.get(this.customerId);
@@ -348,6 +364,12 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
     }
   }
 
+  get netDisbursedCreditAmount(): number {
+    const principal = this.creditDraft.principalAmount || 0;
+    const micro = this.creditDraft.microinsuranceAmount || 0;
+    return Math.max(0, principal - micro);
+  }
+
   async save(): Promise<void> {
     if (this.gpsIndex() !== null || this.mapLocation() || this.saving() || this.loading()) return;
     if (!this.isValid()) return;
@@ -378,12 +400,80 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
         this.error.set(this.creditTemplateLimitsError);
         return;
       }
+
+      if (!this.schedulePreview()) {
+        await this.calculateCreditPreview();
+      }
+      if (!this.schedulePreview()) {
+        this.error.set('No fue posible calcular el cronograma del crédito.');
+        return;
+      }
+
+      this.saving.set(true);
+      this.error.set('');
+
+      try {
+        const customerName = this.fullName.trim() || `${this.draft.firstNames} ${this.draft.lastNames}`.trim() || 'Nuevo Cliente';
+        const primaryPhone = this.draft.phones.find((p) => p.isPrimary)?.number || this.draft.phones[0]?.number;
+        const routeName = this.routes().find((r) => r.id === this.draft.routeId)?.name;
+        const microAmount = this.creditDraft.microinsuranceAmount || 0;
+        const schedule = this.schedulePreview()!;
+
+        const vData: LoanVoucherData = {
+          customerName,
+          customerIdentification: this.draft.identification.trim(),
+          customerPhone: primaryPhone,
+          routeName,
+          principalAmount: this.creditDraft.principalAmount!,
+          interestRate: this.creditDraft.interestRate!,
+          totalAmount: schedule.totalAmount,
+          installmentCount: this.creditDraft.installmentCount!,
+          paymentFrequency: this.creditDraft.paymentFrequency,
+          frequencyNDays: this.creditDraft.paymentFrequency === 'EveryNDays' ? this.creditDraft.frequencyNDays : null,
+          startDate: this.creditDraft.startDate,
+          microinsuranceAmount: microAmount,
+          netDisbursedAmount: Math.max(0, this.creditDraft.principalAmount! - microAmount),
+          installments: schedule.installments.map((inst) => ({
+            number: inst.number,
+            dueDate: inst.dueDate,
+            expectedAmount: inst.expectedAmount,
+          })),
+        };
+
+        const generated = await generateLoanVoucherImage(vData);
+        this.voucherData.set(vData);
+        this.voucherGenerated.set(generated);
+        this.voucherImage.set(generated.dataUrl);
+        this.voucherStep.set(true);
+      } catch (err) {
+        this.error.set(err instanceof Error ? err.message : 'Error al generar el comprobante del crédito.');
+      } finally {
+        this.saving.set(false);
+      }
+      return;
     }
 
+    await this.executeSaveCustomer(false);
+  }
+
+  correctVoucher(): void {
+    this.voucherStep.set(false);
+  }
+
+  async confirmVoucherOnly(): Promise<void> {
+    await this.executeSaveCustomer(false);
+  }
+
+  async confirmAndSendVoucher(): Promise<void> {
+    await this.executeSaveCustomer(true);
+  }
+
+  private async executeSaveCustomer(andSend: boolean): Promise<void> {
     this.saving.set(true);
     this.error.set('');
     this.success.set('');
 
+    const isAssigningCredit = !this.draft.id && this.creditDraft.principalAmount !== null && this.creditDraft.principalAmount > 0;
     const request: CustomerWriteRequest = {
       routeId: this.draft.routeId,
       identification: this.draft.identification.trim(),
@@ -411,7 +501,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
         if (this.selectedEvidence()) await this.customersService.uploadEvidence(created.id, this.selectedEvidence()!);
 
         if (isAssigningCredit) {
-          const template = this.availableTemplates.find(t => t.id === this.creditDraft.loanTemplateId);
+          const template = this.availableTemplates.find((t) => t.id === this.creditDraft.loanTemplateId);
           await this.loansService.originate({
             customerId: created.id,
             principalAmount: this.creditDraft.principalAmount!,
@@ -422,7 +512,16 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
             loanTemplateId: template?.id ?? null,
             loanTemplateVersion: template?.version ?? null,
             startDate: this.creditDraft.startDate,
+            microinsuranceAmount: this.creditDraft.microinsuranceAmount || 0,
           });
+
+          if (andSend && this.voucherGenerated() && this.voucherData()) {
+            try {
+              await shareLoanVoucher(this.voucherGenerated()!, this.voucherData()!);
+            } catch {
+              // Non-blocking
+            }
+          }
         }
       }
       this.success.set(isAssigningCredit ? 'Cliente y crédito creados exitosamente.' : this.draft.id ? 'Cliente actualizado.' : 'Cliente creado.');
@@ -543,6 +642,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
       frequencyNDays: null,
       installmentCount: null,
       startDate: this.todayDate(),
+      microinsuranceAmount: 0,
     };
   }
 }

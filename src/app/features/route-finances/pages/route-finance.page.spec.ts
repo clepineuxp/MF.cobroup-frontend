@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { ActivatedRoute } from '@angular/router';
 import { LoansService } from '../../loans/data/loans.service';
 import { PaymentsService } from '../../payments/data/payments.service';
 import { RoutesService } from '../../routes/data/routes.service';
@@ -102,6 +103,14 @@ describe('RouteFinancePage', () => {
         maxActiveCustomers: 100,
         maxActiveLoans: 50,
       },
+      {
+        id: 'route-2',
+        name: 'Ruta 2',
+        description: 'Ruta norte',
+        accessAs: 'Collector',
+        maxActiveCustomers: 100,
+        maxActiveLoans: 50,
+      },
     ]),
   };
 
@@ -114,6 +123,7 @@ describe('RouteFinancePage', () => {
     }),
     create: vi.fn().mockResolvedValue(sampleIncomes[0]),
     update: vi.fn().mockResolvedValue(sampleIncomes[0]),
+    getEligibleLoansForMicroinsurance: vi.fn().mockResolvedValue([]),
   };
 
   const loansServiceMock = {
@@ -154,7 +164,7 @@ describe('RouteFinancePage', () => {
     expect(component.activeTab()).toBe('income');
 
     // Net balance rendered
-    expect(fixture.nativeElement.textContent).toContain('Balance Ruta');
+    expect(fixture.nativeElement.textContent).toContain('Caja de Ruta');
     expect(fixture.nativeElement.textContent).toContain('Todas las rutas (General)');
     // Both manual incomes and cobros are in Income tab
     expect(fixture.nativeElement.textContent).toContain('Aporte socios inicial');
@@ -176,7 +186,7 @@ describe('RouteFinancePage', () => {
     expect(fixture.nativeElement.textContent).toContain('Préstamo a Juan Pérez');
   });
 
-  it('navigates days with day buttons strip and period selector', async () => {
+  it('navigates days with day buttons strip, yearly and range selectors', async () => {
     const fixture = TestBed.createComponent(RouteFinancePage);
     const component = fixture.componentInstance;
     await fixture.whenStable();
@@ -192,6 +202,18 @@ describe('RouteFinancePage', () => {
     // Change period to monthly
     component.setPeriod('monthly');
     expect(component.periodType()).toBe('monthly');
+
+    // Change period to yearly
+    component.setPeriod('yearly');
+    expect(component.periodType()).toBe('yearly');
+    expect(component.viewingText()).toContain(`Año ${new Date().getFullYear()}`);
+
+    // Change period to range
+    component.setPeriod('range');
+    component.setRangeStartDate('2026-01-01');
+    component.setRangeEndDate('2026-12-31');
+    expect(component.periodType()).toBe('range');
+    expect(component.viewingText()).toBe('Del 2026-01-01 al 2026-12-31');
   });
 
   it('opens modal for nuevo ingreso, selects target route and creates entry', async () => {
@@ -212,6 +234,7 @@ describe('RouteFinancePage', () => {
       concept: 'Nuevo capital de trabajo',
       description: 'Aporte adicional',
       amount: 75000,
+      loanId: null,
     });
 
     await component.submitModal();
@@ -223,7 +246,66 @@ describe('RouteFinancePage', () => {
       concept: 'Nuevo capital de trabajo',
       description: 'Aporte adicional',
       amount: 75000,
+      loanId: null,
     });
     expect(component.isModalOpen()).toBe(false);
+  });
+
+  it('hides route selector dropdown when only 1 route is available and automatically selects it', async () => {
+    routesMock.listAccessible.mockResolvedValueOnce([
+      {
+        id: 'route-only-1',
+        name: 'Ruta Unica',
+        description: 'Ruta centro',
+        accessAs: 'Collector',
+        maxActiveCustomers: 100,
+        maxActiveLoans: 50,
+      },
+    ]);
+
+    const fixture = TestBed.createComponent(RouteFinancePage);
+    const component = fixture.componentInstance;
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(component.routes().length).toBe(1);
+    expect(component.selectedRouteId()).toBe('route-only-1');
+
+    const selector = fixture.nativeElement.querySelector('#route-selector');
+    expect(selector).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Ruta Unica');
+  });
+
+  it('opens directly in expense tab when query param tab or section is expense', async () => {
+    const routeSnapshotMock = {
+      snapshot: {
+        queryParamMap: new Map([
+          ['routeId', 'route-1'],
+          ['tab', 'expense'],
+        ]),
+      },
+      queryParamMap: {
+        subscribe: vi.fn(),
+      },
+    };
+
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [RouteFinancePage],
+      providers: [
+        { provide: RoutesService, useValue: routesMock },
+        { provide: RouteFinancesService, useValue: financesMock },
+        { provide: LoansService, useValue: loansServiceMock },
+        { provide: PaymentsService, useValue: paymentsServiceMock },
+        { provide: ActivatedRoute, useValue: routeSnapshotMock },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(RouteFinancePage);
+    const component = fixture.componentInstance;
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(component.activeTab()).toBe('expense');
   });
 });

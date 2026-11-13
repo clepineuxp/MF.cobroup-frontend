@@ -2,11 +2,14 @@
   <!-- Clean Header with Day Closing Status & Route Selector -->
   <header class="page-header">
     <div class="header-titles">
-      <h1 class="page-title">Balance Ruta</h1>
+      <h1 class="page-title">Caja de Ruta</h1>
+      @if (routes().length === 1) {
+        <span class="route-single-badge">{{ routes()[0].name }}</span>
+      }
       @if (dayClosing(); as closing) {
         <div class="closing-badge" [class.closed]="closing.isClosed" [class.open]="!closing.isClosed">
           <span class="status-dot"></span>
-          <span class="status-text">{{ closing.isClosed ? 'Día Cerrado' : 'Día Abierto' }}</span>
+          <span class="status-text">{{ closing.isClosed ? 'Caja Cerrada' : 'Caja Abierta' }}</span>
           @if (closing.isClosed && closing.closedByDisplayName) {
             <span class="closed-by">({{ closing.closedByDisplayName }})</span>
           }
@@ -15,20 +18,22 @@
     </div>
 
     <div class="header-actions">
-      <div class="route-selector-wrapper">
-        <select
-          id="route-selector"
-          class="route-selector"
-          [value]="selectedRouteId()"
-          (change)="selectRoute($any($event.target).value)"
-          aria-label="Seleccionar ruta"
-        >
-          <option value="">Todas las rutas (General)</option>
-          @for (route of routes(); track route.id) {
-            <option [value]="route.id">{{ route.name }}</option>
-          }
-        </select>
-      </div>
+      @if (routes().length > 1) {
+        <div class="route-selector-wrapper">
+          <select
+            id="route-selector"
+            class="route-selector"
+            [value]="selectedRouteId()"
+            (change)="selectRoute($any($event.target).value)"
+            aria-label="Seleccionar ruta"
+          >
+            <option value="">Todas las rutas (General)</option>
+            @for (route of routes(); track route.id) {
+              <option [value]="route.id">{{ route.name }}</option>
+            }
+          </select>
+        </div>
+      }
 
       @if (selectedRouteId()) {
         @if (!isDayClosed()) {
@@ -37,32 +42,26 @@
             class="btn-close-day"
             (click)="closeDay()"
             [disabled]="closingInProgress()"
-            title="Cerrar la jornada diaria para esta ruta"
+            title="Cerrar la caja para esta ruta"
           >
             <app-icon name="lock" />
-            <span>Cerrar Día</span>
+            <span>Cerrar Caja</span>
           </button>
-        } @else if (canReopenDay()) {
-          <button
-            type="button"
-            class="btn-reopen-day"
-            (click)="reopenDay()"
-            [disabled]="closingInProgress()"
-            title="Reabrir la jornada diaria para esta ruta"
-          >
-            <app-icon name="unlock" />
-            <span>Reabrir Día</span>
-          </button>
+        } @else {
+          <span class="badge-closed-caja" title="Solo la administración puede reabrir una caja cerrada">
+            <app-icon name="lock" />
+            <span>Caja Cerrada</span>
+          </span>
         }
       } @else {
         <button
           type="button"
           class="btn-close-day"
           (click)="promptSelectRouteForClosing()"
-          title="Selecciona una ruta específica para cerrar la jornada"
+          title="Selecciona una ruta específica para cerrar la caja"
         >
           <app-icon name="lock" />
-          <span>Cerrar Día</span>
+          <span>Cerrar Caja</span>
         </button>
       }
     </div>
@@ -183,9 +182,23 @@
           <option value="daily">Diario</option>
           <option value="weekly">Semanal</option>
           <option value="monthly">Mensual</option>
+          <option value="yearly">Anual</option>
+          <option value="range">Rango de fechas</option>
         </select>
       </div>
     </div>
+    @if (periodType() === 'range') {
+      <div class="range-date-inputs">
+        <label class="range-label">
+          <span>Desde:</span>
+          <input type="date" class="range-input" [value]="rangeStartDate()" (input)="setRangeStartDate($any($event.target).value)" />
+        </label>
+        <label class="range-label">
+          <span>Hasta:</span>
+          <input type="date" class="range-input" [value]="rangeEndDate()" (input)="setRangeEndDate($any($event.target).value)" />
+        </label>
+      </div>
+    }
   </section>
 
   <!-- Tabs & Movements Container -->
@@ -256,7 +269,7 @@
             </p>
           </div>
         } @else {
-          @for (item of recentTabMovements(); track item.id) {
+          @for (item of recentTabMovements(); track item.id + '-' + $index) {
             <article class="entry-card" [class.expense-item]="item.section === 'expense'">
               <div class="entry-header">
                 <div class="entry-concept-wrapper">
@@ -395,6 +408,7 @@
                   type="radio"
                   formControlName="type"
                   value="Income"
+                  (change)="onEntryTypeChanged('Income')"
                 />
                 <span>Ingreso</span>
               </label>
@@ -403,11 +417,40 @@
                   type="radio"
                   formControlName="type"
                   value="Investment"
+                  (change)="onEntryTypeChanged('Investment')"
                 />
                 <span>Inversión</span>
               </label>
+              <label class="type-pill" [class.selected]="modalForm.controls.type.value === 'Microinsurance'">
+                <input
+                  type="radio"
+                  formControlName="type"
+                  value="Microinsurance"
+                  (change)="onEntryTypeChanged('Microinsurance')"
+                />
+                <span>Microseguro</span>
+              </label>
             </div>
           </div>
+
+          @if (modalForm.controls.type.value === 'Microinsurance') {
+            <div class="form-group">
+              <label for="modal-loan-select" class="field-label">Crédito vinculado *</label>
+              <select
+                id="modal-loan-select"
+                formControlName="loanId"
+                (change)="onLoanSelected()"
+              >
+                <option [value]="null">Selecciona un crédito</option>
+                @for (loan of eligibleLoans(); track loan.loanId) {
+                  <option [value]="loan.loanId">{{ loan.customerName }} - Crédito de {{ loan.principalAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</option>
+                }
+              </select>
+              @if (eligibleLoans().length === 0) {
+                <span class="field-hint">No hay créditos activos creados hoy sin microseguro asignado en esta ruta.</span>
+              }
+            </div>
+          }
         }
 
         <!-- Concepto -->

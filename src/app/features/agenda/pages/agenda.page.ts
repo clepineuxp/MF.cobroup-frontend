@@ -1,17 +1,27 @@
-import { CommonModule, CurrencyPipe } from '@angular/common';
-import { Component, OnInit, ViewChild, inject, signal, computed } from '@angular/core';
-import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
+import { Component, OnInit, ViewChild, inject, signal, computed, HostListener } from '@angular/core';
+import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AppIconComponent } from '../../../shared/ui/app-icon/app-icon.component';
 import { NuevoPrestamoComponent } from '../../../shared/ui/nuevo-prestamo/nuevo-prestamo.component';
 import { PaymentModalComponent } from '../../../shared/ui/payment-modal/payment-modal.component';
 import { LoanDetails } from '../../loans/data/loan.models';
 import { LoansService } from '../../loans/data/loans.service';
-import { PaymentDetails } from '../../payments/data/payment.models';
+import { PaymentDetails, PaymentMethodItem } from '../../payments/data/payment.models';
+import { PaymentsService } from '../../payments/data/payments.service';
 import { AccessibleRoute } from '../../routes/data/route.models';
 import { RoutesService } from '../../routes/data/routes.service';
-import { RouteBalance } from '../../route-finances/data/route-finance.models';
+import { RouteBalance, RouteDayClosingStatus } from '../../route-finances/data/route-finance.models';
 import { RouteFinancesService } from '../../route-finances/data/route-finances.service';
+import { CajaBlockedDialogComponent } from '../../../shared/ui/caja-blocked-dialog/caja-blocked-dialog.component';
+import {
+  generateLoanStatusVoucherImage,
+  GeneratedLoanVoucher,
+  LoanPaymentHistoryItem,
+  LoanStatusVoucherData,
+  LoanVoucherInstallment,
+  shareLoanStatusVoucher,
+} from '../../../shared/utils/loan-voucher';
 import {
   AgendaItem,
   AgendaResponse,
@@ -33,6 +43,13 @@ export interface FrequencyOption {
   label: string;
 }
 
+export function getLocalIsoDate(d = new Date()): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 @Component({
   selector: 'app-agenda-page',
   standalone: true,
@@ -41,9 +58,11 @@ export interface FrequencyOption {
     FormsModule,
     ReactiveFormsModule,
     CurrencyPipe,
+    DatePipe,
     PaymentModalComponent,
     NuevoPrestamoComponent,
     AppIconComponent,
+    CajaBlockedDialogComponent,
   ],
   templateUrl: './agenda.page.html',
   styleUrl: './agenda.page.scss',
@@ -54,11 +73,101 @@ export class AgendaPage implements OnInit {
   private readonly routesService = inject(RoutesService);
   private readonly loansService = inject(LoansService);
   private readonly routeFinancesService = inject(RouteFinancesService);
+  private readonly paymentsService = inject(PaymentsService);
   private readonly router = inject(Router);
 
   readonly routes = signal<readonly AccessibleRoute[]>([]);
   readonly selectedRouteId = signal<string>('');
-  readonly selectedBusinessDate = signal<string>(new Date().toISOString().substring(0, 10));
+  readonly selectedBusinessDate = signal<string>(getLocalIsoDate());
+
+  readonly dayClosingStatus = signal<RouteDayClosingStatus | null>(null);
+  readonly isBoxClosed = computed(() => !!this.dayClosingStatus()?.isClosed);
+  readonly isCajaBlocked = computed(() => {
+    const status = this.dayClosingStatus();
+    if (!status) return false;
+    return (status.isCutoffExceeded ?? false) && !status.isClosed;
+  });
+  readonly cajaBlockedMessage = computed(() => {
+    return 'Debes cerrar caja para continuar.';
+  });
+  readonly showCajaBlockedModal = signal<boolean>(false);
+  readonly isBoxPastDue = computed(() => {
+    return this.agenda()?.summary.isBoxPastDue ?? false;
+  });
+
+  readonly displayInitialBalance = computed(() => {
+    const bal = this.routeBalance();
+    if (!bal) return 0;
+    // Si la caja está cerrada, balance inicial y actual siempre van igual
+    if (this.dayClosingStatus()?.isClosed) {
+      return bal.netBalance;
+    }
+    return bal.initialBalance;
+  });
+
+  readonly displayActualBalance = computed(() => {
+    return this.routeBalance()?.netBalance ?? 0;
+  });
+
+  readonly displayCollected = computed(() => {
+    if (this.dayClosingStatus()?.isClosed) return 0;
+    return this.routeBalance()?.paymentCollections ?? 0;
+  });
+
+  readonly displayIncome = computed(() => {
+    if (this.dayClosingStatus()?.isClosed) return 0;
+    return this.routeBalance()?.incomeInvestments ?? 0;
+  });
+
+  readonly displayDisbursed = computed(() => {
+    if (this.dayClosingStatus()?.isClosed) return 0;
+    return this.routeBalance()?.loanDisbursements ?? 0;
+  });
+
+  readonly displayExpenses = computed(() => {
+    if (this.dayClosingStatus()?.isClosed) return 0;
+    return this.routeBalance()?.expenses ?? 0;
+  });
+
+  checkCajaBlocked(): boolean {
+    if (this.isCajaBlocked()) {
+      this.showCajaBlockedModal.set(true);
+      return true;
+    }
+    return false;
+  }
+
+  goToBalance(): void {
+    this.showCajaBlockedModal.set(false);
+    void this.router.navigate(['/balance-ruta'], { queryParams: { routeId: this.selectedRouteId() } });
+  }
+
+  readonly activeSummaryCard = signal<'income' | 'expense' | null>(null);
+
+  toggleSummaryCard(card: 'income' | 'expense', event?: Event): void {
+    event?.stopPropagation();
+    this.activeSummaryCard.update((current) => (current === card ? null : card));
+  }
+
+  goToBalanceSection(section: 'income' | 'expense', event?: Event): void {
+    event?.stopPropagation();
+    this.activeSummaryCard.set(null);
+    const routeId = this.selectedRouteId() || this.filterForm.controls.routeId.value;
+    void this.router.navigate(['/balance-ruta'], {
+      queryParams: {
+        routeId: routeId || undefined,
+        section,
+        tab: section,
+      },
+    });
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    if (this.activeSummaryCard()) {
+      this.activeSummaryCard.set(null);
+    }
+  }
 
   readonly currentRouteName = computed(() => {
     const routeId = this.selectedRouteId() || this.filterForm.controls.routeId.value;
@@ -67,19 +176,34 @@ export class AgendaPage implements OnInit {
   });
 
   readonly boxOpeningDateFormatted = computed(() => {
-    const rawDate = this.selectedBusinessDate() || this.agenda()?.summary.targetDate || this.filterForm.controls.date.value;
-    if (!rawDate) return '';
+    const status = this.dayClosingStatus();
+    if (!status || status.isClosed) {
+      return 'Caja Cerrada';
+    }
+
+    const rawDate = status.businessDate || this.selectedBusinessDate() || this.agenda()?.summary.targetDate || this.filterForm.controls.date.value;
+    if (!rawDate) {
+      return 'Caja Cerrada';
+    }
+
     const parts = rawDate.split('-');
-    if (parts.length !== 3) return rawDate;
-    const year = Number(parts[0]);
-    const month = Number(parts[1]) - 1;
-    const day = Number(parts[2]);
-    const dateObj = new Date(year, month, day);
-    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    const dayName = days[dateObj.getDay()];
-    const dd = String(day).padStart(2, '0');
-    const mm = String(month + 1).padStart(2, '0');
-    return `${dd}/${mm}/${year} (${dayName})`;
+    if (parts.length === 3) {
+      const year = parts[0];
+      const month = parts[1].padStart(2, '0');
+      const day = parts[2].padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    return rawDate;
+  });
+
+  readonly boxName = computed(() => {
+    const routeName = this.currentRouteName();
+    const status = this.dayClosingStatus();
+    if (status?.boxName) {
+      return status.boxName;
+    }
+    const subtitle = this.boxOpeningDateFormatted();
+    return `${routeName} | ${subtitle}`;
   });
 
   readonly agenda = signal<AgendaResponse | null>(null);
@@ -96,15 +220,16 @@ export class AgendaPage implements OnInit {
 
   // Advanced filter dialog state
   readonly isFilterModalOpen = signal(false);
-  readonly selectedStatuses = signal<Set<string>>(new Set());
+  readonly selectedStatuses = signal<Set<string>>(new Set(['PENDING']));
   readonly selectedFrequencies = signal<Set<string>>(new Set());
 
   // Temp state inside filter modal
-  readonly tempStatuses = signal<Set<string>>(new Set());
+  readonly tempStatuses = signal<Set<string>>(new Set(['PENDING']));
   readonly tempFrequencies = signal<Set<string>>(new Set());
 
   readonly statusOptions: FilterStatusOption[] = [
     { key: 'ALL', label: 'Todos' },
+    { key: 'PENDING', label: 'Pendientes' },
     { key: 'OVERDUE', label: 'En mora' },
     { key: 'DUE_TODAY', label: 'Cobro hoy' },
     { key: 'COLLECTED', label: 'Pagos' },
@@ -120,7 +245,10 @@ export class AgendaPage implements OnInit {
   ];
 
   readonly hasCustomFilters = computed(() => {
-    return this.selectedStatuses().size > 0 || this.selectedFrequencies().size > 0;
+    const statuses = this.selectedStatuses();
+    const freqs = this.selectedFrequencies();
+    const isCustomStatus = statuses.size > 0 && !(statuses.size === 1 && statuses.has('PENDING'));
+    return isCustomStatus || freqs.size > 0;
   });
 
   // Metrics
@@ -146,6 +274,42 @@ export class AgendaPage implements OnInit {
   // Payment modal state
   readonly isPaymentModalOpen = signal(false);
   readonly payingLoan = signal<LoanDetails | null>(null);
+  readonly collectingItem = signal<AgendaItem | null>(null);
+
+  // Loan summary bottom sheet & status voucher state
+  readonly isLoanSummaryOpen = signal(false);
+  readonly loadingLoanSummary = signal(false);
+  readonly selectedLoanSummary = signal<LoanDetails | null>(null);
+  readonly selectedLoanPayments = signal<readonly PaymentDetails[]>([]);
+  readonly selectedSummaryItem = signal<AgendaItem | null>(null);
+
+  readonly isStatusVoucherOpen = signal(false);
+  readonly statusVoucherImage = signal('');
+  readonly generatedStatusVoucher = signal<GeneratedLoanVoucher | null>(null);
+  readonly statusVoucherData = signal<LoanStatusVoucherData | null>(null);
+  readonly generatingStatusVoucher = signal(false);
+
+  // Edit payment modal state
+  readonly isEditPaymentModalOpen = signal(false);
+  readonly editingPayment = signal<PaymentDetails | null>(null);
+  readonly editingPaymentCustomerName = signal<string>('');
+  readonly paymentMethods = signal<readonly PaymentMethodItem[]>([]);
+  readonly editPaymentError = signal('');
+  readonly submittingEditPayment = signal(false);
+
+  readonly paymentEditForm = new FormGroup({
+    amount: new FormControl<number | null>(null, {
+      validators: [Validators.required, Validators.min(1)],
+    }),
+    paymentMethodId: new FormControl<string>('', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+    notes: new FormControl<string>('', {
+      nonNullable: true,
+      validators: [Validators.maxLength(500)],
+    }),
+  });
 
   // Quick Action Modals (Customer & Loan Origination)
   readonly isCustomerModalOpen = signal(false);
@@ -153,7 +317,7 @@ export class AgendaPage implements OnInit {
 
   readonly filterForm = new FormGroup({
     routeId: new FormControl<string>('', { nonNullable: true }),
-    date: new FormControl<string>(new Date().toISOString().substring(0, 10), { nonNullable: true }),
+    date: new FormControl<string>(getLocalIsoDate(), { nonNullable: true }),
   });
 
   itemKey(item: AgendaItem): string {
@@ -165,7 +329,7 @@ export class AgendaPage implements OnInit {
       return 'Collected';
     }
     const key = this.itemKey(item);
-    if (this.willNotPayTodayIds().has(key) || this.willNotPayTodayIds().has(item.customerId) || item.status === 'WillNotPayToday') {
+    if (this.willNotPayTodayIds().has(key) || item.status === 'WillNotPayToday') {
       return 'WillNotPayToday';
     }
     return item.status;
@@ -193,11 +357,8 @@ export class AgendaPage implements OnInit {
       return false;
     }
     const st = this.effectiveStatus(item);
-    if (st === 'WillNotPayToday') {
+    if (st === 'WillNotPayToday' || st === 'UpToDate') {
       return false;
-    }
-    if (this.isDailyLoan(item) && item.loanBalance > 0) {
-      return true;
     }
     return st === 'DueToday' || st === 'Overdue';
   }
@@ -208,7 +369,7 @@ export class AgendaPage implements OnInit {
     const items = this.agenda()?.items ?? [];
     return items.reduce((sum, item) => {
       const st = this.effectiveStatus(item);
-      if (st === 'WillNotPayToday' || st === 'Collected') {
+      if (st === 'WillNotPayToday' || st === 'Collected' || st === 'UpToDate') {
         return sum;
       }
       if (item.dueTodayAmount > 0) {
@@ -220,12 +381,6 @@ export class AgendaPage implements OnInit {
           : item.overdueAmount;
         return sum + oneInstallment;
       }
-      if (this.isDailyLoan(item) && item.loanBalance > 0) {
-        const inst = (item.installmentAmount && item.installmentAmount > 0)
-          ? item.installmentAmount
-          : item.loanBalance;
-        return sum + Math.min(inst, item.loanBalance);
-      }
       return sum;
     }, 0);
   });
@@ -235,16 +390,10 @@ export class AgendaPage implements OnInit {
     const items = this.agenda()?.items ?? [];
     return items.reduce((sum, item) => {
       const st = this.effectiveStatus(item);
-      if (st === 'WillNotPayToday') {
+      if (st === 'WillNotPayToday' || st === 'UpToDate') {
         return sum;
       }
       let due = item.dueTodayAmount || 0;
-      if (due === 0 && this.isDailyLoan(item) && item.loanBalance > 0 && st !== 'Collected') {
-        const inst = (item.installmentAmount && item.installmentAmount > 0)
-          ? item.installmentAmount
-          : item.loanBalance;
-        due = Math.min(inst, item.loanBalance);
-      }
       return sum + due + (item.overdueAmount || 0);
     }, 0);
   });
@@ -329,13 +478,14 @@ export class AgendaPage implements OnInit {
       let statusMatches = true;
       if (statusSet.size > 0 && !statusSet.has('ALL')) {
         const st = this.effectiveStatus(item);
+        const matchPending = statusSet.has('PENDING') && this.isPending(item);
         const matchOverdue = statusSet.has('OVERDUE') && st === 'Overdue';
         const matchDueToday = statusSet.has('DUE_TODAY') && st === 'DueToday';
         const matchCollected = statusSet.has('COLLECTED') && (st === 'Collected' || item.collectedTodayAmount > 0);
         const matchWillNotPay = statusSet.has('WILL_NOT_PAY') && st === 'WillNotPayToday';
         const matchUpToDate = statusSet.has('UP_TO_DATE') && st === 'UpToDate';
 
-        statusMatches = matchOverdue || matchDueToday || matchCollected || matchWillNotPay || matchUpToDate;
+        statusMatches = matchPending || matchOverdue || matchDueToday || matchCollected || matchWillNotPay || matchUpToDate;
       }
 
       // 2. Frequency matching
@@ -428,7 +578,12 @@ export class AgendaPage implements OnInit {
 
       this.agenda.set(data);
 
-      const targetDateStr = date || new Date().toISOString().substring(0, 10);
+      if (data?.summary?.targetDate) {
+        this.selectedBusinessDate.set(data.summary.targetDate);
+        this.filterForm.patchValue({ date: data.summary.targetDate }, { emitEvent: false });
+      }
+
+      const targetDateStr = data?.summary?.targetDate || date || getLocalIsoDate();
       const loansToday = (loansRes.items ?? []).filter((l) => {
         const sDate = (l.startsAtUtc || l.createdAtUtc || '').substring(0, 10);
         return sDate === targetDateStr;
@@ -452,10 +607,15 @@ export class AgendaPage implements OnInit {
     }
     try {
       this.balanceLoading.set(true);
-      const bal = await this.routeFinancesService.getBalance(targetRouteId);
+      const [bal, closingStatus] = await Promise.all([
+        this.routeFinancesService.getBalance(targetRouteId).catch(() => null),
+        this.routeFinancesService.getDayClosingStatus(targetRouteId).catch(() => null),
+      ]);
       this.routeBalance.set(bal);
+      this.dayClosingStatus.set(closingStatus);
     } catch {
       this.routeBalance.set(null);
+      this.dayClosingStatus.set(null);
     } finally {
       this.balanceLoading.set(false);
     }
@@ -487,7 +647,8 @@ export class AgendaPage implements OnInit {
   }
 
   openFilterModal(): void {
-    this.tempStatuses.set(new Set(this.selectedStatuses()));
+    const current = this.selectedStatuses();
+    this.tempStatuses.set(new Set(current.size > 0 ? current : ['PENDING']));
     this.tempFrequencies.set(new Set(this.selectedFrequencies()));
     this.isFilterModalOpen.set(true);
   }
@@ -536,6 +697,10 @@ export class AgendaPage implements OnInit {
     const statuses = new Set(this.tempStatuses());
     const freqs = new Set(this.tempFrequencies());
 
+    if (statuses.size === 0) {
+      statuses.add('PENDING');
+    }
+
     this.selectedStatuses.set(statuses);
     this.selectedFrequencies.set(freqs);
 
@@ -544,9 +709,9 @@ export class AgendaPage implements OnInit {
   }
 
   clearFilters(): void {
-    this.tempStatuses.set(new Set());
+    this.tempStatuses.set(new Set(['PENDING']));
     this.tempFrequencies.set(new Set());
-    this.selectedStatuses.set(new Set());
+    this.selectedStatuses.set(new Set(['PENDING']));
     this.selectedFrequencies.set(new Set());
     this.activeNavSegment.set('PENDING');
     this.isFilterModalOpen.set(false);
@@ -642,6 +807,7 @@ export class AgendaPage implements OnInit {
 
   // Non-Payment modal workflows (persisted to Backend + local fallback)
   async openWillNotPayModal(item: AgendaItem): Promise<void> {
+    if (this.checkCajaBlocked()) return;
     this.targetWillNotPayItem.set(item);
     this.selectedReasonId.set('');
     this.customReasonName.set('');
@@ -708,11 +874,10 @@ export class AgendaPage implements OnInit {
 
       await this.agendaService.registerWillNotPay(request);
 
-      // Local optimistic update
+      // Local optimistic update per credit/loan
       this.willNotPayTodayIds.update((set) => {
         const next = new Set(set);
         next.add(key);
-        next.add(item.customerId);
         this.persistWillNotPayTodayIds(next, date);
         return next;
       });
@@ -728,7 +893,6 @@ export class AgendaPage implements OnInit {
       this.willNotPayTodayIds.update((set) => {
         const next = new Set(set);
         next.add(key);
-        next.add(item.customerId);
         this.persistWillNotPayTodayIds(next, date);
         return next;
       });
@@ -751,7 +915,9 @@ export class AgendaPage implements OnInit {
       this.willNotPayTodayIds.update((set) => {
         const next = new Set(set);
         next.delete(key);
-        next.delete(item.customerId);
+        if (item.activeLoanId) {
+          next.delete(item.activeLoanId);
+        }
         this.persistWillNotPayTodayIds(next, date);
         return next;
       });
@@ -764,7 +930,9 @@ export class AgendaPage implements OnInit {
       this.willNotPayTodayIds.update((set) => {
         const next = new Set(set);
         next.delete(key);
-        next.delete(item.customerId);
+        if (item.activeLoanId) {
+          next.delete(item.activeLoanId);
+        }
         this.persistWillNotPayTodayIds(next, date);
         return next;
       });
@@ -777,7 +945,7 @@ export class AgendaPage implements OnInit {
 
 
   private getDateKey(dateStr?: string): string {
-    const date = dateStr || this.filterForm.controls.date.value || new Date().toISOString().substring(0, 10);
+    const date = dateStr || this.filterForm.controls.date.value || getLocalIsoDate();
     return `cobroup_will_not_pay_${date}`;
   }
 
@@ -805,6 +973,11 @@ export class AgendaPage implements OnInit {
   }
 
   async openCollectModal(item: AgendaItem): Promise<void> {
+    if (this.checkCajaBlocked()) return;
+    if (this.isBoxPastDue()) {
+      this.error.set('No es posible realizar cobros en una caja de una fecha anterior. Debe registrar el motivo de no pago.');
+      return;
+    }
     if (!item.activeLoanId) {
       this.goToCollect(item);
       return;
@@ -812,6 +985,7 @@ export class AgendaPage implements OnInit {
     try {
       this.loading.set(true);
       const loan = await this.loansService.get(item.activeLoanId);
+      this.collectingItem.set(item);
       this.payingLoan.set(loan);
       this.isPaymentModalOpen.set(true);
     } catch {
@@ -824,17 +998,104 @@ export class AgendaPage implements OnInit {
   onPaymentModalClosed(): void {
     this.isPaymentModalOpen.set(false);
     this.payingLoan.set(null);
+    this.collectingItem.set(null);
   }
 
   async onPaymentSuccess(_payment: PaymentDetails): Promise<void> {
     this.isPaymentModalOpen.set(false);
     this.payingLoan.set(null);
+    const item = this.collectingItem();
+    const key = item ? this.itemKey(item) : (_payment.loanId || _payment.customerId);
+    const date = this.filterForm.controls.date.value;
+    this.willNotPayTodayIds.update((set) => {
+      const next = new Set(set);
+      if (key) {
+        next.delete(key);
+      }
+      if (item?.activeLoanId) {
+        next.delete(item.activeLoanId);
+      }
+      if (_payment.loanId) {
+        next.delete(_payment.loanId);
+      }
+      this.persistWillNotPayTodayIds(next, date);
+      return next;
+    });
+    this.collectingItem.set(null);
     this.success.set('Cobro registrado exitosamente.');
     setTimeout(() => this.success.set(''), 3500);
     await this.loadAgenda();
   }
 
+  async openEditPaymentFromAgenda(item: AgendaItem): Promise<void> {
+    if (this.isBoxClosed() || !item.activeLoanId) return;
+    try {
+      this.loading.set(true);
+      if (this.paymentMethods().length === 0) {
+        const methods = await this.paymentsService.getPaymentMethods();
+        this.paymentMethods.set(methods);
+      }
+      const payments = await this.paymentsService.listByLoan(item.activeLoanId);
+      const targetDate = this.selectedBusinessDate() || this.filterForm.controls.date.value;
+      const payment = payments.find((p) => p.registeredAtUtc.startsWith(targetDate)) || payments[0];
+      if (!payment) {
+        this.error.set('No se encontró el cobro registrado para este préstamo.');
+        return;
+      }
+      this.editingPayment.set(payment);
+      this.editingPaymentCustomerName.set(item.customerName);
+      this.editPaymentError.set('');
+      this.paymentEditForm.reset({
+        amount: payment.amount,
+        paymentMethodId: payment.paymentMethodId,
+        notes: payment.notes ?? '',
+      });
+      this.isEditPaymentModalOpen.set(true);
+    } catch (err) {
+      this.error.set(err instanceof Error ? err.message : 'No fue posible cargar el cobro.');
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  closeEditPaymentModal(): void {
+    if (this.submittingEditPayment()) return;
+    this.isEditPaymentModalOpen.set(false);
+    this.editingPayment.set(null);
+    this.editPaymentError.set('');
+  }
+
+  async submitPaymentEdit(): Promise<void> {
+    const payment = this.editingPayment();
+    if (!payment || this.paymentEditForm.invalid || this.submittingEditPayment()) {
+      this.paymentEditForm.markAllAsTouched();
+      return;
+    }
+    const { amount, paymentMethodId, notes } = this.paymentEditForm.getRawValue();
+    if (!amount || !paymentMethodId) return;
+
+    this.submittingEditPayment.set(true);
+    this.editPaymentError.set('');
+    try {
+      await this.paymentsService.updatePayment(payment.id, {
+        amount,
+        paymentMethodId,
+        notes: notes.trim() || null,
+      });
+      this.isEditPaymentModalOpen.set(false);
+      this.editingPayment.set(null);
+      this.success.set('Cobro modificado con éxito.');
+      setTimeout(() => this.success.set(''), 3500);
+      await this.loadAgenda();
+    } catch (err) {
+      this.editPaymentError.set(err instanceof Error ? err.message : 'No fue posible modificar el cobro.');
+    } finally {
+      this.submittingEditPayment.set(false);
+    }
+  }
+
   goToCollect(item: AgendaItem): void {
+    if (this.checkCajaBlocked()) return;
     if (item.activeLoanId) {
       void this.router.navigate(['/prestamos'], { queryParams: { loanId: item.activeLoanId } });
     } else {
@@ -843,11 +1104,13 @@ export class AgendaPage implements OnInit {
   }
 
   openCreateCustomerModal(): void {
+    if (this.checkCajaBlocked()) return;
     this.isCustomerModalOpen.set(true);
     this.nuevoPrestamoComponent?.openNewCustomer();
   }
 
   openNewLoanModal(): void {
+    if (this.checkCajaBlocked()) return;
     this.isLoanModalOpen.set(true);
     this.nuevoPrestamoComponent?.openExistingCustomer();
   }
@@ -864,5 +1127,114 @@ export class AgendaPage implements OnInit {
     this.success.set('Préstamo originado exitosamente.');
     setTimeout(() => this.success.set(''), 3500);
     await this.loadAgenda();
+  }
+
+  async openLoanSummary(item: AgendaItem): Promise<void> {
+    if (!item.activeLoanId) return;
+    this.selectedSummaryItem.set(item);
+    this.isLoanSummaryOpen.set(true);
+    this.loadingLoanSummary.set(true);
+    this.selectedLoanSummary.set(null);
+    this.selectedLoanPayments.set([]);
+
+    try {
+      const [loan, payments] = await Promise.all([
+        this.loansService.get(item.activeLoanId),
+        this.paymentsService.listByLoan(item.activeLoanId).catch(() => []),
+      ]);
+      this.selectedLoanSummary.set(loan);
+      this.selectedLoanPayments.set(payments);
+    } catch {
+      this.error.set('No se pudo cargar el detalle del crédito.');
+      setTimeout(() => this.error.set(''), 3500);
+    } finally {
+      this.loadingLoanSummary.set(false);
+    }
+  }
+
+  closeLoanSummary(): void {
+    this.isLoanSummaryOpen.set(false);
+    this.selectedLoanSummary.set(null);
+    this.selectedLoanPayments.set([]);
+    this.selectedSummaryItem.set(null);
+    this.isStatusVoucherOpen.set(false);
+  }
+
+  async generateStatusVoucherFromSummary(): Promise<void> {
+    const loan = this.selectedLoanSummary();
+    const item = this.selectedSummaryItem();
+    if (!loan) return;
+
+    this.generatingStatusVoucher.set(true);
+    try {
+      const payments = this.selectedLoanPayments();
+      const paymentHistory: LoanPaymentHistoryItem[] = payments.map((p) => ({
+        date: new Date(p.registeredAtUtc).toLocaleDateString('es-CO'),
+        amount: p.amount,
+        paymentMethodName: p.paymentMethodName,
+        notes: p.notes,
+      }));
+
+      const pendingInstallments: LoanVoucherInstallment[] = loan.installments
+        .filter((inst) => inst.status !== 'Paid')
+        .map((inst) => ({
+          number: inst.number,
+          dueDate: inst.dueDate,
+          expectedAmount: inst.expectedAmount - inst.paidAmount,
+        }));
+
+      const data: LoanStatusVoucherData = {
+        customerName: loan.customerName,
+        customerIdentification: undefined,
+        customerPhone: item?.primaryPhone || undefined,
+        routeName: loan.routeName,
+        principalAmount: loan.principalAmount,
+        totalAmount: loan.totalAmount,
+        balanceAmount: loan.balanceAmount,
+        totalPaidAmount: loan.paidAmount || (loan.totalAmount - loan.balanceAmount),
+        startDate: loan.startsAtUtc ? loan.startsAtUtc.split('T')[0] : (loan.installments[0]?.dueDate || ''),
+        dueDate: loan.dueAtUtc ? loan.dueAtUtc.split('T')[0] : (loan.installments[loan.installments.length - 1]?.dueDate || ''),
+        paymentFrequency: loan.paymentFrequency,
+        frequencyNDays: loan.frequencyNDays,
+        paymentHistory,
+        pendingInstallments,
+      };
+
+      const voucher = await generateLoanStatusVoucherImage(data);
+      this.statusVoucherData.set(data);
+      this.generatedStatusVoucher.set(voucher);
+      this.statusVoucherImage.set(voucher.dataUrl);
+      this.isStatusVoucherOpen.set(true);
+    } catch {
+      this.error.set('Error al generar el comprobante de estado.');
+      setTimeout(() => this.error.set(''), 3500);
+    } finally {
+      this.generatingStatusVoucher.set(false);
+    }
+  }
+
+  closeStatusVoucher(): void {
+    this.isStatusVoucherOpen.set(false);
+    this.statusVoucherImage.set('');
+    this.generatedStatusVoucher.set(null);
+    this.statusVoucherData.set(null);
+  }
+
+  async shareStatusVoucher(): Promise<void> {
+    const voucher = this.generatedStatusVoucher();
+    const data = this.statusVoucherData();
+    if (voucher && data) {
+      await shareLoanStatusVoucher(voucher, data, false);
+    }
+  }
+
+  formatFrequency(frequency?: string, nDays?: number | null): string {
+    switch (frequency) {
+      case 'Daily': return 'Diario';
+      case 'Weekly': return 'Semanal';
+      case 'Monthly': return 'Mensual';
+      case 'EveryNDays': return nDays ? `Cada ${nDays} días` : 'Cada N días';
+      default: return frequency || 'Diario';
+    }
   }
 }

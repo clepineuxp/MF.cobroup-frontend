@@ -14,12 +14,13 @@ import {
   RouteFinancialEntry,
   RouteFinancialEntryType,
   SaveRouteFinancialEntryRequest,
+  EligibleLoanForMicroinsurance,
 } from '../data/route-finance.models';
 import { RouteFinancesService } from '../data/route-finances.service';
 import { PaymentDetails, PaymentMethodItem } from '../../payments/data/payment.models';
 import { LoanSearchItem } from '../../loans/data/loan.models';
 
-export type FilterPeriod = 'daily' | 'weekly' | 'monthly';
+export type FilterPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'range';
 
 export interface FinancialMovementItem {
   readonly id: string;
@@ -27,7 +28,7 @@ export interface FinancialMovementItem {
   readonly routeName?: string;
   readonly section: 'income' | 'expense';
   readonly badge: string;
-  readonly badgeClass: 'income' | 'investment' | 'expense' | 'payment' | 'loan';
+  readonly badgeClass: 'income' | 'investment' | 'expense' | 'payment' | 'loan' | 'microinsurance';
   readonly concept: string;
   readonly description?: string | null;
   readonly amount: number;
@@ -80,6 +81,8 @@ export class RouteFinancePage {
   // Period & Date Filter State
   readonly periodType = signal<FilterPeriod>('daily');
   readonly selectedDate = signal<Date>(new Date());
+  readonly rangeStartDate = signal<string>('');
+  readonly rangeEndDate = signal<string>('');
 
   // Raw Movements
   readonly movements = signal<readonly FinancialMovementItem[]>([]);
@@ -96,6 +99,7 @@ export class RouteFinancePage {
   readonly modalMode = signal<'create' | 'edit'>('create');
   readonly editingEntry = signal<RouteFinancialEntry | null>(null);
   readonly modalError = signal('');
+  readonly eligibleLoans = signal<readonly EligibleLoanForMicroinsurance[]>([]);
 
   readonly modalForm = new FormGroup({
     targetRouteId: new FormControl<string>('', { nonNullable: true, validators: [Validators.required] }),
@@ -111,6 +115,7 @@ export class RouteFinancePage {
     amount: new FormControl<number | null>(null, {
       validators: [Validators.required, Validators.min(0.01)],
     }),
+    loanId: new FormControl<string | null>(null),
   });
 
   // Payment Edit Modal State
@@ -185,6 +190,29 @@ export class RouteFinancePage {
           itemDate.getMonth() === target.getMonth()
         );
       }
+      if (period === 'yearly') {
+        return itemDate.getFullYear() === target.getFullYear();
+      }
+      if (period === 'range') {
+        const startStr = this.rangeStartDate();
+        const endStr = this.rangeEndDate();
+        if (!startStr && !endStr) return true;
+        if (startStr && !endStr) {
+          const s = new Date(startStr);
+          s.setHours(0, 0, 0, 0);
+          return itemDate >= s;
+        }
+        if (!startStr && endStr) {
+          const e = new Date(endStr);
+          e.setHours(23, 59, 59, 999);
+          return itemDate <= e;
+        }
+        const s = new Date(startStr);
+        s.setHours(0, 0, 0, 0);
+        const e = new Date(endStr);
+        e.setHours(23, 59, 59, 999);
+        return itemDate >= s && itemDate <= e;
+      }
       return true;
     });
   });
@@ -229,7 +257,24 @@ export class RouteFinancePage {
       return `Semana del ${start.getDate()} ${months[start.getMonth()].slice(0, 3)} al ${end.getDate()} ${months[end.getMonth()].slice(0, 3)} ${target.getFullYear()}`;
     }
 
-    return `Mes de ${months[target.getMonth()]} de ${target.getFullYear()}`;
+    if (period === 'monthly') {
+      return `Mes de ${months[target.getMonth()]} de ${target.getFullYear()}`;
+    }
+
+    if (period === 'yearly') {
+      return `Año ${target.getFullYear()}`;
+    }
+
+    if (period === 'range') {
+      const s = this.rangeStartDate();
+      const e = this.rangeEndDate();
+      if (!s && !e) return 'Rango de fechas sin seleccionar';
+      if (s && !e) return `Desde ${s}`;
+      if (!s && e) return `Hasta ${e}`;
+      return `Del ${s} al ${e}`;
+    }
+
+    return '';
   });
 
   // Day buttons strip for daily selector: 7 days of the week around selectedDate
@@ -258,6 +303,19 @@ export class RouteFinancePage {
   constructor() {
     void this.loadRoutes();
     void this.loadPaymentMethods();
+
+    this.route?.queryParamMap.subscribe((params) => {
+      const qTab = (params.get('tab') || params.get('section') || '').toLowerCase();
+      if (qTab === 'expense' || qTab === 'expenses' || qTab === 'ventas' || qTab === 'gastos') {
+        this.activeTab.set('expense');
+      } else if (qTab === 'income' || qTab === 'incomes' || qTab === 'recaudos' || qTab === 'ingresos') {
+        this.activeTab.set('income');
+      }
+      const qRoute = params.get('routeId');
+      if (qRoute && this.routes().some((r) => r.id === qRoute) && qRoute !== this.selectedRouteId()) {
+        void this.selectRoute(qRoute);
+      }
+    });
   }
 
   async selectRoute(routeId: string): Promise<void> {
@@ -290,8 +348,18 @@ export class RouteFinancePage {
       curr.setDate(curr.getDate() + direction * 7);
     } else if (period === 'monthly') {
       curr.setMonth(curr.getMonth() + direction);
+    } else if (period === 'yearly') {
+      curr.setFullYear(curr.getFullYear() + direction);
     }
     this.selectedDate.set(curr);
+  }
+
+  setRangeStartDate(val: string): void {
+    this.rangeStartDate.set(val);
+  }
+
+  setRangeEndDate(val: string): void {
+    this.rangeEndDate.set(val);
   }
 
   openCreateModal(section: 'income' | 'expense'): void {
@@ -308,8 +376,42 @@ export class RouteFinancePage {
       concept: '',
       description: '',
       amount: null,
+      loanId: null,
     });
+    if (section === 'income') {
+      void this.loadEligibleLoans(targetRoute);
+    }
     this.isModalOpen.set(true);
+  }
+
+  async loadEligibleLoans(routeId: string): Promise<void> {
+    if (!routeId) {
+      this.eligibleLoans.set([]);
+      return;
+    }
+    try {
+      const list = await this.finances.getEligibleLoansForMicroinsurance(routeId);
+      this.eligibleLoans.set(list);
+    } catch {
+      this.eligibleLoans.set([]);
+    }
+  }
+
+  async onEntryTypeChanged(type: RouteFinancialEntryType): Promise<void> {
+    if (type === 'Microinsurance') {
+      const routeId = this.modalForm.controls.targetRouteId.value || this.selectedRouteId();
+      await this.loadEligibleLoans(routeId);
+    }
+  }
+
+  onLoanSelected(): void {
+    const loanId = this.modalForm.controls.loanId.value;
+    if (loanId) {
+      const loan = this.eligibleLoans().find((l) => l.loanId === loanId);
+      if (loan) {
+        this.modalForm.patchValue({ concept: `Microseguro - ${loan.customerName}` });
+      }
+    }
   }
 
   openEditModal(entry: RouteFinancialEntry): void {
@@ -325,7 +427,11 @@ export class RouteFinancePage {
       concept: entry.concept,
       description: entry.description ?? '',
       amount: entry.amount,
+      loanId: entry.loanId ?? null,
     });
+    if (section === 'income') {
+      void this.loadEligibleLoans(entry.routeId);
+    }
     this.isModalOpen.set(true);
   }
 
@@ -350,12 +456,20 @@ export class RouteFinancePage {
     try {
       const formValue = this.modalForm.getRawValue();
       const isExpense = this.modalSection() === 'expense';
+
+      if (!isExpense && formValue.type === 'Microinsurance' && !formValue.loanId) {
+        this.modalError.set('Debes seleccionar el crédito al que se vinculará el microseguro.');
+        this.saving.set(false);
+        return;
+      }
+
       const request: SaveRouteFinancialEntryRequest = {
         routeId: formValue.targetRouteId,
         type: isExpense ? 'Expense' : formValue.type,
         concept: formValue.concept.trim(),
         description: formValue.description.trim() || null,
         amount: formValue.amount!,
+        loanId: !isExpense && formValue.type === 'Microinsurance' ? formValue.loanId : null,
       };
 
       const editing = this.editingEntry();
@@ -384,7 +498,7 @@ export class RouteFinancePage {
   async closeDay(): Promise<void> {
     const routeId = this.selectedRouteId();
     if (!routeId || this.isDayClosed()) return;
-    if (!confirm('¿Deseas cerrar el día para esta ruta? Al cerrar el día, no se podrán realizar cobros, préstamos, ingresos ni gastos hasta el día siguiente.')) {
+    if (!confirm('¿Deseas cerrar la caja para esta ruta? Al cerrar la caja, no se podrán realizar cobros, préstamos, ingresos ni gastos hasta que se abra una nueva caja o se reabra desde el panel administrativo.')) {
       return;
     }
     this.closingInProgress.set(true);
@@ -392,10 +506,10 @@ export class RouteFinancePage {
     try {
       const status = await this.finances.closeDay(routeId);
       this.dayClosing.set(status);
-      this.success.set('Día cerrado exitosamente.');
+      this.success.set('Caja cerrada exitosamente.');
       await this.reload();
     } catch (err) {
-      this.error.set(err instanceof Error ? err.message : 'No fue posible cerrar el día.');
+      this.error.set(err instanceof Error ? err.message : 'No fue posible cerrar la caja.');
     } finally {
       this.closingInProgress.set(false);
     }
@@ -612,8 +726,17 @@ export class RouteFinancePage {
       const queryRouteId = this.route?.snapshot?.queryParamMap?.get('routeId');
       if (queryRouteId && routes.some((r) => r.id === queryRouteId)) {
         this.selectedRouteId.set(queryRouteId);
+      } else if (routes.length === 1) {
+        this.selectedRouteId.set(routes[0].id);
       } else {
         this.selectedRouteId.set('');
+      }
+
+      const qTab = (this.route?.snapshot?.queryParamMap?.get('tab') || this.route?.snapshot?.queryParamMap?.get('section') || '').toLowerCase();
+      if (qTab === 'expense' || qTab === 'expenses' || qTab === 'ventas' || qTab === 'gastos') {
+        this.activeTab.set('expense');
+      } else if (qTab === 'income' || qTab === 'incomes' || qTab === 'recaudos' || qTab === 'ingresos') {
+        this.activeTab.set('income');
       }
       await this.reload();
     } catch (err) {
@@ -728,11 +851,11 @@ export class RouteFinancePage {
     // 1. Manual Incomes & Investments
     for (const e of manualIncomes) {
       items.push({
-        id: `manual-${e.id}`,
+        id: `manual-inc-${e.routeId}-${e.id}`,
         routeId: e.routeId,
         section: 'income',
-        badge: e.type === 'Investment' ? 'Inversión' : 'Ingreso',
-        badgeClass: e.type === 'Investment' ? 'investment' : 'income',
+        badge: e.type === 'Investment' ? 'Inversión' : e.type === 'Microinsurance' ? 'Microseguro' : 'Ingreso',
+        badgeClass: e.type === 'Investment' ? 'investment' : e.type === 'Microinsurance' ? 'microinsurance' : 'income',
         concept: e.concept,
         description: e.description,
         amount: e.amount,
@@ -768,7 +891,7 @@ export class RouteFinancePage {
     // 3. Manual Expenses
     for (const e of manualExpenses) {
       items.push({
-        id: `manual-${e.id}`,
+        id: `manual-exp-${e.routeId}-${e.id}`,
         routeId: e.routeId,
         section: 'expense',
         badge: 'Gasto',

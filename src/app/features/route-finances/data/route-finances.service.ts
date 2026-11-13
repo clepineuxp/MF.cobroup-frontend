@@ -7,6 +7,7 @@ import {
   RouteFinanceSection,
   RouteFinancialEntry,
   SaveRouteFinancialEntryRequest,
+  EligibleLoanForMicroinsurance,
 } from './route-finance.models';
 
 @Injectable({ providedIn: 'root' })
@@ -47,6 +48,13 @@ export class RouteFinancesService {
     return this.read<RouteDayClosingStatus>(
       `${this.baseUrl}/${routeId}/closing-status`,
       'No fue posible consultar el estado del día para la ruta.'
+    );
+  }
+
+  async getEligibleLoansForMicroinsurance(routeId: string): Promise<readonly EligibleLoanForMicroinsurance[]> {
+    return this.read<readonly EligibleLoanForMicroinsurance[]>(
+      `${this.baseUrl}/routes/${encodeURIComponent(routeId)}/microinsurance-eligible-loans`,
+      'No fue posible consultar los créditos elegibles para microseguro.'
     );
   }
 

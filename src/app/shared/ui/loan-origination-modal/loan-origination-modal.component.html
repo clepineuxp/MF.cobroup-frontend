@@ -41,13 +41,45 @@
           <span class="spinner"></span>
           <p>Cargando información de originación...</p>
         </div>
+      } @else if (voucherStep()) {
+        <div class="voucher-step-container">
+          <div class="voucher-preview-scroll">
+            <img [src]="voucherImage()" alt="Plan de pagos y comprobante de crédito" class="voucher-preview-image" />
+          </div>
+
+          <div class="voucher-actions-footer">
+            <button
+              type="button"
+              class="btn-voucher btn-voucher-correct"
+              (click)="correctVoucher()"
+              [disabled]="submitting()"
+            >
+              ✏️ Corregir
+            </button>
+            <button
+              type="button"
+              class="btn-voucher btn-voucher-confirm"
+              (click)="confirmVoucherOnly()"
+              [disabled]="submitting()"
+            >
+              ✓ {{ submitting() ? 'Originando...' : 'Confirmar' }}
+            </button>
+            <button
+              type="button"
+              class="btn-voucher btn-voucher-share"
+              (click)="confirmAndSendVoucher()"
+              [disabled]="submitting()"
+            >
+              🚀 {{ submitting() ? 'Originando...' : 'Confirmar y enviar' }}
+            </button>
+          </div>
+        </div>
       } @else {
         <form [formGroup]="form" (ngSubmit)="submitOrigination()" class="modal-body">
           <div class="form-section">
             <div class="customer-combobox">
               <label class="clean-field" for="loan-customer-search"><span class="field-label">Cliente activo *</span></label>
-              <input id="loan-customer-search" type="text" role="combobox" autocomplete="off" aria-autocomplete="list" aria-controls="loan-customer-options" aria-describedby="loan-customer-help" [attr.aria-expanded]="customerOptionsOpen()" [attr.aria-activedescendant]="customerOptionsOpen() && customerMatches().length ? 'loan-customer-option-' + activeCustomerIndex() : null" [value]="customerQuery()" (input)="searchCustomers($any($event.target).value)" (focus)="openCustomerOptions()" (blur)="customerOptionsOpen.set(false)" (keydown)="customerKeydown($event)" placeholder="Buscar por nombre, comercio o teléfono…" />
-              <small id="loan-customer-help">Escribe para buscar y selecciona un cliente de la lista.</small>
+              <input id="loan-customer-search" type="text" role="combobox" autocomplete="off" aria-autocomplete="list" aria-controls="loan-customer-options" [attr.aria-expanded]="customerOptionsOpen()" [attr.aria-activedescendant]="customerOptionsOpen() && customerMatches().length ? 'loan-customer-option-' + activeCustomerIndex() : null" [value]="customerQuery()" (input)="searchCustomers($any($event.target).value)" (focus)="openCustomerOptions()" (blur)="customerOptionsOpen.set(false)" (keydown)="customerKeydown($event)" placeholder="Buscar por nombre, comercio o teléfono…" />
               @if (customerOptionsOpen()) {
                 <div class="customer-options" id="loan-customer-options" role="listbox" aria-label="Clientes activos" [attr.aria-busy]="customerSearching()">
                   @for (customer of customerMatches(); track customer.id; let index = $index) {
@@ -88,8 +120,6 @@
               } @else {
                 <p class="template-empty-hint">No hay plantillas publicadas asignadas a la ruta de este cliente.</p>
               }
-              <p class="template-field-help">Ingresa el monto, el interés y el número de cuotas. La plantilla solo define los límites permitidos.</p>
-              @if (!form.controls.customerId.value && !defaultRouteId) { <p class="template-field-help">Selecciona primero un cliente para ver las plantillas de su ruta.</p> }
             } @else {
               <label class="clean-field">
                 <span class="field-label">Solicitud de excepción aprobada *</span>
@@ -113,6 +143,11 @@
               <label class="clean-field">
                 <span class="field-label">Tasa Interés (%) *</span>
                 <input type="number" formControlName="interestRate" (input)="calculatePreview()" placeholder="Ej: 15" />
+              </label>
+
+              <label class="clean-field">
+                <span class="field-label">Microseguro ($)</span>
+                <input type="number" formControlName="microinsuranceAmount" (input)="calculatePreview()" placeholder="0" min="0" />
               </label>
             </div>
 
@@ -159,6 +194,14 @@
                 <div class="stat-pill">
                   <span class="stat-label">Total a Pagar</span>
                   <strong class="stat-value">{{ sch.totalAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+                </div>
+                <div class="stat-pill">
+                  <span class="stat-label">Total Entregado</span>
+                  <strong class="stat-value text-success">{{ netDisbursedAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+                </div>
+                <div class="stat-pill">
+                  <span class="stat-label">Microseguro</span>
+                  <strong class="stat-value">{{ (form.controls.microinsuranceAmount.value || 0) | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
                 </div>
                 <div class="stat-pill">
                   <span class="stat-label">Interés Total</span>

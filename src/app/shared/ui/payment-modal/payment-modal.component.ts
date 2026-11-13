@@ -4,6 +4,14 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { LoanDetails } from '../../../features/loans/data/loan.models';
 import { PaymentDetails, PaymentMethodItem } from '../../../features/payments/data/payment.models';
 import { PaymentsService } from '../../../features/payments/data/payments.service';
+import {
+  generateLoanStatusVoucherImage,
+  GeneratedLoanVoucher,
+  LoanPaymentHistoryItem,
+  LoanStatusVoucherData,
+  LoanVoucherInstallment,
+  shareLoanStatusVoucher,
+} from '../../utils/loan-voucher';
 
 export interface LiveAllocationPreviewItem {
   readonly installmentNumber: number;
@@ -23,6 +31,8 @@ export interface LiveAllocationPreviewItem {
 export class PaymentModalComponent implements OnChanges {
   @Input() isOpen = false;
   @Input() loan: LoanDetails | null = null;
+  @Input() customerPhone?: string;
+  @Input() customerIdentification?: string;
 
   @Output() readonly closed = new EventEmitter<void>();
   @Output() readonly paymentSuccess = new EventEmitter<PaymentDetails>();
@@ -38,6 +48,13 @@ export class PaymentModalComponent implements OnChanges {
   readonly allocationPreview = signal<readonly LiveAllocationPreviewItem[]>([]);
   readonly evidenceFileName = signal<string>('');
   readonly evidenceBase64 = signal<string>('');
+
+  // Voucher step signals
+  readonly voucherStep = signal(false);
+  readonly voucherImage = signal('');
+  readonly generatedVoucher = signal<GeneratedLoanVoucher | null>(null);
+  readonly voucherData = signal<LoanStatusVoucherData | null>(null);
+  readonly existingPayments = signal<readonly PaymentDetails[]>([]);
 
   readonly form = new FormGroup({
     amount: new FormControl<number | null>(null, {
@@ -62,6 +79,11 @@ export class PaymentModalComponent implements OnChanges {
     this.evidenceFileName.set('');
     this.evidenceBase64.set('');
     this.allocationPreview.set([]);
+    this.voucherStep.set(false);
+    this.voucherImage.set('');
+    this.generatedVoucher.set(null);
+    this.voucherData.set(null);
+    this.existingPayments.set([]);
     this.loading.set(true);
 
     try {
@@ -69,6 +91,10 @@ export class PaymentModalComponent implements OnChanges {
       this.paymentMethods.set(methods);
 
       if (this.loan) {
+        // Fetch existing payment history for voucher projection
+        const prev = await this.paymentsService.listByLoan(this.loan.id).catch(() => []);
+        this.existingPayments.set(prev);
+
         // Default amount to next pending installment amount or full balance
         const nextPending = this.loan.installments.find((i) => i.status !== 'Paid');
         const defaultAmount = nextPending
@@ -147,6 +173,10 @@ export class PaymentModalComponent implements OnChanges {
     }
   }
 
+  /**
+   * Generates the payment voucher preview with pending installments and payment history.
+   * Prompts user with 3 options: Confirmar, Confirmar y enviar, Corregir.
+   */
   async submitPayment(): Promise<void> {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -162,6 +192,93 @@ export class PaymentModalComponent implements OnChanges {
       this.error.set(`El importe (${amount}) no puede superar el saldo pendiente (${this.loan.balanceAmount}).`);
       return;
     }
+
+    this.submitting.set(true);
+    this.error.set('');
+
+    try {
+      const paymentMethodName = this.paymentMethods().find((m) => m.id === raw.paymentMethodId)?.name || 'Efectivo';
+      const newPaymentItem: LoanPaymentHistoryItem = {
+        date: new Date().toLocaleDateString('es-CO'),
+        amount,
+        paymentMethodName,
+        notes: raw.notes || null,
+        remainingBalance: Math.max(0, this.loan.balanceAmount - amount),
+        isNew: true,
+      };
+
+      const historyItems: LoanPaymentHistoryItem[] = this.existingPayments().map((p) => ({
+        date: new Date(p.registeredAtUtc).toLocaleDateString('es-CO'),
+        amount: p.amount,
+        paymentMethodName: p.paymentMethodName,
+        notes: p.notes,
+      }));
+
+      const pendingInstallments: LoanVoucherInstallment[] = [];
+      for (const inst of this.loan.installments) {
+        if (inst.status === 'Paid') continue;
+        const alloc = this.allocationPreview().find((a) => a.installmentNumber === inst.number);
+        if (alloc && alloc.isFullyCovered) {
+          continue; // completely covered by this payment
+        }
+        const currentPending = inst.expectedAmount - inst.paidAmount;
+        const allocatedHere = alloc ? alloc.newAllocatedAmount : 0;
+        const remainingDue = currentPending - allocatedHere;
+        if (remainingDue > 0) {
+          pendingInstallments.push({
+            number: inst.number,
+            dueDate: inst.dueDate,
+            expectedAmount: remainingDue,
+          });
+        }
+      }
+
+      const voucherData: LoanStatusVoucherData = {
+        customerName: this.loan.customerName,
+        customerIdentification: this.customerIdentification,
+        customerPhone: this.customerPhone,
+        routeName: this.loan.routeName,
+        principalAmount: this.loan.principalAmount,
+        totalAmount: this.loan.totalAmount,
+        balanceAmount: Math.max(0, this.loan.balanceAmount - amount),
+        totalPaidAmount: (this.loan.totalAmount - this.loan.balanceAmount) + amount,
+        startDate: this.loan.startsAtUtc ? this.loan.startsAtUtc.split('T')[0] : (this.loan.installments[0]?.dueDate || ''),
+        dueDate: this.loan.dueAtUtc ? this.loan.dueAtUtc.split('T')[0] : (this.loan.installments[this.loan.installments.length - 1]?.dueDate || ''),
+        paymentFrequency: this.loan.paymentFrequency,
+        frequencyNDays: this.loan.frequencyNDays,
+        paymentHistory: [newPaymentItem, ...historyItems],
+        pendingInstallments,
+      };
+
+      const voucher = await generateLoanStatusVoucherImage(voucherData);
+      this.voucherData.set(voucherData);
+      this.generatedVoucher.set(voucher);
+      this.voucherImage.set(voucher.dataUrl);
+      this.voucherStep.set(true);
+    } catch (err) {
+      this.error.set(err instanceof Error ? err.message : 'Error al generar el comprobante.');
+    } finally {
+      this.submitting.set(false);
+    }
+  }
+
+  correctPayment(): void {
+    this.voucherStep.set(false);
+  }
+
+  async confirmPaymentOnly(): Promise<void> {
+    await this.executePaymentRegistration(false);
+  }
+
+  async confirmAndSendPayment(): Promise<void> {
+    await this.executePaymentRegistration(true);
+  }
+
+  private async executePaymentRegistration(sendVoucher: boolean): Promise<void> {
+    if (!this.loan) return;
+
+    const raw = this.form.getRawValue();
+    const amount = raw.amount!;
 
     this.submitting.set(true);
     this.error.set('');
@@ -192,6 +309,16 @@ export class PaymentModalComponent implements OnChanges {
         }
       }
 
+      // If send was requested, dispatch through Web Share / WhatsApp
+      if (sendVoucher && this.generatedVoucher() && this.voucherData()) {
+        try {
+          await shareLoanStatusVoucher(this.generatedVoucher()!, this.voucherData()!, true);
+        } catch {
+          // Non-blocking share error
+        }
+      }
+
+      this.voucherStep.set(false);
       this.successPayment.set(payment);
       this.paymentSuccess.emit(payment);
     } catch (err) {

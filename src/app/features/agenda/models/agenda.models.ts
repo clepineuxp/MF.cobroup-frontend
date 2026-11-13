@@ -40,6 +40,8 @@ export interface AgendaSummary {
   collectedCount: number;
   upToDateCount: number;
   willNotPayCount?: number;
+  isBoxPastDue?: boolean;
+  boxBusinessDate?: string | null;
 }
 
 export interface NonPaymentReason {

@@ -46,6 +46,7 @@ describe('PaymentModalComponent', () => {
       allocations: [{ installmentNumber: 1, amountAllocated: 28750, isFullyCovered: true }],
     }),
     attachEvidence: vi.fn().mockResolvedValue({}),
+    listByLoan: vi.fn().mockResolvedValue([]),
   };
 
   beforeEach(async () => {
@@ -89,7 +90,7 @@ describe('PaymentModalComponent', () => {
     expect(comp.allocationPreview()[1].isFullyCovered).toBe(true);
   });
 
-  it('submits payment with client UUID idempotency key and displays receipt', async () => {
+  it('generates voucher on submit, allows correction and confirms payment', async () => {
     const fixture = TestBed.createComponent(PaymentModalComponent);
     const comp = fixture.componentInstance;
     comp.isOpen = true;
@@ -99,7 +100,23 @@ describe('PaymentModalComponent', () => {
     let successPayload: unknown = null;
     comp.paymentSuccess.subscribe((p) => (successPayload = p));
 
+    // 1. Submit form -> proceeds to voucher preview step without registering payment yet
     await comp.submitPayment();
+
+    expect(comp.voucherStep()).toBe(true);
+    expect(comp.voucherData()).toBeTruthy();
+    expect(comp.voucherImage()).toBeTruthy();
+    expect(paymentsService.registerPayment).not.toHaveBeenCalled();
+
+    // 2. Can correct payment -> returns to form
+    comp.correctPayment();
+    expect(comp.voucherStep()).toBe(false);
+
+    // 3. Submit again and confirm payment
+    await comp.submitPayment();
+    expect(comp.voucherStep()).toBe(true);
+
+    await comp.confirmPaymentOnly();
 
     expect(paymentsService.registerPayment).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -111,5 +128,6 @@ describe('PaymentModalComponent', () => {
     );
     expect(successPayload).toBeTruthy();
     expect(comp.successPayment()).toBeTruthy();
+    expect(comp.voucherStep()).toBe(false);
   });
 });

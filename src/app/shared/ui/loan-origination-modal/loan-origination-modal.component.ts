@@ -9,6 +9,12 @@ import { LoanExceptionsService } from '../../../features/loan-exceptions/data/lo
 import { LoanExceptionItem } from '../../../features/loan-exceptions/data/loan-exception.models';
 import { CalculatedSchedule, LoanDetails, PaymentFrequency } from '../../../features/loans/data/loan.models';
 import { LoansService } from '../../../features/loans/data/loans.service';
+import {
+  GeneratedLoanVoucher,
+  LoanVoucherData,
+  generateLoanVoucherImage,
+  shareLoanVoucher,
+} from '../../utils/loan-voucher';
 
 @Component({
   selector: 'app-loan-origination-modal',
@@ -35,6 +41,11 @@ export class LoanOriginationModalComponent implements OnChanges {
   readonly templates = signal<readonly AvailableLoanTemplate[]>([]);
   readonly approvedExceptions = signal<readonly LoanExceptionItem[]>([]);
   readonly schedulePreview = signal<CalculatedSchedule | null>(null);
+
+  readonly voucherStep = signal(false);
+  readonly voucherImage = signal<string | null>(null);
+  readonly voucherData = signal<LoanVoucherData | null>(null);
+  readonly voucherGenerated = signal<GeneratedLoanVoucher | null>(null);
 
   readonly loading = signal(false);
   readonly submitting = signal(false);
@@ -145,6 +156,9 @@ export class LoanOriginationModalComponent implements OnChanges {
     interestRate: new FormControl<number | null>(null, {
       validators: [Validators.required, Validators.min(0)],
     }),
+    microinsuranceAmount: new FormControl<number | null>(0, {
+      validators: [Validators.min(0)],
+    }),
     paymentFrequency: new FormControl<PaymentFrequency>('Daily', {
       nonNullable: true,
       validators: [Validators.required],
@@ -175,6 +189,7 @@ export class LoanOriginationModalComponent implements OnChanges {
       exceptionRequestId: '',
       principalAmount: null,
       interestRate: null,
+      microinsuranceAmount: 0,
       paymentFrequency: 'Daily',
       frequencyNDays: null,
       installmentCount: null,
@@ -182,6 +197,10 @@ export class LoanOriginationModalComponent implements OnChanges {
     });
     this.originationMode.set('template');
     this.schedulePreview.set(null);
+    this.voucherStep.set(false);
+    this.voucherImage.set(null);
+    this.voucherData.set(null);
+    this.voucherGenerated.set(null);
     this.error.set('');
     this.success.set('');
     this.loading.set(true);
@@ -198,13 +217,14 @@ export class LoanOriginationModalComponent implements OnChanges {
       this.templates.set(templatesRes);
       this.approvedExceptions.set(exceptionsRes.items);
 
+      if (this.originationMode() === 'template' && this.availableTemplates.length > 0) {
+        this.form.patchValue({ loanTemplateId: this.availableTemplates[0].id });
+      }
+
       if (this.preselectedCustomerId) {
         this.form.patchValue({ customerId: this.preselectedCustomerId });
         const customer = this.customers().find(item => item.id === this.preselectedCustomerId);
         if (customer) this.customerQuery.set(this.customerLabel(customer));
-        if (this.originationMode() === 'template' && this.availableTemplates.length === 1) {
-          this.form.patchValue({ loanTemplateId: this.availableTemplates[0].id });
-        }
       }
     } catch (err) {
       this.error.set(err instanceof Error ? err.message : 'Error al cargar datos para originación.');
@@ -221,8 +241,12 @@ export class LoanOriginationModalComponent implements OnChanges {
   setOriginationMode(mode: 'template' | 'exception'): void {
     this.originationMode.set(mode);
     this.schedulePreview.set(null);
+    this.voucherStep.set(false);
     if (mode === 'template') {
-      this.form.patchValue({ exceptionRequestId: '' });
+      this.form.patchValue({
+        exceptionRequestId: '',
+        loanTemplateId: this.availableTemplates.length > 0 ? this.availableTemplates[0].id : '',
+      });
     } else {
       this.form.patchValue({ loanTemplateId: '' });
     }
@@ -230,15 +254,21 @@ export class LoanOriginationModalComponent implements OnChanges {
 
   onCustomerChanged(customerId: string): void {
     this.schedulePreview.set(null);
-    this.form.patchValue({ loanTemplateId: '', exceptionRequestId: '' });
-    if (customerId && this.originationMode() === 'template') {
-      if (this.availableTemplates.length === 1) {
-        this.form.patchValue({ loanTemplateId: this.availableTemplates[0].id });
-      }
-    } else if (customerId && this.originationMode() === 'exception') {
+    this.voucherStep.set(false);
+    this.form.patchValue({ exceptionRequestId: '' });
+    if (customerId && this.originationMode() === 'exception') {
+      this.form.patchValue({ loanTemplateId: '' });
       const customerExceptions = this.approvedExceptions().filter((e) => e.customerId === customerId);
       if (customerExceptions.length > 0) {
         this.selectException(customerExceptions[0].id);
+      }
+    } else if (this.originationMode() === 'template') {
+      const current = this.form.controls.loanTemplateId.value;
+      const isValid = this.availableTemplates.some(t => t.id === current);
+      if (!isValid) {
+        this.form.patchValue({
+          loanTemplateId: this.availableTemplates.length > 0 ? this.availableTemplates[0].id : '',
+        });
       }
     }
   }
@@ -263,7 +293,17 @@ export class LoanOriginationModalComponent implements OnChanges {
 
   get availableTemplates(): readonly AvailableLoanTemplate[] {
     const customer = this.customers().find(item => item.id === this.form.controls.customerId.value);
-    return customer ? this.templates().filter(template => template.routeIds.includes(customer.routeId)) : [];
+    const targetRouteId = customer?.routeId || this.defaultRouteId;
+    if (targetRouteId) {
+      return this.templates().filter(template => template.routeIds.includes(targetRouteId));
+    }
+    return this.templates();
+  }
+
+  get netDisbursedAmount(): number {
+    const principal = this.form.controls.principalAmount.value || 0;
+    const micro = this.form.controls.microinsuranceAmount.value || 0;
+    return Math.max(0, principal - micro);
   }
 
   get templateLimitsError(): string {
@@ -336,6 +376,73 @@ export class LoanOriginationModalComponent implements OnChanges {
       this.error.set(this.templateLimitsError);
       return;
     }
+
+    if (!this.schedulePreview()) {
+      await this.calculatePreview();
+    }
+    if (!this.schedulePreview()) {
+      this.error.set('No fue posible calcular el cronograma del crédito.');
+      return;
+    }
+
+    this.submitting.set(true);
+    this.error.set('');
+
+    try {
+      const customer = this.customers().find((c) => c.id === raw.customerId);
+      const schedule = this.schedulePreview()!;
+      const microAmount = raw.microinsuranceAmount || 0;
+
+      const voucherData: LoanVoucherData = {
+        customerName: customer ? this.customerLabel(customer) : 'Cliente',
+        customerIdentification: customer?.identification || '',
+        customerPhone: customer?.primaryPhone || undefined,
+        routeName: undefined,
+        principalAmount: raw.principalAmount!,
+        interestRate: raw.interestRate!,
+        totalAmount: schedule.totalAmount,
+        installmentCount: raw.installmentCount!,
+        paymentFrequency: raw.paymentFrequency,
+        frequencyNDays: raw.paymentFrequency === 'EveryNDays' ? raw.frequencyNDays : null,
+        startDate: raw.startDate,
+        microinsuranceAmount: microAmount,
+        netDisbursedAmount: Math.max(0, raw.principalAmount! - microAmount),
+        installments: schedule.installments.map((inst) => ({
+          number: inst.number,
+          dueDate: inst.dueDate,
+          expectedAmount: inst.expectedAmount,
+        })),
+      };
+
+      const generated = await generateLoanVoucherImage(voucherData);
+      this.voucherData.set(voucherData);
+      this.voucherGenerated.set(generated);
+      this.voucherImage.set(generated.dataUrl);
+      this.voucherStep.set(true);
+    } catch (err) {
+      this.error.set(err instanceof Error ? err.message : 'Error al generar el comprobante del crédito.');
+    } finally {
+      this.submitting.set(false);
+    }
+  }
+
+  correctVoucher(): void {
+    this.voucherStep.set(false);
+  }
+
+  async confirmVoucherOnly(): Promise<void> {
+    await this.executeOrigination(false);
+  }
+
+  async confirmAndSendVoucher(): Promise<void> {
+    await this.executeOrigination(true);
+  }
+
+  private async executeOrigination(andSend: boolean): Promise<void> {
+    const raw = this.form.getRawValue();
+    const mode = this.originationMode();
+    const customer = this.customers().find((c) => c.id === raw.customerId);
+
     this.submitting.set(true);
     this.error.set('');
     this.success.set('');
@@ -353,7 +460,16 @@ export class LoanOriginationModalComponent implements OnChanges {
         loanTemplateVersion: mode === 'template' ? template?.version ?? null : null,
         exceptionRequestId: mode === 'exception' ? raw.exceptionRequestId : null,
         startDate: raw.startDate,
+        microinsuranceAmount: raw.microinsuranceAmount || 0,
       });
+
+      if (andSend && this.voucherGenerated() && this.voucherData()) {
+        try {
+          await shareLoanVoucher(this.voucherGenerated()!, this.voucherData()!);
+        } catch {
+          // Non-blocking share failure
+        }
+      }
 
       this.loanCreated.emit(createdLoan);
       this.close();

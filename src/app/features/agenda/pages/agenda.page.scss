@@ -22,6 +22,11 @@
   color: var(--color-text-muted);
   font-size: 0.95rem;
   font-weight: 600;
+
+  &.caja-cerrada {
+    color: var(--color-danger, #e11d48);
+    font-weight: 700;
+  }
 }
 .filter-bar { display: flex; gap: 0.75rem; flex-wrap: wrap; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 1rem; padding: 0.75rem 1rem; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04); }
 .field { display: flex; flex-direction: column; gap: 0.25rem; flex: 1; min-width: 130px; }
@@ -30,6 +35,8 @@
 .field select:focus, .field input:focus { border-color: var(--color-primary); }
 .alert-error { padding: 0.7rem 1rem; border-radius: 0.7rem; font-weight: 600; font-size: 0.82rem; background: var(--color-surface); border: 1px solid var(--color-danger); color: var(--color-danger); }
 .alert-success { padding: 0.7rem 1rem; border-radius: 0.7rem; font-weight: 600; font-size: 0.82rem; background: rgba(16, 185, 129, 0.15); border: 1px solid var(--color-success, #10b981); color: var(--color-success, #10b981); }
+.alert-warning { padding: 0.7rem 1rem; border-radius: 0.7rem; font-weight: 600; font-size: 0.82rem; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; color: #fbbf24; line-height: 1.4; }
+.past-due-banner { margin-bottom: 0.75rem; }
 
 /* Balance Card */
 .balance-card-top {
@@ -71,7 +78,85 @@
 
 /* Finances & Estimates side-by-side */
 .finances-two-col-grid, .estimates-two-col-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-.finance-block-card, .estimate-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 0.9rem; padding: 0.65rem 0.75rem; display: flex; flex-direction: column; gap: 0.3rem; overflow: hidden; }
+.finance-block-card, .estimate-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.9rem;
+  padding: 0.65rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.finance-block-card {
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    border-color: var(--color-primary, #3b82f6);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  }
+}
+
+.summary-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.75);
+  border-radius: inherit;
+  backdrop-filter: blur(2px);
+  z-index: 10;
+  padding: 0.5rem;
+  animation: summaryOverlayFadeIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes summaryOverlayFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.btn-go-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 9999px;
+  padding: 0.48rem 0.95rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: background 0.15s ease, transform 0.1s ease;
+
+  &:hover {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+
+  .summary-arrow {
+    font-size: 0.95rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+}
 .finance-sub-section { display: flex; flex-direction: column; gap: 0.08rem; }
 .sub-section-label { font-size: 0.64rem; font-weight: 700; text-transform: uppercase; color: var(--color-text-muted); }
 .sub-section-val { font-size: clamp(0.92rem, 3.8vw, 1.25rem); font-weight: 800; }
@@ -146,6 +231,7 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   min-width: 0;
+  cursor: pointer;
 }
 .loan-route-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.07); }
 .loan-route-card.is-overdue { border-left-color: #ef4444; }
@@ -258,6 +344,8 @@
 .btn-will-not-pay:hover:not(:disabled) { background: rgba(239, 68, 68, 0.1); }
 .btn-restore { background: transparent; border: 1px solid var(--color-primary, #3b82f6); color: var(--color-primary, #3b82f6); }
 .btn-restore:hover:not(:disabled) { background: rgba(59, 130, 246, 0.1); }
+.btn-modify { background: var(--color-surface-raised, #f1f5f9); border: 1px solid var(--color-border); color: var(--color-text); }
+.btn-modify:hover:not(:disabled) { background: var(--color-border); color: var(--color-primary); }
 
 .btn-label-text { display: inline; }
 .btn-label-icon { display: none; }
@@ -335,4 +423,318 @@
     padding: 0;
     border-radius: 0.45rem;
   }
+}
+
+/* --- BOTTOM SHEET RESUMEN DE CRÉDITO --- */
+.loan-summary-sheet {
+  max-width: 640px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.summary-scroll-body {
+  overflow-y: auto;
+  max-height: calc(90vh - 130px);
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.summary-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.65rem;
+
+  .metric-card {
+    background: var(--color-surface-raised, #f8fafc);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 0.75rem 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+
+    .metric-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--color-text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .metric-value {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--color-text);
+
+      &.danger {
+        color: #ef4444;
+      }
+
+      &.success {
+        color: #10b981;
+      }
+    }
+
+    &.highlight-danger {
+      border-color: rgba(239, 68, 68, 0.35);
+      background: rgba(239, 68, 68, 0.04);
+    }
+  }
+}
+
+.summary-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.65rem;
+
+  strong {
+    color: var(--color-text);
+  }
+}
+
+.summary-voucher-cta {
+  display: flex;
+  justify-content: stretch;
+
+  .btn-generate-voucher {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid #0284c7;
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+    color: #ffffff;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+
+    &:hover:not(:disabled) {
+      background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(2, 132, 199, 0.35);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.summary-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .section-title {
+      margin: 0;
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: var(--color-text);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .section-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--color-text-muted);
+      background: var(--color-surface-raised, #f1f5f9);
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      border: 1px solid var(--color-border);
+    }
+  }
+}
+
+.empty-substate {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+  padding: 0.85rem;
+  background: var(--color-surface-raised, #f8fafc);
+  border-radius: 0.65rem;
+  border: 1px dashed var(--color-border);
+  text-align: center;
+}
+
+/* Timeline de pagos */
+.payments-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.payment-card-item {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid #10b981;
+  border-radius: 0.65rem;
+  padding: 0.55rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+  .payment-item-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .p-date-col {
+    display: flex;
+    flex-direction: column;
+
+    .p-date {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--color-text);
+    }
+
+    .p-time {
+      font-size: 0.68rem;
+      color: var(--color-text-muted);
+    }
+  }
+
+  .p-amount-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+
+    .p-amount {
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: #10b981;
+    }
+
+    .p-method {
+      font-size: 0.68rem;
+      color: var(--color-text-muted);
+    }
+  }
+
+  .p-notes {
+    margin: 0;
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    font-style: italic;
+    border-top: 1px dashed var(--color-border);
+    padding-top: 0.25rem;
+  }
+}
+
+/* Tabla del plan de pagos */
+.installments-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 0.65rem;
+  background: var(--color-surface);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.installments-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+
+  thead th {
+    position: sticky;
+    top: 0;
+    background: var(--color-surface-raised, #f1f5f9);
+    padding: 0.45rem 0.6rem;
+    font-weight: 700;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    text-align: left;
+    border-bottom: 1px solid var(--color-border);
+    z-index: 1;
+
+    &:last-child {
+      text-align: right;
+    }
+  }
+
+  tbody td {
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-text);
+
+    &:last-child {
+      text-align: right;
+    }
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  tbody tr.is-paid {
+    opacity: 0.65;
+    background: rgba(16, 185, 129, 0.04);
+  }
+
+  .col-num {
+    font-weight: 700;
+    width: 2rem;
+  }
+
+  .col-amt, .col-paid {
+    font-weight: 600;
+  }
+
+  .inst-pill {
+    padding: 0.15rem 0.45rem;
+    border-radius: 9999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    display: inline-block;
+
+    &.paid {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+    }
+
+    &.partially-paid {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+    }
+
+    &.pending {
+      background: var(--color-surface-raised, #f1f5f9);
+      color: var(--color-text-muted);
+      border: 1px solid var(--color-border);
+    }
+  }
+}
+
+/* Modal del comprobante gráfico de estado */
+.voucher-sheet {
+  max-width: 680px;
+  width: 100%;
 }

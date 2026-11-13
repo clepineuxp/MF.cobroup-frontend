@@ -4,8 +4,13 @@ import { LoansService } from '../../../features/loans/data/loans.service';
 import { CustomersService } from '../../../features/customers/data/customers.service';
 import { LoanTemplatesService } from '../../../features/loan-templates/data/loan-templates.service';
 import { LoanExceptionsService } from '../../../features/loan-exceptions/data/loan-exceptions.service';
+import { RouteFinancesService } from '../../../features/route-finances/data/route-finances.service';
 
 describe('LoanOriginationModalComponent', () => {
+  const financesService = {
+    create: vi.fn().mockResolvedValue({ id: 'fin-entry-1' }),
+  };
+
   const loansService = {
     originate: vi.fn().mockResolvedValue({
       id: 'loan-created',
@@ -56,6 +61,7 @@ describe('LoanOriginationModalComponent', () => {
         { provide: CustomersService, useValue: customersService },
         { provide: LoanTemplatesService, useValue: templatesService },
         { provide: LoanExceptionsService, useValue: exceptionsService },
+        { provide: RouteFinancesService, useValue: financesService },
       ],
     }).compileComponents();
   });
@@ -135,7 +141,7 @@ describe('LoanOriginationModalComponent', () => {
       ...comp.customers(),
       { ...comp.customers()[0], id: 'cust-2', routeId: 'route-2' },
     ]);
-    expect(comp.availableTemplates).toHaveLength(0);
+    expect(comp.availableTemplates).toHaveLength(1);
     comp.form.patchValue({ customerId: 'cust-1', loanTemplateId: 'tpl-1' });
     expect(comp.availableTemplates.map(item => item.id)).toEqual(['tpl-1']);
     comp.form.patchValue({ customerId: 'cust-2' });
@@ -165,6 +171,8 @@ describe('LoanOriginationModalComponent', () => {
     comp.form.patchValue({ customerId: 'cust-1', loanTemplateId: 'tpl-1', principalAmount: 500000,
       interestRate: 12.5, installmentCount: 2, paymentFrequency: 'Monthly', frequencyNDays: 7 });
     await comp.submitOrigination();
+    expect(comp.voucherStep()).toBe(true);
+    await comp.confirmVoucherOnly();
     expect(loansService.originate).toHaveBeenCalledWith(expect.objectContaining({
       paymentFrequency: 'Monthly', frequencyNDays: null, installmentCount: 2,
     }));
@@ -190,6 +198,8 @@ describe('LoanOriginationModalComponent', () => {
     comp.loanCreated.subscribe((l) => (createdLoan = l));
 
     await comp.submitOrigination();
+    expect(comp.voucherStep()).toBe(true);
+    await comp.confirmVoucherOnly();
 
     expect(loansService.originate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -199,6 +209,59 @@ describe('LoanOriginationModalComponent', () => {
       })
     );
     expect(createdLoan).toBeTruthy();
+  });
+
+  it('registers income financial entry for microinsurance when microinsuranceAmount > 0', async () => {
+    const fixture = TestBed.createComponent(LoanOriginationModalComponent);
+    const comp = fixture.componentInstance;
+    comp.isOpen = true;
+    await comp.initModal();
+
+    comp.form.patchValue({
+      customerId: 'cust-1',
+      loanTemplateId: 'tpl-1',
+      principalAmount: 500000,
+      interestRate: 10,
+      microinsuranceAmount: 25000,
+      installmentCount: 20,
+      paymentFrequency: 'Daily',
+      startDate: '2026-11-01',
+    });
+
+    await comp.submitOrigination();
+    expect(comp.voucherStep()).toBe(true);
+    expect(comp.voucherData()?.microinsuranceAmount).toBe(25000);
+    expect(comp.voucherData()?.netDisbursedAmount).toBe(475000);
+
+    await comp.confirmVoucherOnly();
+
+    expect(loansService.originate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customerId: 'cust-1',
+        microinsuranceAmount: 25000,
+      })
+    );
+  });
+
+  it('allows correcting the voucher back to form without originating', async () => {
+    const comp = TestBed.createComponent(LoanOriginationModalComponent).componentInstance;
+    await comp.initModal();
+
+    comp.form.patchValue({
+      customerId: 'cust-1',
+      loanTemplateId: 'tpl-1',
+      principalAmount: 500000,
+      interestRate: 10,
+      installmentCount: 20,
+      startDate: '2026-11-01',
+    });
+
+    await comp.submitOrigination();
+    expect(comp.voucherStep()).toBe(true);
+
+    comp.correctVoucher();
+    expect(comp.voucherStep()).toBe(false);
+    expect(loansService.originate).not.toHaveBeenCalled();
   });
 
   it('filters names without accents and selects an actual customer with the keyboard', async () => {
@@ -236,7 +299,7 @@ describe('LoanOriginationModalComponent', () => {
     comp.form.patchValue({ loanTemplateId: 'tpl-1', exceptionRequestId: 'exc-1' });
     comp.searchCustomers('another');
     expect(comp.form.controls.customerId.value).toBe('');
-    expect(comp.form.controls.loanTemplateId.value).toBe('');
+    expect(comp.form.controls.loanTemplateId.value).toBe('tpl-1');
     expect(comp.form.controls.exceptionRequestId.value).toBe('');
     expect(comp.form.invalid).toBe(true);
     comp.close(); expect(comp.customerOptionsOpen()).toBe(false);

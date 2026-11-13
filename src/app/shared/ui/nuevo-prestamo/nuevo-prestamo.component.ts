@@ -15,13 +15,19 @@ export type NuevoPrestamoState = 'collapsed' | 'options' | 'new-customer' | 'exi
 })
 export class NuevoPrestamoComponent {
   @Input() routeId = '';
+  @Input() isBlocked = false;
 
   @Output() readonly customerSaved = new EventEmitter<string>();
   @Output() readonly loanCreated = new EventEmitter<LoanDetails>();
+  @Output() readonly blockedAttempt = new EventEmitter<void>();
 
   readonly state = signal<NuevoPrestamoState>('collapsed');
 
   openOptions(): void {
+    if (this.isBlocked) {
+      this.blockedAttempt.emit();
+      return;
+    }
     this.state.set('options');
   }
 
