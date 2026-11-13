@@ -91,7 +91,7 @@ export class LoansPage {
       validators: [Validators.required, Validators.min(0.01)],
     }),
     interestRate: new FormControl<number | null>(null, {
-      validators: [Validators.required, Validators.min(0.01)],
+      validators: [Validators.required, Validators.min(0)],
     }),
     paymentFrequency: new FormControl<PaymentFrequency>('Daily', {
       nonNullable: true,
@@ -269,7 +269,7 @@ export class LoansPage {
 
   async calculatePreview(): Promise<void> {
     const raw = this.form.getRawValue();
-    if (!raw.principalAmount || !raw.interestRate || !raw.installmentCount || !raw.startDate) {
+    if (!raw.principalAmount || raw.interestRate === null || raw.interestRate < 0 || !raw.installmentCount || !raw.startDate) {
       return;
     }
 
