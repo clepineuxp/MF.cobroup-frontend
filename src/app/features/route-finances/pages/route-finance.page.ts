@@ -14,6 +14,7 @@ import {
   RouteFinancialEntry,
   RouteFinancialEntryType,
   SaveRouteFinancialEntryRequest,
+  EligibleLoanForMicroinsurance,
 } from '../data/route-finance.models';
 import { RouteFinancesService } from '../data/route-finances.service';
 import { PaymentDetails, PaymentMethodItem } from '../../payments/data/payment.models';
@@ -27,7 +28,7 @@ export interface FinancialMovementItem {
   readonly routeName?: string;
   readonly section: 'income' | 'expense';
   readonly badge: string;
-  readonly badgeClass: 'income' | 'investment' | 'expense' | 'payment' | 'loan';
+  readonly badgeClass: 'income' | 'investment' | 'expense' | 'payment' | 'loan' | 'microinsurance';
   readonly concept: string;
   readonly description?: string | null;
   readonly amount: number;
@@ -98,6 +99,7 @@ export class RouteFinancePage {
   readonly modalMode = signal<'create' | 'edit'>('create');
   readonly editingEntry = signal<RouteFinancialEntry | null>(null);
   readonly modalError = signal('');
+  readonly eligibleLoans = signal<readonly EligibleLoanForMicroinsurance[]>([]);
 
   readonly modalForm = new FormGroup({
     targetRouteId: new FormControl<string>('', { nonNullable: true, validators: [Validators.required] }),
@@ -113,6 +115,7 @@ export class RouteFinancePage {
     amount: new FormControl<number | null>(null, {
       validators: [Validators.required, Validators.min(0.01)],
     }),
+    loanId: new FormControl<string | null>(null),
   });
 
   // Payment Edit Modal State
@@ -300,6 +303,19 @@ export class RouteFinancePage {
   constructor() {
     void this.loadRoutes();
     void this.loadPaymentMethods();
+
+    this.route?.queryParamMap.subscribe((params) => {
+      const qTab = (params.get('tab') || params.get('section') || '').toLowerCase();
+      if (qTab === 'expense' || qTab === 'expenses' || qTab === 'ventas' || qTab === 'gastos') {
+        this.activeTab.set('expense');
+      } else if (qTab === 'income' || qTab === 'incomes' || qTab === 'recaudos' || qTab === 'ingresos') {
+        this.activeTab.set('income');
+      }
+      const qRoute = params.get('routeId');
+      if (qRoute && this.routes().some((r) => r.id === qRoute) && qRoute !== this.selectedRouteId()) {
+        void this.selectRoute(qRoute);
+      }
+    });
   }
 
   async selectRoute(routeId: string): Promise<void> {
@@ -360,8 +376,42 @@ export class RouteFinancePage {
       concept: '',
       description: '',
       amount: null,
+      loanId: null,
     });
+    if (section === 'income') {
+      void this.loadEligibleLoans(targetRoute);
+    }
     this.isModalOpen.set(true);
+  }
+
+  async loadEligibleLoans(routeId: string): Promise<void> {
+    if (!routeId) {
+      this.eligibleLoans.set([]);
+      return;
+    }
+    try {
+      const list = await this.finances.getEligibleLoansForMicroinsurance(routeId);
+      this.eligibleLoans.set(list);
+    } catch {
+      this.eligibleLoans.set([]);
+    }
+  }
+
+  async onEntryTypeChanged(type: RouteFinancialEntryType): Promise<void> {
+    if (type === 'Microinsurance') {
+      const routeId = this.modalForm.controls.targetRouteId.value || this.selectedRouteId();
+      await this.loadEligibleLoans(routeId);
+    }
+  }
+
+  onLoanSelected(): void {
+    const loanId = this.modalForm.controls.loanId.value;
+    if (loanId) {
+      const loan = this.eligibleLoans().find((l) => l.loanId === loanId);
+      if (loan) {
+        this.modalForm.patchValue({ concept: `Microseguro - ${loan.customerName}` });
+      }
+    }
   }
 
   openEditModal(entry: RouteFinancialEntry): void {
@@ -377,7 +427,11 @@ export class RouteFinancePage {
       concept: entry.concept,
       description: entry.description ?? '',
       amount: entry.amount,
+      loanId: entry.loanId ?? null,
     });
+    if (section === 'income') {
+      void this.loadEligibleLoans(entry.routeId);
+    }
     this.isModalOpen.set(true);
   }
 
@@ -402,12 +456,20 @@ export class RouteFinancePage {
     try {
       const formValue = this.modalForm.getRawValue();
       const isExpense = this.modalSection() === 'expense';
+
+      if (!isExpense && formValue.type === 'Microinsurance' && !formValue.loanId) {
+        this.modalError.set('Debes seleccionar el crédito al que se vinculará el microseguro.');
+        this.saving.set(false);
+        return;
+      }
+
       const request: SaveRouteFinancialEntryRequest = {
         routeId: formValue.targetRouteId,
         type: isExpense ? 'Expense' : formValue.type,
         concept: formValue.concept.trim(),
         description: formValue.description.trim() || null,
         amount: formValue.amount!,
+        loanId: !isExpense && formValue.type === 'Microinsurance' ? formValue.loanId : null,
       };
 
       const editing = this.editingEntry();
@@ -664,8 +726,17 @@ export class RouteFinancePage {
       const queryRouteId = this.route?.snapshot?.queryParamMap?.get('routeId');
       if (queryRouteId && routes.some((r) => r.id === queryRouteId)) {
         this.selectedRouteId.set(queryRouteId);
+      } else if (routes.length === 1) {
+        this.selectedRouteId.set(routes[0].id);
       } else {
         this.selectedRouteId.set('');
+      }
+
+      const qTab = (this.route?.snapshot?.queryParamMap?.get('tab') || this.route?.snapshot?.queryParamMap?.get('section') || '').toLowerCase();
+      if (qTab === 'expense' || qTab === 'expenses' || qTab === 'ventas' || qTab === 'gastos') {
+        this.activeTab.set('expense');
+      } else if (qTab === 'income' || qTab === 'incomes' || qTab === 'recaudos' || qTab === 'ingresos') {
+        this.activeTab.set('income');
       }
       await this.reload();
     } catch (err) {
@@ -780,11 +851,11 @@ export class RouteFinancePage {
     // 1. Manual Incomes & Investments
     for (const e of manualIncomes) {
       items.push({
-        id: `manual-${e.id}`,
+        id: `manual-inc-${e.routeId}-${e.id}`,
         routeId: e.routeId,
         section: 'income',
-        badge: e.type === 'Investment' ? 'Inversión' : 'Ingreso',
-        badgeClass: e.type === 'Investment' ? 'investment' : 'income',
+        badge: e.type === 'Investment' ? 'Inversión' : e.type === 'Microinsurance' ? 'Microseguro' : 'Ingreso',
+        badgeClass: e.type === 'Investment' ? 'investment' : e.type === 'Microinsurance' ? 'microinsurance' : 'income',
         concept: e.concept,
         description: e.description,
         amount: e.amount,
@@ -820,7 +891,7 @@ export class RouteFinancePage {
     // 3. Manual Expenses
     for (const e of manualExpenses) {
       items.push({
-        id: `manual-${e.id}`,
+        id: `manual-exp-${e.routeId}-${e.id}`,
         routeId: e.routeId,
         section: 'expense',
         badge: 'Gasto',

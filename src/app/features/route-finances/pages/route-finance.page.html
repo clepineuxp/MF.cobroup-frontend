@@ -3,6 +3,9 @@
   <header class="page-header">
     <div class="header-titles">
       <h1 class="page-title">Caja de Ruta</h1>
+      @if (routes().length === 1) {
+        <span class="route-single-badge">{{ routes()[0].name }}</span>
+      }
       @if (dayClosing(); as closing) {
         <div class="closing-badge" [class.closed]="closing.isClosed" [class.open]="!closing.isClosed">
           <span class="status-dot"></span>
@@ -15,20 +18,22 @@
     </div>
 
     <div class="header-actions">
-      <div class="route-selector-wrapper">
-        <select
-          id="route-selector"
-          class="route-selector"
-          [value]="selectedRouteId()"
-          (change)="selectRoute($any($event.target).value)"
-          aria-label="Seleccionar ruta"
-        >
-          <option value="">Todas las rutas (General)</option>
-          @for (route of routes(); track route.id) {
-            <option [value]="route.id">{{ route.name }}</option>
-          }
-        </select>
-      </div>
+      @if (routes().length > 1) {
+        <div class="route-selector-wrapper">
+          <select
+            id="route-selector"
+            class="route-selector"
+            [value]="selectedRouteId()"
+            (change)="selectRoute($any($event.target).value)"
+            aria-label="Seleccionar ruta"
+          >
+            <option value="">Todas las rutas (General)</option>
+            @for (route of routes(); track route.id) {
+              <option [value]="route.id">{{ route.name }}</option>
+            }
+          </select>
+        </div>
+      }
 
       @if (selectedRouteId()) {
         @if (!isDayClosed()) {
@@ -264,7 +269,7 @@
             </p>
           </div>
         } @else {
-          @for (item of recentTabMovements(); track item.id) {
+          @for (item of recentTabMovements(); track item.id + '-' + $index) {
             <article class="entry-card" [class.expense-item]="item.section === 'expense'">
               <div class="entry-header">
                 <div class="entry-concept-wrapper">
@@ -403,6 +408,7 @@
                   type="radio"
                   formControlName="type"
                   value="Income"
+                  (change)="onEntryTypeChanged('Income')"
                 />
                 <span>Ingreso</span>
               </label>
@@ -411,11 +417,40 @@
                   type="radio"
                   formControlName="type"
                   value="Investment"
+                  (change)="onEntryTypeChanged('Investment')"
                 />
                 <span>Inversión</span>
               </label>
+              <label class="type-pill" [class.selected]="modalForm.controls.type.value === 'Microinsurance'">
+                <input
+                  type="radio"
+                  formControlName="type"
+                  value="Microinsurance"
+                  (change)="onEntryTypeChanged('Microinsurance')"
+                />
+                <span>Microseguro</span>
+              </label>
             </div>
           </div>
+
+          @if (modalForm.controls.type.value === 'Microinsurance') {
+            <div class="form-group">
+              <label for="modal-loan-select" class="field-label">Crédito vinculado *</label>
+              <select
+                id="modal-loan-select"
+                formControlName="loanId"
+                (change)="onLoanSelected()"
+              >
+                <option [value]="null">Selecciona un crédito</option>
+                @for (loan of eligibleLoans(); track loan.loanId) {
+                  <option [value]="loan.loanId">{{ loan.customerName }} - Crédito de {{ loan.principalAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</option>
+                }
+              </select>
+              @if (eligibleLoans().length === 0) {
+                <span class="field-hint">No hay créditos activos creados hoy sin microseguro asignado en esta ruta.</span>
+              }
+            </div>
+          }
         }
 
         <!-- Concepto -->

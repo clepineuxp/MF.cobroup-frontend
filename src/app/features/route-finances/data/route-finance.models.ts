@@ -1,4 +1,4 @@
-export type RouteFinancialEntryType = 'Income' | 'Investment' | 'Expense';
+export type RouteFinancialEntryType = 'Income' | 'Investment' | 'Expense' | 'Microinsurance';
 export type RouteFinanceSection = 'income-investments' | 'expenses';
 
 export interface RouteBalance {
@@ -26,6 +26,7 @@ export interface RouteFinancialEntry {
   readonly updatedByDisplayName: string;
   readonly updatedAtUtc: string;
   readonly canEdit: boolean;
+  readonly loanId?: string | null;
 }
 
 export interface SaveRouteFinancialEntryRequest {
@@ -34,6 +35,15 @@ export interface SaveRouteFinancialEntryRequest {
   readonly concept: string;
   readonly description: string | null;
   readonly amount: number;
+  readonly loanId?: string | null;
+}
+
+export interface EligibleLoanForMicroinsurance {
+  readonly loanId: string;
+  readonly customerId: string;
+  readonly customerName: string;
+  readonly principalAmount: number;
+  readonly createdAtUtc: string;
 }
 
 export interface RouteDayClosingStatus {

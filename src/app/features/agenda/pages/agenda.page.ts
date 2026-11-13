@@ -1,13 +1,14 @@
 import { CommonModule, CurrencyPipe } from '@angular/common';
-import { Component, OnInit, ViewChild, inject, signal, computed } from '@angular/core';
-import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { Component, OnInit, ViewChild, inject, signal, computed, HostListener } from '@angular/core';
+import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AppIconComponent } from '../../../shared/ui/app-icon/app-icon.component';
 import { NuevoPrestamoComponent } from '../../../shared/ui/nuevo-prestamo/nuevo-prestamo.component';
 import { PaymentModalComponent } from '../../../shared/ui/payment-modal/payment-modal.component';
 import { LoanDetails } from '../../loans/data/loan.models';
 import { LoansService } from '../../loans/data/loans.service';
-import { PaymentDetails } from '../../payments/data/payment.models';
+import { PaymentDetails, PaymentMethodItem } from '../../payments/data/payment.models';
+import { PaymentsService } from '../../payments/data/payments.service';
 import { AccessibleRoute } from '../../routes/data/route.models';
 import { RoutesService } from '../../routes/data/routes.service';
 import { RouteBalance, RouteDayClosingStatus } from '../../route-finances/data/route-finance.models';
@@ -56,6 +57,7 @@ export class AgendaPage implements OnInit {
   private readonly routesService = inject(RoutesService);
   private readonly loansService = inject(LoansService);
   private readonly routeFinancesService = inject(RouteFinancesService);
+  private readonly paymentsService = inject(PaymentsService);
   private readonly router = inject(Router);
 
   readonly routes = signal<readonly AccessibleRoute[]>([]);
@@ -63,6 +65,7 @@ export class AgendaPage implements OnInit {
   readonly selectedBusinessDate = signal<string>(new Date().toISOString().substring(0, 10));
 
   readonly dayClosingStatus = signal<RouteDayClosingStatus | null>(null);
+  readonly isBoxClosed = computed(() => !!this.dayClosingStatus()?.isClosed);
   readonly isCajaBlocked = computed(() => {
     const status = this.dayClosingStatus();
     if (!status) return false;
@@ -72,6 +75,9 @@ export class AgendaPage implements OnInit {
     return 'Debes cerrar caja para continuar.';
   });
   readonly showCajaBlockedModal = signal<boolean>(false);
+  readonly isBoxPastDue = computed(() => {
+    return this.agenda()?.summary.isBoxPastDue ?? false;
+  });
 
   readonly displayInitialBalance = computed(() => {
     const bal = this.routeBalance();
@@ -120,6 +126,33 @@ export class AgendaPage implements OnInit {
     void this.router.navigate(['/balance-ruta'], { queryParams: { routeId: this.selectedRouteId() } });
   }
 
+  readonly activeSummaryCard = signal<'income' | 'expense' | null>(null);
+
+  toggleSummaryCard(card: 'income' | 'expense', event?: Event): void {
+    event?.stopPropagation();
+    this.activeSummaryCard.update((current) => (current === card ? null : card));
+  }
+
+  goToBalanceSection(section: 'income' | 'expense', event?: Event): void {
+    event?.stopPropagation();
+    this.activeSummaryCard.set(null);
+    const routeId = this.selectedRouteId() || this.filterForm.controls.routeId.value;
+    void this.router.navigate(['/balance-ruta'], {
+      queryParams: {
+        routeId: routeId || undefined,
+        section,
+        tab: section,
+      },
+    });
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    if (this.activeSummaryCard()) {
+      this.activeSummaryCard.set(null);
+    }
+  }
+
   readonly currentRouteName = computed(() => {
     const routeId = this.selectedRouteId() || this.filterForm.controls.routeId.value;
     const match = this.routes().find((r) => r.id === routeId);
@@ -128,13 +161,13 @@ export class AgendaPage implements OnInit {
 
   readonly boxOpeningDateFormatted = computed(() => {
     const status = this.dayClosingStatus();
-    if (status?.isClosed) {
+    if (!status || status.isClosed) {
       return 'Caja Cerrada';
     }
 
-    const rawDate = status?.businessDate || this.selectedBusinessDate() || this.agenda()?.summary.targetDate || this.filterForm.controls.date.value;
+    const rawDate = status.businessDate || this.selectedBusinessDate() || this.agenda()?.summary.targetDate || this.filterForm.controls.date.value;
     if (!rawDate) {
-      return status ? 'Caja Cerrada' : '';
+      return 'Caja Cerrada';
     }
 
     const parts = rawDate.split('-');
@@ -171,15 +204,16 @@ export class AgendaPage implements OnInit {
 
   // Advanced filter dialog state
   readonly isFilterModalOpen = signal(false);
-  readonly selectedStatuses = signal<Set<string>>(new Set());
+  readonly selectedStatuses = signal<Set<string>>(new Set(['PENDING']));
   readonly selectedFrequencies = signal<Set<string>>(new Set());
 
   // Temp state inside filter modal
-  readonly tempStatuses = signal<Set<string>>(new Set());
+  readonly tempStatuses = signal<Set<string>>(new Set(['PENDING']));
   readonly tempFrequencies = signal<Set<string>>(new Set());
 
   readonly statusOptions: FilterStatusOption[] = [
     { key: 'ALL', label: 'Todos' },
+    { key: 'PENDING', label: 'Pendientes' },
     { key: 'OVERDUE', label: 'En mora' },
     { key: 'DUE_TODAY', label: 'Cobro hoy' },
     { key: 'COLLECTED', label: 'Pagos' },
@@ -195,7 +229,10 @@ export class AgendaPage implements OnInit {
   ];
 
   readonly hasCustomFilters = computed(() => {
-    return this.selectedStatuses().size > 0 || this.selectedFrequencies().size > 0;
+    const statuses = this.selectedStatuses();
+    const freqs = this.selectedFrequencies();
+    const isCustomStatus = statuses.size > 0 && !(statuses.size === 1 && statuses.has('PENDING'));
+    return isCustomStatus || freqs.size > 0;
   });
 
   // Metrics
@@ -221,6 +258,29 @@ export class AgendaPage implements OnInit {
   // Payment modal state
   readonly isPaymentModalOpen = signal(false);
   readonly payingLoan = signal<LoanDetails | null>(null);
+  readonly collectingItem = signal<AgendaItem | null>(null);
+
+  // Edit payment modal state
+  readonly isEditPaymentModalOpen = signal(false);
+  readonly editingPayment = signal<PaymentDetails | null>(null);
+  readonly editingPaymentCustomerName = signal<string>('');
+  readonly paymentMethods = signal<readonly PaymentMethodItem[]>([]);
+  readonly editPaymentError = signal('');
+  readonly submittingEditPayment = signal(false);
+
+  readonly paymentEditForm = new FormGroup({
+    amount: new FormControl<number | null>(null, {
+      validators: [Validators.required, Validators.min(1)],
+    }),
+    paymentMethodId: new FormControl<string>('', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+    notes: new FormControl<string>('', {
+      nonNullable: true,
+      validators: [Validators.maxLength(500)],
+    }),
+  });
 
   // Quick Action Modals (Customer & Loan Origination)
   readonly isCustomerModalOpen = signal(false);
@@ -240,7 +300,7 @@ export class AgendaPage implements OnInit {
       return 'Collected';
     }
     const key = this.itemKey(item);
-    if (this.willNotPayTodayIds().has(key) || this.willNotPayTodayIds().has(item.customerId) || item.status === 'WillNotPayToday') {
+    if (this.willNotPayTodayIds().has(key) || item.status === 'WillNotPayToday') {
       return 'WillNotPayToday';
     }
     return item.status;
@@ -268,11 +328,8 @@ export class AgendaPage implements OnInit {
       return false;
     }
     const st = this.effectiveStatus(item);
-    if (st === 'WillNotPayToday') {
+    if (st === 'WillNotPayToday' || st === 'UpToDate') {
       return false;
-    }
-    if (this.isDailyLoan(item) && item.loanBalance > 0) {
-      return true;
     }
     return st === 'DueToday' || st === 'Overdue';
   }
@@ -283,7 +340,7 @@ export class AgendaPage implements OnInit {
     const items = this.agenda()?.items ?? [];
     return items.reduce((sum, item) => {
       const st = this.effectiveStatus(item);
-      if (st === 'WillNotPayToday' || st === 'Collected') {
+      if (st === 'WillNotPayToday' || st === 'Collected' || st === 'UpToDate') {
         return sum;
       }
       if (item.dueTodayAmount > 0) {
@@ -295,12 +352,6 @@ export class AgendaPage implements OnInit {
           : item.overdueAmount;
         return sum + oneInstallment;
       }
-      if (this.isDailyLoan(item) && item.loanBalance > 0) {
-        const inst = (item.installmentAmount && item.installmentAmount > 0)
-          ? item.installmentAmount
-          : item.loanBalance;
-        return sum + Math.min(inst, item.loanBalance);
-      }
       return sum;
     }, 0);
   });
@@ -310,16 +361,10 @@ export class AgendaPage implements OnInit {
     const items = this.agenda()?.items ?? [];
     return items.reduce((sum, item) => {
       const st = this.effectiveStatus(item);
-      if (st === 'WillNotPayToday') {
+      if (st === 'WillNotPayToday' || st === 'UpToDate') {
         return sum;
       }
       let due = item.dueTodayAmount || 0;
-      if (due === 0 && this.isDailyLoan(item) && item.loanBalance > 0 && st !== 'Collected') {
-        const inst = (item.installmentAmount && item.installmentAmount > 0)
-          ? item.installmentAmount
-          : item.loanBalance;
-        due = Math.min(inst, item.loanBalance);
-      }
       return sum + due + (item.overdueAmount || 0);
     }, 0);
   });
@@ -404,13 +449,14 @@ export class AgendaPage implements OnInit {
       let statusMatches = true;
       if (statusSet.size > 0 && !statusSet.has('ALL')) {
         const st = this.effectiveStatus(item);
+        const matchPending = statusSet.has('PENDING') && this.isPending(item);
         const matchOverdue = statusSet.has('OVERDUE') && st === 'Overdue';
         const matchDueToday = statusSet.has('DUE_TODAY') && st === 'DueToday';
         const matchCollected = statusSet.has('COLLECTED') && (st === 'Collected' || item.collectedTodayAmount > 0);
         const matchWillNotPay = statusSet.has('WILL_NOT_PAY') && st === 'WillNotPayToday';
         const matchUpToDate = statusSet.has('UP_TO_DATE') && st === 'UpToDate';
 
-        statusMatches = matchOverdue || matchDueToday || matchCollected || matchWillNotPay || matchUpToDate;
+        statusMatches = matchPending || matchOverdue || matchDueToday || matchCollected || matchWillNotPay || matchUpToDate;
       }
 
       // 2. Frequency matching
@@ -567,7 +613,8 @@ export class AgendaPage implements OnInit {
   }
 
   openFilterModal(): void {
-    this.tempStatuses.set(new Set(this.selectedStatuses()));
+    const current = this.selectedStatuses();
+    this.tempStatuses.set(new Set(current.size > 0 ? current : ['PENDING']));
     this.tempFrequencies.set(new Set(this.selectedFrequencies()));
     this.isFilterModalOpen.set(true);
   }
@@ -616,6 +663,10 @@ export class AgendaPage implements OnInit {
     const statuses = new Set(this.tempStatuses());
     const freqs = new Set(this.tempFrequencies());
 
+    if (statuses.size === 0) {
+      statuses.add('PENDING');
+    }
+
     this.selectedStatuses.set(statuses);
     this.selectedFrequencies.set(freqs);
 
@@ -624,9 +675,9 @@ export class AgendaPage implements OnInit {
   }
 
   clearFilters(): void {
-    this.tempStatuses.set(new Set());
+    this.tempStatuses.set(new Set(['PENDING']));
     this.tempFrequencies.set(new Set());
-    this.selectedStatuses.set(new Set());
+    this.selectedStatuses.set(new Set(['PENDING']));
     this.selectedFrequencies.set(new Set());
     this.activeNavSegment.set('PENDING');
     this.isFilterModalOpen.set(false);
@@ -789,11 +840,10 @@ export class AgendaPage implements OnInit {
 
       await this.agendaService.registerWillNotPay(request);
 
-      // Local optimistic update
+      // Local optimistic update per credit/loan
       this.willNotPayTodayIds.update((set) => {
         const next = new Set(set);
         next.add(key);
-        next.add(item.customerId);
         this.persistWillNotPayTodayIds(next, date);
         return next;
       });
@@ -809,7 +859,6 @@ export class AgendaPage implements OnInit {
       this.willNotPayTodayIds.update((set) => {
         const next = new Set(set);
         next.add(key);
-        next.add(item.customerId);
         this.persistWillNotPayTodayIds(next, date);
         return next;
       });
@@ -832,7 +881,9 @@ export class AgendaPage implements OnInit {
       this.willNotPayTodayIds.update((set) => {
         const next = new Set(set);
         next.delete(key);
-        next.delete(item.customerId);
+        if (item.activeLoanId) {
+          next.delete(item.activeLoanId);
+        }
         this.persistWillNotPayTodayIds(next, date);
         return next;
       });
@@ -845,7 +896,9 @@ export class AgendaPage implements OnInit {
       this.willNotPayTodayIds.update((set) => {
         const next = new Set(set);
         next.delete(key);
-        next.delete(item.customerId);
+        if (item.activeLoanId) {
+          next.delete(item.activeLoanId);
+        }
         this.persistWillNotPayTodayIds(next, date);
         return next;
       });
@@ -887,6 +940,10 @@ export class AgendaPage implements OnInit {
 
   async openCollectModal(item: AgendaItem): Promise<void> {
     if (this.checkCajaBlocked()) return;
+    if (this.isBoxPastDue()) {
+      this.error.set('No es posible realizar cobros en una caja de una fecha anterior. Debe registrar el motivo de no pago.');
+      return;
+    }
     if (!item.activeLoanId) {
       this.goToCollect(item);
       return;
@@ -894,6 +951,7 @@ export class AgendaPage implements OnInit {
     try {
       this.loading.set(true);
       const loan = await this.loansService.get(item.activeLoanId);
+      this.collectingItem.set(item);
       this.payingLoan.set(loan);
       this.isPaymentModalOpen.set(true);
     } catch {
@@ -906,14 +964,100 @@ export class AgendaPage implements OnInit {
   onPaymentModalClosed(): void {
     this.isPaymentModalOpen.set(false);
     this.payingLoan.set(null);
+    this.collectingItem.set(null);
   }
 
   async onPaymentSuccess(_payment: PaymentDetails): Promise<void> {
     this.isPaymentModalOpen.set(false);
     this.payingLoan.set(null);
+    const item = this.collectingItem();
+    const key = item ? this.itemKey(item) : (_payment.loanId || _payment.customerId);
+    const date = this.filterForm.controls.date.value;
+    this.willNotPayTodayIds.update((set) => {
+      const next = new Set(set);
+      if (key) {
+        next.delete(key);
+      }
+      if (item?.activeLoanId) {
+        next.delete(item.activeLoanId);
+      }
+      if (_payment.loanId) {
+        next.delete(_payment.loanId);
+      }
+      this.persistWillNotPayTodayIds(next, date);
+      return next;
+    });
+    this.collectingItem.set(null);
     this.success.set('Cobro registrado exitosamente.');
     setTimeout(() => this.success.set(''), 3500);
     await this.loadAgenda();
+  }
+
+  async openEditPaymentFromAgenda(item: AgendaItem): Promise<void> {
+    if (this.isBoxClosed() || !item.activeLoanId) return;
+    try {
+      this.loading.set(true);
+      if (this.paymentMethods().length === 0) {
+        const methods = await this.paymentsService.getPaymentMethods();
+        this.paymentMethods.set(methods);
+      }
+      const payments = await this.paymentsService.listByLoan(item.activeLoanId);
+      const targetDate = this.selectedBusinessDate() || this.filterForm.controls.date.value;
+      const payment = payments.find((p) => p.registeredAtUtc.startsWith(targetDate)) || payments[0];
+      if (!payment) {
+        this.error.set('No se encontró el cobro registrado para este préstamo.');
+        return;
+      }
+      this.editingPayment.set(payment);
+      this.editingPaymentCustomerName.set(item.customerName);
+      this.editPaymentError.set('');
+      this.paymentEditForm.reset({
+        amount: payment.amount,
+        paymentMethodId: payment.paymentMethodId,
+        notes: payment.notes ?? '',
+      });
+      this.isEditPaymentModalOpen.set(true);
+    } catch (err) {
+      this.error.set(err instanceof Error ? err.message : 'No fue posible cargar el cobro.');
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  closeEditPaymentModal(): void {
+    if (this.submittingEditPayment()) return;
+    this.isEditPaymentModalOpen.set(false);
+    this.editingPayment.set(null);
+    this.editPaymentError.set('');
+  }
+
+  async submitPaymentEdit(): Promise<void> {
+    const payment = this.editingPayment();
+    if (!payment || this.paymentEditForm.invalid || this.submittingEditPayment()) {
+      this.paymentEditForm.markAllAsTouched();
+      return;
+    }
+    const { amount, paymentMethodId, notes } = this.paymentEditForm.getRawValue();
+    if (!amount || !paymentMethodId) return;
+
+    this.submittingEditPayment.set(true);
+    this.editPaymentError.set('');
+    try {
+      await this.paymentsService.updatePayment(payment.id, {
+        amount,
+        paymentMethodId,
+        notes: notes.trim() || null,
+      });
+      this.isEditPaymentModalOpen.set(false);
+      this.editingPayment.set(null);
+      this.success.set('Cobro modificado con éxito.');
+      setTimeout(() => this.success.set(''), 3500);
+      await this.loadAgenda();
+    } catch (err) {
+      this.editPaymentError.set(err instanceof Error ? err.message : 'No fue posible modificar el cobro.');
+    } finally {
+      this.submittingEditPayment.set(false);
+    }
   }
 
   goToCollect(item: AgendaItem): void {

@@ -20,6 +20,39 @@
           <span class="spinner"></span>
           <p>Cargando información...</p>
         </div>
+      } @else if (voucherStep()) {
+        <div class="voucher-step-container">
+          <div class="voucher-preview-scroll">
+            <img [src]="voucherImage()" alt="Plan de pagos y comprobante de crédito" class="voucher-preview-image" />
+          </div>
+
+          <div class="voucher-actions-footer">
+            <button
+              type="button"
+              class="btn-voucher btn-voucher-correct"
+              (click)="correctVoucher()"
+              [disabled]="saving()"
+            >
+              ✏️ Corregir
+            </button>
+            <button
+              type="button"
+              class="btn-voucher btn-voucher-confirm"
+              (click)="confirmVoucherOnly()"
+              [disabled]="saving()"
+            >
+              ✓ {{ saving() ? 'Guardando...' : 'Confirmar' }}
+            </button>
+            <button
+              type="button"
+              class="btn-voucher btn-voucher-share"
+              (click)="confirmAndSendVoucher()"
+              [disabled]="saving()"
+            >
+              🚀 {{ saving() ? 'Guardando...' : 'Confirmar y enviar' }}
+            </button>
+          </div>
+        </div>
       } @else {
         <form class="modal-body" (ngSubmit)="save()">
           <div class="form-section">
@@ -238,6 +271,11 @@
                   <span class="field-label">Tasa Interés (%)</span>
                   <input type="number" name="creditRate" [(ngModel)]="creditDraft.interestRate" (input)="calculateCreditPreview()" placeholder="Ej: 15" min="0" />
                 </label>
+
+                <label class="clean-field">
+                  <span class="field-label">Microseguro ($)</span>
+                  <input type="number" name="creditMicroinsurance" [(ngModel)]="creditDraft.microinsuranceAmount" (input)="calculateCreditPreview()" placeholder="0" min="0" />
+                </label>
               </div>
 
               <div class="inputs-grid">
@@ -283,6 +321,14 @@
                     <div class="stat-pill">
                       <span class="stat-label">Total a Pagar</span>
                       <strong class="stat-value">{{ sch.totalAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+                    </div>
+                    <div class="stat-pill">
+                      <span class="stat-label">Total Entregado</span>
+                      <strong class="stat-value text-success">{{ netDisbursedCreditAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+                    </div>
+                    <div class="stat-pill">
+                      <span class="stat-label">Microseguro</span>
+                      <strong class="stat-value">{{ (creditDraft.microinsuranceAmount || 0) | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
                     </div>
                     <div class="stat-pill">
                       <span class="stat-label">Interés Total</span>

@@ -5,7 +5,7 @@
       <h2 class="title" [attr.aria-label]="boxName()">
         <span class="route-header-name">{{ currentRouteName() }}</span>
         <span class="route-header-sep"> | </span>
-        <span class="route-header-date" [class.caja-cerrada]="dayClosingStatus()?.isClosed">{{ boxOpeningDateFormatted() }}</span>
+        <span class="route-header-date" [class.caja-cerrada]="!dayClosingStatus() || dayClosingStatus()?.isClosed">{{ boxOpeningDateFormatted() }}</span>
       </h2>
     </div>
   </div>
@@ -34,6 +34,12 @@
 
   @if (success()) {
   <div class="alert-success" role="status">{{ success() }}</div>
+  }
+
+  @if (isBoxPastDue()) {
+  <div class="alert-warning past-due-banner" role="alert">
+    <span>⚠️ Esta caja corresponde a una fecha anterior ({{ agenda()?.summary?.boxBusinessDate || agenda()?.summary?.targetDate }}). No es posible realizar cobros para esta caja. Debe registrar la novedad de no pago para todos los clientes pendientes para poder cerrarla.</span>
+  </div>
   }
 
   @if (agenda(); as ag) {
@@ -91,7 +97,15 @@
   <!-- 3 y 4. Dos componentes: Izquierda (Cobros/Recaudos + Ingresos) y Derecha (Gastos préstamos + Demás gastos) -->
   <div class="finances-two-col-grid">
     <!-- Columna izquierda: Cobros/Recaudos arriba, Ingresos abajo -->
-    <div class="finance-block-card">
+    <div
+      class="finance-block-card"
+      (click)="toggleSummaryCard('income', $event)"
+      role="button"
+      tabindex="0"
+      (keydown.enter)="toggleSummaryCard('income', $event)"
+      (keydown.space)="toggleSummaryCard('income', $event)"
+      aria-label="Resumen de recaudos e ingresos. Clic para ver opciones"
+    >
       <div class="finance-sub-section top-sub">
         <span class="sub-section-label">Recaudos</span>
         <strong class="sub-section-val val-collected">
@@ -105,10 +119,27 @@
           {{ displayIncome() | currency:'COP':'symbol-narrow':'1.0-0' }}
         </strong>
       </div>
+
+      @if (activeSummaryCard() === 'income') {
+        <div class="summary-overlay" (click)="$event.stopPropagation()">
+          <button type="button" class="btn-go-summary" (click)="goToBalanceSection('income', $event)">
+            <span>Ir a resumen</span>
+            <span class="summary-arrow" aria-hidden="true">→</span>
+          </button>
+        </div>
+      }
     </div>
 
     <!-- Columna derecha: Gastos por préstamos arriba, Demás gastos abajo -->
-    <div class="finance-block-card">
+    <div
+      class="finance-block-card"
+      (click)="toggleSummaryCard('expense', $event)"
+      role="button"
+      tabindex="0"
+      (keydown.enter)="toggleSummaryCard('expense', $event)"
+      (keydown.space)="toggleSummaryCard('expense', $event)"
+      aria-label="Resumen de ventas y gastos. Clic para ver opciones"
+    >
       <div class="finance-sub-section top-sub">
         <span class="sub-section-label">Ventas</span>
         <strong class="sub-section-val val-disbursed">
@@ -122,6 +153,15 @@
           {{ displayExpenses() | currency:'COP':'symbol-narrow':'1.0-0' }}
         </strong>
       </div>
+
+      @if (activeSummaryCard() === 'expense') {
+        <div class="summary-overlay" (click)="$event.stopPropagation()">
+          <button type="button" class="btn-go-summary" (click)="goToBalanceSection('expense', $event)">
+            <span>Ir a resumen</span>
+            <span class="summary-arrow" aria-hidden="true">→</span>
+          </button>
+        </div>
+      }
     </div>
   </div>
 
@@ -291,28 +331,38 @@
         }
       </div>
 
-      <!-- A la derecha de esto: botones Cobrar y No pagará hoy (compactos en móvil) -->
+      <!-- A la derecha de esto: botones de acción -->
       <div class="card-actions-col">
-        <button type="button" class="btn-card-action btn-collect" (click)="openCollectModal(item)"
-          [disabled]="effectiveStatus(item) === 'Collected'" aria-label="Registrar cobro para este préstamo"
-          [title]="effectiveStatus(item) === 'Collected' ? 'Cobrado' : 'Cobrar'">
-          <span class="btn-label-text">{{ effectiveStatus(item) === 'Collected' ? 'Cobrado' : 'Cobrar' }}</span>
-          <span class="btn-label-icon">{{ effectiveStatus(item) === 'Collected' ? '✓' : '$' }}</span>
-        </button>
-
-        @if (effectiveStatus(item) === 'WillNotPayToday') {
-        <button type="button" class="btn-card-action btn-restore" (click)="unmarkWillNotPayToday(item)"
-          aria-label="Restablecer préstamo en la ruta de cobro" title="Restablecer préstamo">
-          <span class="btn-label-text">Restablecer</span>
-          <span class="btn-label-icon">↺</span>
-        </button>
+        @if (effectiveStatus(item) === 'Collected') {
+          @if (!isBoxClosed()) {
+            <button type="button" class="btn-card-action btn-modify" (click)="openEditPaymentFromAgenda(item)"
+              aria-label="Modificar cobro realizado hoy" title="Modificar cobro">
+              <span class="btn-label-text">Modificar</span>
+              <span class="btn-label-icon">✎</span>
+            </button>
+          }
         } @else {
-        <button type="button" class="btn-card-action btn-will-not-pay" (click)="openWillNotPayModal(item)"
-          [disabled]="effectiveStatus(item) === 'Collected'" aria-label="Marcar que hoy no pagará este préstamo"
-          title="No pagará hoy">
-          <span class="btn-label-text">No pagará hoy</span>
-          <span class="btn-label-icon">✕</span>
-        </button>
+          <button type="button" class="btn-card-action btn-collect" (click)="openCollectModal(item)"
+            [disabled]="isBoxPastDue()" aria-label="Registrar cobro para este préstamo"
+            [title]="isBoxPastDue() ? 'No es posible cobrar en una fecha anterior. Registra el motivo de no pago.' : 'Cobrar'">
+            <span class="btn-label-text">Cobrar</span>
+            <span class="btn-label-icon">$</span>
+          </button>
+
+          @if (effectiveStatus(item) === 'WillNotPayToday') {
+            <button type="button" class="btn-card-action btn-restore" (click)="unmarkWillNotPayToday(item)"
+              aria-label="Restablecer préstamo en la ruta de cobro" title="Restablecer préstamo">
+              <span class="btn-label-text">Restablecer</span>
+              <span class="btn-label-icon">↺</span>
+            </button>
+          } @else {
+            <button type="button" class="btn-card-action btn-will-not-pay" (click)="openWillNotPayModal(item)"
+              aria-label="Marcar que hoy no pagará este préstamo"
+              title="No pagará hoy">
+              <span class="btn-label-text">No pagará hoy</span>
+              <span class="btn-label-icon">✕</span>
+            </button>
+          }
         }
       </div>
     </article>
@@ -346,7 +396,7 @@
               <button
                 type="button"
                 class="filter-chip"
-                [class.active]="tempStatuses().has(opt.key) || (opt.key === 'ALL' && tempStatuses().size === 0)"
+                [class.active]="tempStatuses().has(opt.key) || (opt.key === 'PENDING' && tempStatuses().size === 0)"
                 (click)="toggleTempStatus(opt.key)"
               >
                 {{ opt.label }}
@@ -480,6 +530,81 @@
 
   <app-payment-modal [isOpen]="isPaymentModalOpen()" [loan]="payingLoan()" (closed)="onPaymentModalClosed()"
     (paymentSuccess)="onPaymentSuccess($event)" />
+
+  <!-- Modal para Modificar Cobro desde Agenda -->
+  @if (isEditPaymentModalOpen() && editingPayment(); as p) {
+  <div class="modal-backdrop" (click)="closeEditPaymentModal()" role="presentation">
+    <div class="modal-sheet edit-payment-sheet" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="edit-payment-title">
+      <div class="sheet-drag-handle"></div>
+      <header class="modal-header">
+        <div class="header-titles">
+          <span class="sheet-badge">Modificar Cobro</span>
+          <h3 id="edit-payment-title" class="sheet-title">{{ editingPaymentCustomerName() }}</h3>
+          <p class="sheet-subtitle">Ajuste de cobro registrado hoy</p>
+        </div>
+        <button type="button" class="btn-icon-close" (click)="closeEditPaymentModal()" aria-label="Cerrar modal">✕</button>
+      </header>
+
+      <form [formGroup]="paymentEditForm" (ngSubmit)="submitPaymentEdit()" class="modal-body">
+        @if (editPaymentError()) {
+          <div class="filter-group-desc" style="color: #ef4444; font-weight: 700;">{{ editPaymentError() }}</div>
+        }
+
+        <div class="filter-group">
+          <label for="payment-amount" class="filter-group-title">Valor del Cobro ($ COP) *</label>
+          <input
+            id="payment-amount"
+            type="number"
+            min="1"
+            step="any"
+            formControlName="amount"
+            class="filter-chip"
+            style="width: 100%; border-radius: 0.5rem; padding: 0.6rem 0.8rem; font-size: 1rem; font-weight: 700;"
+            required
+          />
+        </div>
+
+        <div class="filter-group">
+          <label for="payment-method-select" class="filter-group-title">Medio de Pago *</label>
+          <select
+            id="payment-method-select"
+            formControlName="paymentMethodId"
+            class="filter-chip"
+            style="width: 100%; border-radius: 0.5rem; padding: 0.6rem 0.8rem; font-size: 0.9rem;"
+            required
+          >
+            <option value="" disabled>Selecciona un medio de pago</option>
+            @for (pm of paymentMethods(); track pm.id) {
+              <option [value]="pm.id">{{ pm.name }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="payment-notes" class="filter-group-title">Notas / Observaciones (opcional)</label>
+          <textarea
+            id="payment-notes"
+            formControlName="notes"
+            maxlength="500"
+            rows="3"
+            class="filter-chip"
+            style="width: 100%; border-radius: 0.5rem; padding: 0.6rem 0.8rem; font-size: 0.85rem; resize: vertical;"
+            placeholder="Observaciones de la modificación..."
+          ></textarea>
+        </div>
+
+        <div class="modal-footer" style="padding: 0.75rem 0 0 0; background: transparent; border-top: 1px solid var(--color-border); margin-top: 0.5rem;">
+          <button type="button" class="btn-cancel" (click)="closeEditPaymentModal()" [disabled]="submittingEditPayment()">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-submit" [disabled]="submittingEditPayment() || paymentEditForm.invalid">
+            {{ submittingEditPayment() ? 'Guardando...' : 'Guardar Cambios' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  }
 
   <app-nuevo-prestamo
     [routeId]="selectedRouteId()"

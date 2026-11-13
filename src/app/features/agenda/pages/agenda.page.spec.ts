@@ -429,6 +429,37 @@ describe('AgendaPage', () => {
     expect(page.filteredItems()).toHaveLength(4);
   });
 
+  it('includes Pendientes in filter statusOptions with default selection and supports filtering by Todos vs Pendientes', async () => {
+    const fixture = TestBed.createComponent(AgendaPage);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const page = fixture.componentInstance;
+    const pendingOption = page.statusOptions.find((o) => o.key === 'PENDING');
+    expect(pendingOption).toBeTruthy();
+    expect(pendingOption?.label).toBe('Pendientes');
+
+    // Default selection is PENDING
+    expect(page.selectedStatuses().has('PENDING')).toBe(true);
+
+    // In PENDING segment or filter: only cust-2 and cust-3 (excluding cust-1 UpToDate and cust-4 Collected)
+    page.activeNavSegment.set('PENDING');
+    fixture.detectChanges();
+    expect(page.filteredItems().map((i) => i.customerId)).toEqual(['cust-3', 'cust-2']);
+
+    // When selecting 'ALL' (Todos): includes all items, including UpToDate (cust-1)
+    page.activeNavSegment.set('ADVANCED');
+    page.selectedStatuses.set(new Set(['ALL']));
+    fixture.detectChanges();
+    expect(page.filteredItems()).toHaveLength(4);
+    expect(page.filteredItems().some((i) => i.customerId === 'cust-1')).toBe(true);
+
+    // When resetting filters (clearFilters): resets to PENDING
+    page.clearFilters();
+    expect(page.selectedStatuses().has('PENDING')).toBe(true);
+    expect(page.activeNavSegment()).toBe('PENDING');
+  });
+
   it('reorders loan cards with up/down arrows and persists order', async () => {
     const fixture = TestBed.createComponent(AgendaPage);
     await fixture.whenStable();
@@ -492,5 +523,168 @@ describe('AgendaPage', () => {
     const dockBtn = fixture.nativeElement.querySelector('.dock-card-btn') as HTMLButtonElement;
     expect(dockBtn).toBeTruthy();
     expect(dockBtn.textContent).toContain('Nuevo préstamo');
+  });
+
+  it('in PAID segment, collected items show ONLY Modify button when cashbox is open', async () => {
+    const fixture = TestBed.createComponent(AgendaPage);
+    await fixture.whenStable();
+    const page = fixture.componentInstance;
+
+    // Switch to PAID segment (cust-4 / loan-4 is Collected)
+    page.selectSegment('PAID');
+    fixture.detectChanges();
+
+    const modifyBtn = fixture.nativeElement.querySelector('.btn-modify');
+    const collectBtn = fixture.nativeElement.querySelector('.btn-collect');
+    const willNotPayBtn = fixture.nativeElement.querySelector('.btn-will-not-pay');
+
+    expect(modifyBtn).toBeTruthy();
+    expect(modifyBtn.textContent).toContain('Modificar');
+    expect(collectBtn).toBeNull();
+    expect(willNotPayBtn).toBeNull();
+  });
+
+  it('in PAID segment, collected items do NOT show Modify button when cashbox is closed', async () => {
+    routeFinancesService.getDayClosingStatus.mockResolvedValue({
+      routeId: 'route-1',
+      businessDate: '2026-10-26',
+      isClosed: true,
+      boxName: 'Centro | Caja Cerrada'
+    });
+    const fixture = TestBed.createComponent(AgendaPage);
+    await fixture.whenStable();
+    const page = fixture.componentInstance;
+
+    page.selectSegment('PAID');
+    fixture.detectChanges();
+
+    const modifyBtn = fixture.nativeElement.querySelector('.btn-modify');
+    const collectBtn = fixture.nativeElement.querySelector('.btn-collect');
+    const willNotPayBtn = fixture.nativeElement.querySelector('.btn-will-not-pay');
+
+    expect(modifyBtn).toBeNull();
+    expect(collectBtn).toBeNull();
+    expect(willNotPayBtn).toBeNull();
+  });
+
+  it('marking one loan as No pagará hoy does not mark another loan of the same customer', async () => {
+    const fixture = TestBed.createComponent(AgendaPage);
+    await fixture.whenStable();
+    const page = fixture.componentInstance;
+
+    // Create two items for the same customer but different loans
+    const item1: any = {
+      customerId: 'cust-multi',
+      customerName: 'Multi Loan Customer',
+      activeLoanId: 'loan-alpha',
+      dueTodayAmount: 50000,
+      overdueAmount: 0,
+      loanBalance: 500000,
+      collectedTodayAmount: 0,
+      status: 'DueToday',
+      routeId: 'route-1'
+    };
+    const item2: any = {
+      customerId: 'cust-multi',
+      customerName: 'Multi Loan Customer',
+      activeLoanId: 'loan-beta',
+      dueTodayAmount: 60000,
+      overdueAmount: 0,
+      loanBalance: 600000,
+      collectedTodayAmount: 0,
+      status: 'DueToday',
+      routeId: 'route-1'
+    };
+
+    // Mark item1 as will not pay
+    await page.openWillNotPayModal(item1);
+    await page.submitWillNotPay();
+
+    expect(page.effectiveStatus(item1)).toBe('WillNotPayToday');
+    // item2 should remain DueToday and NOT be marked as WillNotPayToday
+    expect(page.effectiveStatus(item2)).toBe('DueToday');
+  });
+
+  it('registering a payment on a loan marked as No pagará hoy clears the willNotPay status', async () => {
+    const fixture = TestBed.createComponent(AgendaPage);
+    await fixture.whenStable();
+    const page = fixture.componentInstance;
+
+    const targetItem = page.filteredItems()[0]; // cust-3 / loan-3
+    await page.openWillNotPayModal(targetItem);
+    await page.submitWillNotPay();
+
+    expect(page.effectiveStatus(targetItem)).toBe('WillNotPayToday');
+
+    // Simulate payment success on loan-3
+    await page.onPaymentSuccess({
+      id: 'pay-1',
+      loanId: 'loan-3',
+      amount: 80000,
+      paymentMethodId: 'pm-1',
+      registeredAtUtc: '2026-10-26T12:00:00Z'
+    } as any);
+
+    // After payment, loan-3 must no longer be in willNotPayTodayIds
+    expect(page.willNotPayTodayIds().has('loan-3')).toBe(false);
+  });
+
+  it('clicking on recaudos or ventas component shows "Ir a resumen" overlay and navigates to balance-ruta', async () => {
+    const fixture = TestBed.createComponent(AgendaPage);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const page = fixture.componentInstance;
+
+    const cards = fixture.nativeElement.querySelectorAll('.finance-block-card');
+    expect(cards.length).toBe(2);
+
+    const recaudosCard = cards[0] as HTMLElement;
+    const ventasCard = cards[1] as HTMLElement;
+
+    // Initially no overlay
+    expect(page.activeSummaryCard()).toBeNull();
+    expect(fixture.nativeElement.querySelector('.summary-overlay')).toBeNull();
+
+    // Click on recaudos card
+    recaudosCard.click();
+    fixture.detectChanges();
+
+    expect(page.activeSummaryCard()).toBe('income');
+    let overlay = fixture.nativeElement.querySelector('.summary-overlay');
+    expect(overlay).toBeTruthy();
+    let btnSummary = overlay.querySelector('.btn-go-summary') as HTMLButtonElement;
+    expect(btnSummary.textContent).toContain('Ir a resumen');
+
+    // Click "Ir a resumen"
+    btnSummary.click();
+    expect(router.navigate).toHaveBeenCalledWith(['/balance-ruta'], {
+      queryParams: {
+        routeId: 'route-1',
+        tab: 'income',
+        section: 'income',
+      },
+    });
+
+    // Reset and click on ventas card
+    page.activeSummaryCard.set(null);
+    fixture.detectChanges();
+
+    ventasCard.click();
+    fixture.detectChanges();
+
+    expect(page.activeSummaryCard()).toBe('expense');
+    overlay = fixture.nativeElement.querySelector('.summary-overlay');
+    expect(overlay).toBeTruthy();
+    btnSummary = overlay.querySelector('.btn-go-summary') as HTMLButtonElement;
+    expect(btnSummary.textContent).toContain('Ir a resumen');
+
+    btnSummary.click();
+    expect(router.navigate).toHaveBeenCalledWith(['/balance-ruta'], {
+      queryParams: {
+        routeId: 'route-1',
+        tab: 'expense',
+        section: 'expense',
+      },
+    });
   });
 });

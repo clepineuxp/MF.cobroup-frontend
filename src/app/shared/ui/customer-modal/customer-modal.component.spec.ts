@@ -6,9 +6,14 @@ import { RoutesService } from '../../../features/routes/data/routes.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { LoanTemplatesService } from '../../../features/loan-templates/data/loan-templates.service';
 import { LoansService } from '../../../features/loans/data/loans.service';
+import { RouteFinancesService } from '../../../features/route-finances/data/route-finances.service';
 
 describe('CustomerModalComponent', () => {
   afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+  const financesService = {
+    create: vi.fn().mockResolvedValue({ id: 'fin-1' }),
+  };
+
   const customersService = {
     get: vi.fn().mockResolvedValue({
       id: 'cust-1',
@@ -78,6 +83,7 @@ describe('CustomerModalComponent', () => {
         { provide: AuthService, useValue: authService },
         { provide: LoanTemplatesService, useValue: loanTemplatesService },
         { provide: LoansService, useValue: loansService },
+        { provide: RouteFinancesService, useValue: financesService },
       ],
     }).compileComponents();
   });
@@ -307,6 +313,8 @@ describe('CustomerModalComponent', () => {
     comp.creditDraft.startDate = '2026-11-12';
 
     await comp.save();
+    expect(comp.voucherStep()).toBe(true);
+    await comp.confirmVoucherOnly();
 
     expect(customersService.create).toHaveBeenCalledWith(expect.objectContaining({ identification: '12345678' }));
     expect(loansService.originate).toHaveBeenCalledWith(
@@ -318,5 +326,67 @@ describe('CustomerModalComponent', () => {
         loanTemplateId: 'tpl-1',
       })
     );
+  });
+
+  it('registers income financial entry for microinsurance when creating customer with credit', async () => {
+    const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
+    comp.isOpen = true;
+    comp.defaultRouteId = 'route-1';
+    comp.hideRoute = true;
+    await comp.initModal();
+
+    comp.draft.identification = '999888';
+    comp.fullName = 'Cliente Microseguro';
+    comp.draft.phones[0].number = '3009998877';
+    comp.draft.locations[0].latitude = 4.65;
+    comp.draft.locations[0].longitude = -74.05;
+
+    comp.creditDraft.principalAmount = 300000;
+    comp.creditDraft.interestRate = 10;
+    comp.creditDraft.installmentCount = 10;
+    comp.creditDraft.startDate = '2026-11-12';
+    comp.creditDraft.microinsuranceAmount = 15000;
+
+    await comp.save();
+    expect(comp.voucherStep()).toBe(true);
+    expect(comp.voucherData()?.microinsuranceAmount).toBe(15000);
+    expect(comp.voucherData()?.netDisbursedAmount).toBe(285000);
+
+    await comp.confirmVoucherOnly();
+
+    expect(customersService.create).toHaveBeenCalled();
+    expect(loansService.originate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customerId: 'cust-created',
+        microinsuranceAmount: 15000,
+      })
+    );
+  });
+
+  it('allows correcting voucher in customer modal without persisting', async () => {
+    const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
+    comp.isOpen = true;
+    comp.defaultRouteId = 'route-1';
+    comp.hideRoute = true;
+    await comp.initModal();
+
+    comp.draft.identification = '111222';
+    comp.fullName = 'Cliente Cancel';
+    comp.draft.phones[0].number = '3001112223';
+    comp.draft.locations[0].latitude = 4.65;
+    comp.draft.locations[0].longitude = -74.05;
+
+    comp.creditDraft.principalAmount = 200000;
+    comp.creditDraft.interestRate = 10;
+    comp.creditDraft.installmentCount = 10;
+    comp.creditDraft.startDate = '2026-11-12';
+
+    await comp.save();
+    expect(comp.voucherStep()).toBe(true);
+
+    comp.correctVoucher();
+    expect(comp.voucherStep()).toBe(false);
+    expect(customersService.create).not.toHaveBeenCalled();
+    expect(loansService.originate).not.toHaveBeenCalled();
   });
 });
