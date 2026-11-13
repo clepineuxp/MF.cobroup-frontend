@@ -719,6 +719,53 @@ describe('AgendaPage', () => {
     });
   });
 
+  it('shows the primary address, calling and GPS links from the customer details', async () => {
+    const fixture = TestBed.createComponent(AgendaPage); await fixture.whenStable();
+    const page = fixture.componentInstance;
+    const item = page.filteredItems().find(i => i.customerId === 'cust-2')!;
+    await page.openLoanSummary(item);
+    page.summaryCustomer.set({ ...page.summaryCustomer()!, phones: [{ number: '+573001234567', isPrimary: true }],
+      locations: [{ latitude: 0, longitude: 0, alias: null, address: 'Calle 10 # 20-30', isPrimary: true, source: 'Manual' }] });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Calle 10 # 20-30');
+    expect(page.summaryContact().telephone).toBe('tel:+573001234567');
+    expect(page.summaryContact().googleMaps).toContain('destination=0%2C0');
+    expect(page.summaryContact().waze).toContain('ll=0%2C0&navigate=yes');
+    expect(page.summaryMapPoints()[0]).toMatchObject({ latitude: 0, longitude: 0 });
+    page.summaryCustomer.set({ ...page.summaryCustomer()!, phones: [], locations: [] });
+    page.selectedSummaryItem.set({ ...item, primaryPhone: null, latitude: null, longitude: null, address: null });
+    expect(page.summaryWhatsAppUrl()).toBeNull(); expect(page.summaryContact().googleMaps).toBeNull();
+  });
+
+  it('prefills WhatsApp with overdue balances first, today remaining amount next, and no text when up to date', async () => {
+    const fixture = TestBed.createComponent(AgendaPage); await fixture.whenStable();
+    const page = fixture.componentInstance;
+    const item = page.filteredItems().find(i => i.customerId === 'cust-2')!;
+    await page.openLoanSummary(item);
+    page.selectedBusinessDate.set('2026-11-13');
+    page.selectedSummaryItem.set({ ...item, primaryPhone: '3001234567' });
+    const loan = page.selectedLoanSummary()!;
+    page.selectedLoanSummary.set({ ...loan, installments: [
+      { id: 'old', number: 1, dueDate: '2026-11-12', expectedAmount: 10000, paidAmount: 4000, status: 'PartiallyPaid' },
+      { id: 'today', number: 2, dueDate: '2026-11-13', expectedAmount: 10000, paidAmount: 2500, status: 'PartiallyPaid' },
+    ] });
+    const overdue = page.summaryWhatsAppMessage();
+    expect(overdue).toContain('cuotas vencidas'); expect(overdue).toContain('6.000'); expect(overdue).toContain(loan.id);
+    expect(decodeURIComponent(page.summaryWhatsAppUrl()!)).toContain(overdue);
+    expect(page.summaryWhatsAppUrl()).toMatch(/^https:\/\/wa.me\/573001234567\?text=/);
+    page.selectedLoanSummary.set({ ...page.selectedLoanSummary()!, installments: [
+      { id: 'old', number: 1, dueDate: '2026-11-12', expectedAmount: 10000, paidAmount: 10000, status: 'Paid' },
+      { id: 'today', number: 2, dueDate: '2026-11-13', expectedAmount: 10000, paidAmount: 2500, status: 'PartiallyPaid' },
+    ] });
+    expect(page.summaryWhatsAppMessage()).toContain('cuota de hoy'); expect(page.summaryWhatsAppMessage()).toContain('7.500');
+    page.selectedLoanSummary.set({ ...page.selectedLoanSummary()!, installments: [
+      { id: 'future', number: 3, dueDate: '2026-11-14', expectedAmount: 10000, paidAmount: 0, status: 'Pending' },
+    ] });
+    expect(page.summaryWhatsAppUrl()).toBe('https://wa.me/573001234567');
+    page.selectedLoanSummary.set({ ...page.selectedLoanSummary()!, status: 'PaidOff', balanceAmount: 0 });
+    expect(page.summaryWhatsAppMessage()).toBe('');
+  });
+
   it('opens loan summary bottom sheet on card click, shows history first, installments second, and generates status voucher', async () => {
     const fixture = TestBed.createComponent(AgendaPage);
     await fixture.whenStable();

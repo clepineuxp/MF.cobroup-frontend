@@ -579,3 +579,15 @@
 ### 2026-11-13 — Commits autorizados de evidencias y ajustes operativos
 
 - Solicitud expresa: hacer commits de los cambios pendientes. Incluye hasta cinco evidencias por cliente con migración y pruebas; frontend incluye nombre de comprobante desde businessOrWorkName y separación de acciones de cobro con botón verde. Se conservan las verificaciones anteriores; migración generada sin aplicar. Sin push ni despliegue.
+
+### 2026-11-13 — Dirección, navegación y contacto desde resumen de crédito
+
+- Solicitud: mostrar dirección principal/mapa en resumen de crédito, elección de GPS, teléfono y WhatsApp con mensajes de mora/cuota pendiente o chat vacío si no hay cobro pendiente hoy.
+- Implementación: obtiene CustomerDetails junto a préstamo/pagos, usa ubicación y teléfono principales con respaldo en agenda; mapa desplegable reutiliza MapViewComponent. Enlaces de navegación Google Maps/Waze verificados con documentación oficial, teléfono tel y WhatsApp wa.me. Normaliza números colombianos de 10 dígitos con prefijo 57; oculta enlaces sin datos válidos y acepta coordenadas cero.
+- Mensajes: prioriza saldo vencido; en su defecto suma saldo de cuotas de la fecha operativa; descuenta abonos reales. Si solo hay cuotas futuras o préstamo liquidado, chat sin texto. Incluye businessOrWorkName y referencia del crédito, redacción respetuosa para coordinar pago/abono y pedir comprobante si ya pagó. El operador revisa y envía desde WhatsApp. Respuestas tardías no reemplazan otro resumen.
+- Verificación: 144/144 pruebas frontend aprobadas, incluyendo dirección principal/enlaces, coordenadas cero, ausencia de datos, mora parcial, cuota parcial hoy y chat vacío. Sin apertura real de apps externas ni envío de mensajes, sin prueba visual en navegador. Build de producción final registrado al concluir. Sin cambios de esquema, commit, push ni despliegue.
+- Verificación final: build de producción exitoso, sin advertencias ni errores.
+
+### 2026-11-13 — Commit autorizado de contacto en resumen de crédito
+
+- Solicitud expresa: hacer commit de dirección principal, mapa y navegación, llamada y WhatsApp con mensajes según mora/cuota de hoy. Validación previa: 144/144 pruebas y build correcto. Sin push ni despliegue.
