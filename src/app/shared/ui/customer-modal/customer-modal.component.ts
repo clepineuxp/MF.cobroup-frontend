@@ -37,6 +37,7 @@ export interface CustomerDraft {
   phones: CustomerPhone[];
   locations: CustomerLocation[];
   evidence: CustomerEvidence | null;
+  evidences: CustomerEvidence[];
 }
 
 export interface CreditDraft {
@@ -88,8 +89,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
   readonly gpsIndex = signal<number | null>(null);
   readonly gpsMessage = signal('');
   readonly gpsError = signal('');
-  readonly selectedEvidence = signal<File | null>(null);
-  readonly evidencePreviewUrl = signal<string | null>(null);
+  readonly selectedEvidences = signal<readonly { file: File; previewUrl: string }[]>([]);
   readonly evidenceViewing = signal(false);
   readonly mapLocation = signal<CustomerLocation | null>(null);
   private gpsRequest = 0;
@@ -112,7 +112,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
   async initModal(): Promise<void> {
     this.cancelLocationWork();
     this.clearEvidencePreview();
-    this.selectedEvidence.set(null);
+    this.selectedEvidences.set([]);
     this.fullName = '';
     this.originalIdentification = '';
     this.error.set('');
@@ -328,33 +328,37 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
     this.gpsTimer = null; this.gpsIndex.set(null); this.mapLocation.set(null);
     this.gpsMessage.set(''); this.gpsError.set('');
   }
-  ngOnDestroy(): void { this.cancelLocationWork(); }
+  ngOnDestroy(): void { this.cancelLocationWork(); this.clearEvidencePreview(); }
 
   selectEvidence(event: Event): void {
     const input = event.target as HTMLInputElement;
-    const file = input.files?.[0] ?? null;
+    const files = Array.from(input.files ?? []);
     input.value = '';
-    if (!file) return;
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) {
-      this.error.set('La evidencia debe ser JPEG, PNG o WebP y no superar 10 MB.');
+    if (!files.length) return;
+    if (this.draft.evidences.length + this.selectedEvidences().length + files.length > 5) {
+      this.error.set('Se permiten máximo 5 evidencias por cliente.');
+      return;
+    }
+    if (files.some(file => !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size === 0 || file.size > 10 * 1024 * 1024)) {
+      this.error.set('Cada evidencia debe ser JPEG, PNG o WebP y no superar 10 MB.');
       return;
     }
     this.error.set('');
-    this.clearEvidencePreview();
-    this.selectedEvidence.set(file);
-    this.evidencePreviewUrl.set(URL.createObjectURL(file));
+    this.selectedEvidences.update(current => [...current, ...files.map(file => ({ file, previewUrl: URL.createObjectURL(file) }))]);
   }
 
-  clearSelectedEvidence(): void {
-    this.selectedEvidence.set(null);
-    this.clearEvidencePreview();
+  removeSelectedEvidence(index: number): void {
+    const item = this.selectedEvidences()[index];
+    if (!item || this.saving()) return;
+    URL.revokeObjectURL(item.previewUrl);
+    this.selectedEvidences.update(items => items.filter((_, i) => i !== index));
   }
 
-  async viewExistingEvidence(): Promise<void> {
-    if (!this.draft.id || !this.draft.evidence || this.evidenceViewing()) return;
+  async viewExistingEvidence(slot = 1): Promise<void> {
+    if (!this.draft.id || this.evidenceViewing()) return;
     this.evidenceViewing.set(true);
     try {
-      const blob = await this.customersService.downloadEvidence(this.draft.id);
+      const blob = await this.customersService.downloadEvidence(this.draft.id, slot);
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank', 'noopener,noreferrer');
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
@@ -362,6 +366,17 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
       this.error.set(err instanceof Error ? err.message : 'No fue posible abrir la evidencia.');
     } finally {
       this.evidenceViewing.set(false);
+    }
+  }
+
+  private async uploadSelectedEvidences(customerId: string): Promise<void> {
+    while (this.selectedEvidences().length) {
+      const item = this.selectedEvidences()[0];
+      const updated = await this.customersService.uploadEvidence(customerId, item.file);
+      this.draft.evidences = [...(updated.evidences ?? (updated.evidence ? [updated.evidence] : []))];
+      this.draft.evidence = updated.evidence;
+      URL.revokeObjectURL(item.previewUrl);
+      this.selectedEvidences.update(items => items.slice(1));
     }
   }
 
@@ -414,7 +429,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
       this.error.set('');
 
       try {
-        const customerName = this.fullName.trim() || `${this.draft.firstNames} ${this.draft.lastNames}`.trim() || 'Nuevo Cliente';
+        const customerName = this.draft.businessOrWorkName.trim() || 'Sin nombre registrado';
         const primaryPhone = this.draft.phones.find((p) => p.isPrimary)?.number || this.draft.phones[0]?.number;
         const routeName = this.routes().find((r) => r.id === this.draft.routeId)?.name;
         const microAmount = this.creditDraft.microinsuranceAmount || 0;
@@ -494,12 +509,12 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
       let savedId = this.draft.id;
       if (this.draft.id) {
         await this.customersService.update(this.draft.id, request);
-        if (this.selectedEvidence()) await this.customersService.uploadEvidence(this.draft.id, this.selectedEvidence()!);
+        await this.uploadSelectedEvidences(this.draft.id);
       } else {
         const created = await this.customersService.create(request);
         savedId = created.id;
         this.draft.id = created.id;
-        if (this.selectedEvidence()) await this.customersService.uploadEvidence(created.id, this.selectedEvidence()!);
+        await this.uploadSelectedEvidences(created.id);
 
         if (isAssigningCredit) {
           const template = this.availableTemplates.find((t) => t.id === this.creditDraft.loanTemplateId);
@@ -597,6 +612,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
       phones: [{ number: '', isPrimary: true }],
       locations: [this.emptyLocation(true)],
       evidence: null,
+      evidences: [],
     };
   }
 
@@ -617,13 +633,13 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
       phones: customer.phones.map((p) => ({ ...p })),
       locations: customer.locations.map((l) => ({ ...l })),
       evidence: customer.evidence,
+      evidences: [...(customer.evidences ?? (customer.evidence ? [customer.evidence] : []))],
     };
   }
 
   private clearEvidencePreview(): void {
-    const url = this.evidencePreviewUrl();
-    if (url) URL.revokeObjectURL(url);
-    this.evidencePreviewUrl.set(null);
+    this.selectedEvidences().forEach(item => URL.revokeObjectURL(item.previewUrl));
+    this.selectedEvidences.set([]);
   }
 
   private todayDate(): string {

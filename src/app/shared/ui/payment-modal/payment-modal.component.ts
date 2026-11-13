@@ -256,10 +256,11 @@ export class PaymentModalComponent implements OnChanges {
         notes: p.notes,
       }));
 
-      const identification = this.customerIdentification || (await this.customersService.get(this.loan.customerId)).identification;
+      const customer = await this.customersService.get(this.loan.customerId);
+      const identification = this.customerIdentification || customer.identification;
 
       const voucherData: LoanStatusVoucherData = {
-        customerName: this.loan.customerName,
+        customerName: customer.businessOrWorkName?.trim() || 'Sin nombre registrado',
         customerIdentification: identification,
         customerPhone: this.customerPhone,
         routeName: this.loan.routeName,

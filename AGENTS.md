@@ -554,3 +554,28 @@
 
 - Solicitud expresa: hacer commit de los cambios pendientes antes de implementar hasta cinco evidencias por cliente.
 - Alcance: ubicación automática y coordenadas de solo lectura, alias de dirección solo en edición, comprobante con historial e identificación real, cobro por cantidad de cuotas y opcionales plegados. Validación previa: 140/140 pruebas y build correcto. Sin push ni despliegue.
+
+
+### 2026-11-13 — Hasta cinco evidencias por cliente
+
+- Solicitud: después del commit de mejoras previas, permitir cargar más de una evidencia al crear cliente, máximo cinco por cliente.
+- Implementación: selección múltiple acumulativa, contador de guardadas/pendientes, previews individuales y retiro antes de guardar. Límite de cinco incluye existentes; JPEG/PNG/WebP hasta 10 MB por archivo. Carga secuencial mediante endpoint plural; cada éxito actualiza metadatos y retira archivo de la cola, conservando pendientes ante fallo sin repetir altas o subidas confirmadas. Edición lista todas y permite abrir cada evidencia por slot.
+- Verificación: frontend 142/142 y build de producción correcto. Pruebas incluyen selección/límite/remoción y fallo parcial con reintento. Sin validación visual en navegador real.
+- Integración: requiere backend actualizado y migración AddCustomerAdditionalEvidences antes de usar. Sin aplicación de migración ni despliegue. Este cambio posterior al commit e3e6f69 queda sin commit.
+
+### 2026-11-13 — Nombre del comprobante desde businessOrWorkName
+
+- Solicitud: generar comprobante con businessOrWorkName en lugar de concatenar firstNames/lastNames.
+- Cambio: comprobantes de crédito al crear cliente/originar préstamo y comprobantes de cobro/estado usan businessOrWorkName recortado; vacío se muestra como Sin nombre registrado, sin recurrir al alias concatenado. Cobro consulta datos completos del cliente aunque reciba identificación por input. Compartir y nombre del archivo usan el mismo dato del comprobante.
+- Regresiones actualizadas para nombre distinto de firstNames/lastNames y campo vacío. Build productivo correcto; resultado de suite se registra al finalizar. Conserva implementación pendiente de evidencias múltiples. Sin commit, push ni despliegue.
+- Verificación final: 142/142 pruebas frontend aprobadas y build de producción correcto.
+
+### 2026-11-13 — Separación de acciones en tarjetas de cobro
+
+- Solicitud: ubicar No pagará hoy antes del valor de cuota, separado de Cobrar, con fondo conservado, alineación vertical y una sola fila; Cobrar verde.
+- Cambio: columna independiente de no pago/restablecer entre cliente y cuota; Cobrar permanece a la derecha. Flex sin wrap, columnas de acciones centradas y sin encogimiento; nombre/alias con elipsis y valores sin salto. Cobrar usa color-success con contraste según tema, y mantiene comportamiento compacto con iconos en móvil. Fondo de tarjeta y no pago conservados.
+- Verificación: build productivo correcto y diff sin errores de espacios. Ajuste visual reversible, sin pruebas nuevas ni verificación visual en navegador real. Conserva trabajo pendiente de evidencias múltiples y nombres de comprobantes. Sin commit ni despliegue.
+
+### 2026-11-13 — Commits autorizados de evidencias y ajustes operativos
+
+- Solicitud expresa: hacer commits de los cambios pendientes. Incluye hasta cinco evidencias por cliente con migración y pruebas; frontend incluye nombre de comprobante desde businessOrWorkName y separación de acciones de cobro con botón verde. Se conservan las verificaciones anteriores; migración generada sin aplicar. Sin push ni despliegue.

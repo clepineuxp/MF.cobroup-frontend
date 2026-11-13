@@ -57,7 +57,7 @@ describe('PaymentModalComponent', () => {
       imports: [PaymentModalComponent],
       providers: [
         { provide: PaymentsService, useValue: paymentsService },
-        { provide: CustomersService, useValue: { get: vi.fn().mockResolvedValue({ identification: '001234567' }) } },
+        { provide: CustomersService, useValue: { get: vi.fn().mockResolvedValue({ identification: '001234567', businessOrWorkName: '  Nombre registrado  ' }) } },
       ],
     }).compileComponents();
   });
@@ -155,6 +155,7 @@ describe('PaymentModalComponent', () => {
     expect(comp.voucherStep()).toBe(true);
     expect(comp.voucherData()).toBeTruthy();
     expect(comp.voucherData()?.customerIdentification).toBe('001234567');
+    expect(comp.voucherData()?.customerName).toBe('Nombre registrado');
     expect(comp.voucherImage()).toBeTruthy();
     expect(paymentsService.registerPayment).not.toHaveBeenCalled();
 
