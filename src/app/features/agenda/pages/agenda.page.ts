@@ -1,4 +1,4 @@
-import { CommonModule, CurrencyPipe } from '@angular/common';
+import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, OnInit, ViewChild, inject, signal, computed, HostListener } from '@angular/core';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -14,6 +14,14 @@ import { RoutesService } from '../../routes/data/routes.service';
 import { RouteBalance, RouteDayClosingStatus } from '../../route-finances/data/route-finance.models';
 import { RouteFinancesService } from '../../route-finances/data/route-finances.service';
 import { CajaBlockedDialogComponent } from '../../../shared/ui/caja-blocked-dialog/caja-blocked-dialog.component';
+import {
+  generateLoanStatusVoucherImage,
+  GeneratedLoanVoucher,
+  LoanPaymentHistoryItem,
+  LoanStatusVoucherData,
+  LoanVoucherInstallment,
+  shareLoanStatusVoucher,
+} from '../../../shared/utils/loan-voucher';
 import {
   AgendaItem,
   AgendaResponse,
@@ -43,6 +51,7 @@ export interface FrequencyOption {
     FormsModule,
     ReactiveFormsModule,
     CurrencyPipe,
+    DatePipe,
     PaymentModalComponent,
     NuevoPrestamoComponent,
     AppIconComponent,
@@ -259,6 +268,19 @@ export class AgendaPage implements OnInit {
   readonly isPaymentModalOpen = signal(false);
   readonly payingLoan = signal<LoanDetails | null>(null);
   readonly collectingItem = signal<AgendaItem | null>(null);
+
+  // Loan summary bottom sheet & status voucher state
+  readonly isLoanSummaryOpen = signal(false);
+  readonly loadingLoanSummary = signal(false);
+  readonly selectedLoanSummary = signal<LoanDetails | null>(null);
+  readonly selectedLoanPayments = signal<readonly PaymentDetails[]>([]);
+  readonly selectedSummaryItem = signal<AgendaItem | null>(null);
+
+  readonly isStatusVoucherOpen = signal(false);
+  readonly statusVoucherImage = signal('');
+  readonly generatedStatusVoucher = signal<GeneratedLoanVoucher | null>(null);
+  readonly statusVoucherData = signal<LoanStatusVoucherData | null>(null);
+  readonly generatingStatusVoucher = signal(false);
 
   // Edit payment modal state
   readonly isEditPaymentModalOpen = signal(false);
@@ -1093,5 +1115,114 @@ export class AgendaPage implements OnInit {
     this.success.set('Préstamo originado exitosamente.');
     setTimeout(() => this.success.set(''), 3500);
     await this.loadAgenda();
+  }
+
+  async openLoanSummary(item: AgendaItem): Promise<void> {
+    if (!item.activeLoanId) return;
+    this.selectedSummaryItem.set(item);
+    this.isLoanSummaryOpen.set(true);
+    this.loadingLoanSummary.set(true);
+    this.selectedLoanSummary.set(null);
+    this.selectedLoanPayments.set([]);
+
+    try {
+      const [loan, payments] = await Promise.all([
+        this.loansService.get(item.activeLoanId),
+        this.paymentsService.listByLoan(item.activeLoanId).catch(() => []),
+      ]);
+      this.selectedLoanSummary.set(loan);
+      this.selectedLoanPayments.set(payments);
+    } catch {
+      this.error.set('No se pudo cargar el detalle del crédito.');
+      setTimeout(() => this.error.set(''), 3500);
+    } finally {
+      this.loadingLoanSummary.set(false);
+    }
+  }
+
+  closeLoanSummary(): void {
+    this.isLoanSummaryOpen.set(false);
+    this.selectedLoanSummary.set(null);
+    this.selectedLoanPayments.set([]);
+    this.selectedSummaryItem.set(null);
+    this.isStatusVoucherOpen.set(false);
+  }
+
+  async generateStatusVoucherFromSummary(): Promise<void> {
+    const loan = this.selectedLoanSummary();
+    const item = this.selectedSummaryItem();
+    if (!loan) return;
+
+    this.generatingStatusVoucher.set(true);
+    try {
+      const payments = this.selectedLoanPayments();
+      const paymentHistory: LoanPaymentHistoryItem[] = payments.map((p) => ({
+        date: new Date(p.registeredAtUtc).toLocaleDateString('es-CO'),
+        amount: p.amount,
+        paymentMethodName: p.paymentMethodName,
+        notes: p.notes,
+      }));
+
+      const pendingInstallments: LoanVoucherInstallment[] = loan.installments
+        .filter((inst) => inst.status !== 'Paid')
+        .map((inst) => ({
+          number: inst.number,
+          dueDate: inst.dueDate,
+          expectedAmount: inst.expectedAmount - inst.paidAmount,
+        }));
+
+      const data: LoanStatusVoucherData = {
+        customerName: loan.customerName,
+        customerIdentification: undefined,
+        customerPhone: item?.primaryPhone || undefined,
+        routeName: loan.routeName,
+        principalAmount: loan.principalAmount,
+        totalAmount: loan.totalAmount,
+        balanceAmount: loan.balanceAmount,
+        totalPaidAmount: loan.paidAmount || (loan.totalAmount - loan.balanceAmount),
+        startDate: loan.startsAtUtc ? loan.startsAtUtc.split('T')[0] : (loan.installments[0]?.dueDate || ''),
+        dueDate: loan.dueAtUtc ? loan.dueAtUtc.split('T')[0] : (loan.installments[loan.installments.length - 1]?.dueDate || ''),
+        paymentFrequency: loan.paymentFrequency,
+        frequencyNDays: loan.frequencyNDays,
+        paymentHistory,
+        pendingInstallments,
+      };
+
+      const voucher = await generateLoanStatusVoucherImage(data);
+      this.statusVoucherData.set(data);
+      this.generatedStatusVoucher.set(voucher);
+      this.statusVoucherImage.set(voucher.dataUrl);
+      this.isStatusVoucherOpen.set(true);
+    } catch {
+      this.error.set('Error al generar el comprobante de estado.');
+      setTimeout(() => this.error.set(''), 3500);
+    } finally {
+      this.generatingStatusVoucher.set(false);
+    }
+  }
+
+  closeStatusVoucher(): void {
+    this.isStatusVoucherOpen.set(false);
+    this.statusVoucherImage.set('');
+    this.generatedStatusVoucher.set(null);
+    this.statusVoucherData.set(null);
+  }
+
+  async shareStatusVoucher(): Promise<void> {
+    const voucher = this.generatedStatusVoucher();
+    const data = this.statusVoucherData();
+    if (voucher && data) {
+      await shareLoanStatusVoucher(voucher, data, false);
+    }
+  }
+
+  formatFrequency(frequency?: string, nDays?: number | null): string {
+    switch (frequency) {
+      case 'Daily': return 'Diario';
+      case 'Weekly': return 'Semanal';
+      case 'Monthly': return 'Mensual';
+      case 'EveryNDays': return nDays ? `Cada ${nDays} días` : 'Cada N días';
+      default: return frequency || 'Diario';
+    }
   }
 }

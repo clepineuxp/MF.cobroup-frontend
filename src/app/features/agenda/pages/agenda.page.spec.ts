@@ -8,6 +8,7 @@ import { RouteFinancesService } from '../../route-finances/data/route-finances.s
 import { CustomersService } from '../../customers/data/customers.service';
 import { LoanTemplatesService } from '../../loan-templates/data/loan-templates.service';
 import { LoanExceptionsService } from '../../loan-exceptions/data/loan-exceptions.service';
+import { PaymentsService } from '../../payments/data/payments.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { AgendaResponse } from '../data/agenda.models';
 import { AgendaService } from '../data/agenda.service';
@@ -197,6 +198,11 @@ describe('AgendaPage', () => {
   let router: {
     navigate: ReturnType<typeof vi.fn>;
   };
+  let paymentsService: {
+    listByLoan: ReturnType<typeof vi.fn>;
+    getPaymentMethods: ReturnType<typeof vi.fn>;
+    registerPayment: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     try {
@@ -252,6 +258,30 @@ describe('AgendaPage', () => {
     router = {
       navigate: vi.fn().mockResolvedValue(true),
     };
+    paymentsService = {
+      listByLoan: vi.fn().mockResolvedValue([
+        {
+          id: 'pay-prev-1',
+          loanId: 'loan-2',
+          customerId: 'cust-2',
+          routeId: 'route-1',
+          amount: 50000,
+          paymentMethodId: 'pm-1',
+          paymentMethodName: 'Efectivo',
+          notes: 'Primer abono',
+          idempotencyKey: 'key-1',
+          registeredAtUtc: '2026-10-25T10:00:00Z',
+          remainingLoanBalance: 1100000,
+          loanStatus: 'Active',
+          allocations: [],
+          evidences: [],
+        },
+      ]),
+      getPaymentMethods: vi.fn().mockResolvedValue([
+        { id: 'pm-1', name: 'Efectivo', displayOrder: 1 },
+      ]),
+      registerPayment: vi.fn().mockResolvedValue({}),
+    };
 
     TestBed.configureTestingModule({
       imports: [AgendaPage],
@@ -259,6 +289,7 @@ describe('AgendaPage', () => {
         { provide: AgendaService, useValue: agendaService },
         { provide: RoutesService, useValue: routesService },
         { provide: LoansService, useValue: loansService },
+        { provide: PaymentsService, useValue: paymentsService },
         { provide: RouteFinancesService, useValue: routeFinancesService },
         { provide: Router, useValue: router },
         {
@@ -686,5 +717,54 @@ describe('AgendaPage', () => {
         section: 'expense',
       },
     });
+  });
+
+  it('opens loan summary bottom sheet on card click, shows history first, installments second, and generates status voucher', async () => {
+    const fixture = TestBed.createComponent(AgendaPage);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const page = fixture.componentInstance;
+
+    // Filtered items currently has cust-3 and cust-2
+    const targetItem = page.filteredItems().find((i) => i.customerId === 'cust-2')!;
+    expect(targetItem.activeLoanId).toBe('loan-2');
+
+    // Click on loan card
+    await page.openLoanSummary(targetItem);
+    fixture.detectChanges();
+
+    expect(loansService.get).toHaveBeenCalledWith('loan-2');
+    expect(paymentsService.listByLoan).toHaveBeenCalledWith('loan-2');
+    expect(page.isLoanSummaryOpen()).toBe(true);
+    expect(page.selectedLoanSummary()).toBeTruthy();
+    expect(page.selectedLoanPayments()).toHaveLength(1);
+
+    // Verify DOM contains bottom sheet elements
+    const summarySheet = fixture.nativeElement.querySelector('.loan-summary-sheet');
+    expect(summarySheet).toBeTruthy();
+    expect(summarySheet.textContent).toContain('Jhonny Arroyave');
+    expect(summarySheet.textContent).toContain('Historial de Pagos');
+    expect(summarySheet.textContent).toContain('Plan de Pagos');
+
+    // Generate status voucher from summary
+    await page.generateStatusVoucherFromSummary();
+    fixture.detectChanges();
+
+    expect(page.isStatusVoucherOpen()).toBe(true);
+    expect(page.statusVoucherData()).toBeTruthy();
+    expect(page.statusVoucherData()?.customerName).toBe('Jhonny Arroyave');
+    expect(page.statusVoucherData()?.principalAmount).toBe(1000000);
+    expect(page.statusVoucherData()?.balanceAmount).toBe(1150000);
+    expect(page.statusVoucherData()?.paymentHistory).toHaveLength(1);
+
+    const voucherSheet = fixture.nativeElement.querySelector('.voucher-sheet');
+    expect(voucherSheet).toBeTruthy();
+
+    // Close voucher and bottom sheet
+    page.closeStatusVoucher();
+    expect(page.isStatusVoucherOpen()).toBe(false);
+
+    page.closeLoanSummary();
+    expect(page.isLoanSummaryOpen()).toBe(false);
   });
 });

@@ -48,6 +48,56 @@
             </button>
           </div>
         </div>
+      } @else if (voucherStep()) {
+        <div class="modal-header">
+          <div class="header-titles">
+            <span class="sheet-badge">Comprobante de Cobro</span>
+            <h2 id="pay-modal-title" class="sheet-title">Vista Previa del Cobro</h2>
+            @if (loan) {
+              <p class="sheet-subtitle">
+                {{ loan.customerName }} · Nuevo Saldo: <strong>{{ voucherData()?.balanceAmount | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+              </p>
+            }
+          </div>
+          <button type="button" class="btn-icon-close" (click)="close()" aria-label="Cerrar">✕</button>
+        </div>
+
+        @if (error()) {
+          <div class="alert-box error" role="alert">{{ error() }}</div>
+        }
+
+        <div class="voucher-step-container">
+          <div class="voucher-preview-scroll">
+            <img [src]="voucherImage()" alt="Comprobante de cobro generado" class="voucher-preview-image" />
+          </div>
+
+          <div class="voucher-actions-footer">
+            <button
+              type="button"
+              class="btn-voucher btn-voucher-correct"
+              (click)="correctPayment()"
+              [disabled]="submitting()"
+            >
+              ✏️ Corregir
+            </button>
+            <button
+              type="button"
+              class="btn-voucher btn-voucher-confirm"
+              (click)="confirmPaymentOnly()"
+              [disabled]="submitting()"
+            >
+              ✓ {{ submitting() ? 'Registrando...' : 'Confirmar' }}
+            </button>
+            <button
+              type="button"
+              class="btn-voucher btn-voucher-share"
+              (click)="confirmAndSendPayment()"
+              [disabled]="submitting()"
+            >
+              🚀 {{ submitting() ? 'Registrando...' : 'Confirmar y enviar' }}
+            </button>
+          </div>
+        </div>
       } @else {
         <div class="modal-header">
           <div class="header-titles">
@@ -151,7 +201,7 @@
                 class="btn-submit"
                 [disabled]="form.invalid || submitting()"
               >
-                {{ submitting() ? 'Procesando cobro seguro...' : 'Confirmar Cobro' }}
+                {{ submitting() ? 'Generando comprobante...' : 'Registrar Cobro' }}
               </button>
             </div>
           </form>
