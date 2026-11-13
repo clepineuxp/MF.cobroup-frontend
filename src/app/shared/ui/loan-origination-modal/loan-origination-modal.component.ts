@@ -394,7 +394,7 @@ export class LoanOriginationModalComponent implements OnChanges {
       const microAmount = raw.microinsuranceAmount || 0;
 
       const voucherData: LoanVoucherData = {
-        customerName: customer ? this.customerLabel(customer) : 'Cliente',
+        customerName: customer?.businessOrWorkName?.trim() || 'Sin nombre registrado',
         customerIdentification: customer?.identification || '',
         customerPhone: customer?.primaryPhone || undefined,
         routeName: undefined,

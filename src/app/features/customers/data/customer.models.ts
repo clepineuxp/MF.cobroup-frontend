@@ -45,9 +45,11 @@ export interface CustomerDetails {
   readonly createdAtUtc: string;
   readonly updatedAtUtc: string;
   readonly evidence: CustomerEvidence | null;
+  readonly evidences?: readonly CustomerEvidence[];
 }
 
 export interface CustomerEvidence {
+  readonly slot?: number;
   readonly fileName: string;
   readonly contentType: string;
   readonly byteSize: number;

@@ -27,7 +27,7 @@ describe('LoanOriginationModalComponent', () => {
 
   const customersService = {
     search: vi.fn().mockResolvedValue({
-      items: [{ id: 'cust-1', routeId: 'route-1', identification: '001234567', firstNames: 'Ana', lastNames: 'Pérez', status: 'Active' }],
+      items: [{ id: 'cust-1', routeId: 'route-1', identification: '001234567', businessOrWorkName: '  Ana María Pérez  ', firstNames: 'Ana', lastNames: 'Pérez', status: 'Active' }],
       page: 1,
       pageSize: 100,
       totalCount: 1,
@@ -249,6 +249,7 @@ describe('LoanOriginationModalComponent', () => {
 
     await comp.submitOrigination();
     expect(comp.voucherStep()).toBe(true);
+    expect(comp.voucherData()?.customerName).toBe('Ana María Pérez');
     expect(comp.voucherData()?.microinsuranceAmount).toBe(25000);
     expect(comp.voucherData()?.netDisbursedAmount).toBe(475000);
 

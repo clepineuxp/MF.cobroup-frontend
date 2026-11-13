@@ -1179,7 +1179,7 @@ export class AgendaPage implements OnInit {
       const customer = await this.customersService.get(loan.customerId);
 
       const data: LoanStatusVoucherData = {
-        customerName: loan.customerName,
+        customerName: customer.businessOrWorkName?.trim() || 'Sin nombre registrado',
         customerIdentification: customer.identification,
         customerPhone: item?.primaryPhone || undefined,
         routeName: loan.routeName,

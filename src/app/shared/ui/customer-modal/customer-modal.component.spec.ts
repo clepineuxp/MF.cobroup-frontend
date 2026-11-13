@@ -28,6 +28,7 @@ describe('CustomerModalComponent', () => {
     }),
     create: vi.fn().mockResolvedValue({ id: 'cust-created' }),
     update: vi.fn().mockResolvedValue({ id: 'cust-1' }),
+    uploadEvidence: vi.fn(),
   };
 
   const routesService = {
@@ -86,6 +87,43 @@ describe('CustomerModalComponent', () => {
         { provide: RouteFinancesService, useValue: financesService },
       ],
     }).compileComponents();
+  });
+
+  it('selects multiple images, removes one, and enforces a total of five including saved evidence', async () => {
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:${Math.random()}`);
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
+    comp.isOpen = true; await comp.initModal();
+    const select = (count: number) => comp.selectEvidence({ target: { files: Array.from({ length: count }, (_, i) => new File(['photo'], `image${i}.png`, { type: 'image/png' })), value: '' } } as unknown as Event);
+    select(5); expect(comp.selectedEvidences()).toHaveLength(5);
+    select(1); expect(comp.error()).toContain('máximo 5'); expect(comp.selectedEvidences()).toHaveLength(5);
+    comp.removeSelectedEvidence(0); expect(comp.selectedEvidences()).toHaveLength(4);
+    comp.draft.evidences = [{ fileName: 'saved.png', contentType: 'image/png', byteSize: 5, uploadedAtUtc: '', slot: 1 }];
+    select(1); expect(comp.error()).toContain('máximo 5');
+    comp.ngOnDestroy(); expect(comp.selectedEvidences()).toHaveLength(0);
+    vi.restoreAllMocks();
+  });
+
+  it('uploads each selected evidence once and preserves remaining files for retry after a failure', async () => {
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:${Math.random()}`);
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const comp = TestBed.createComponent(CustomerModalComponent).componentInstance;
+    comp.isOpen = true; await comp.initModal();
+    comp.draft.identification = '001234567'; comp.fullName = 'Ana Pérez'; comp.draft.phones[0].number = '3001234567';
+    const evidence = { fileName: 'one.png', contentType: 'image/png', byteSize: 5, uploadedAtUtc: '', slot: 1 };
+    const first = new File(['a'], 'one.png', { type: 'image/png' });
+    const second = new File(['b'], 'two.png', { type: 'image/png' });
+    comp.selectEvidence({ target: { files: [first, second], value: '' } } as unknown as Event);
+    customersService.uploadEvidence.mockResolvedValueOnce({ evidence, evidences: [evidence] }).mockRejectedValueOnce(new Error('Carga interrumpida'));
+    await comp.save();
+    expect(comp.error()).toBe('Carga interrumpida'); expect(comp.draft.id).toBe('cust-created');
+    expect(comp.draft.evidences).toHaveLength(1); expect(comp.selectedEvidences()).toHaveLength(1);
+    customersService.uploadEvidence.mockResolvedValueOnce({ evidence, evidences: [evidence, { ...evidence, slot: 2 }] });
+    await comp.save();
+    expect(customersService.create).toHaveBeenCalledTimes(1);
+    expect(customersService.uploadEvidence.mock.calls.map(call => call[1])).toEqual([first, second, second]);
+    expect(comp.selectedEvidences()).toHaveLength(0);
+    vi.restoreAllMocks();
   });
 
   it('initializes draft and loads routes when modal is opened', async () => {
@@ -380,6 +418,7 @@ describe('CustomerModalComponent', () => {
 
     await comp.save();
     expect(comp.voucherStep()).toBe(true);
+    expect(comp.voucherData()?.customerName).toBe('Sin nombre registrado');
     expect(comp.voucherData()?.microinsuranceAmount).toBe(15000);
     expect(comp.voucherData()?.netDisbursedAmount).toBe(285000);
 

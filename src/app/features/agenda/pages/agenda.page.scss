@@ -274,8 +274,8 @@
   overflow: hidden;
 }
 .customer-title-row { display: flex; align-items: baseline; gap: 0.25rem; }
-.customer-name { margin: 0; font-size: 0.88rem; font-weight: 800; color: var(--color-text); }
-.customer-alias { font-size: 0.72rem; color: var(--color-text-muted); font-weight: 500; }
+.customer-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; margin: 0; font-size: 0.88rem; font-weight: 800; color: var(--color-text); }
+.customer-alias { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.72rem; color: var(--color-text-muted); font-weight: 500; }
 .customer-balance-row {
   display: flex;
   align-items: baseline;
@@ -315,11 +315,13 @@
 }
 .amount-row { display: flex; flex-direction: column; gap: 0.02rem; }
 .amt-heading { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; color: var(--color-text-muted); line-height: 1; }
-.amt-strong-val { font-size: 0.85rem; font-weight: 800; line-height: 1.2; }
+.amt-strong-val { white-space: nowrap; font-size: 0.85rem; font-weight: 800; line-height: 1.2; }
 
+.card-nonpayment-col { display: flex; align-items: center; flex: 0 0 auto; }
 .card-actions-col {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  flex-direction: row;
   gap: 0.25rem;
   flex: 0 0 auto;
 }
@@ -338,8 +340,8 @@
   justify-content: center;
 }
 .btn-card-action:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn-collect { background: var(--color-primary); border: 1px solid var(--color-primary); color: #fff; }
-.btn-collect:hover:not(:disabled) { background: #2563eb; }
+.btn-collect { background: var(--color-success); border: 1px solid var(--color-success); color: var(--color-background); }
+.btn-collect:hover:not(:disabled) { filter: brightness(0.9); }
 .btn-will-not-pay { background: transparent; border: 1px solid var(--color-danger, #ef4444); color: var(--color-danger, #ef4444); }
 .btn-will-not-pay:hover:not(:disabled) { background: rgba(239, 68, 68, 0.1); }
 .btn-restore { background: transparent; border: 1px solid var(--color-primary, #3b82f6); color: var(--color-primary, #3b82f6); }
@@ -401,7 +403,7 @@
     gap: 0.45rem;
     flex-wrap: nowrap !important;
   }
-  .customer-name, .balance-val-text, .amt-strong-val { font-size: 0.8rem; }
+  .customer-name, .balance-val-text, .amt-strong-val { white-space: nowrap; font-size: 0.8rem; }
 
   .card-actions-col {
     flex-direction: row;
