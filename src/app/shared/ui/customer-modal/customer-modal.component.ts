@@ -142,6 +142,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
       } else {
         this.draft = this.emptyDraft();
         this.draft.routeId = this.defaultRouteId || routesList[0]?.id || '';
+        this.useCurrentLocation(0);
         if (this.availableTemplates.length === 1) {
           this.creditDraft.loanTemplateId = this.availableTemplates[0].id;
         }
@@ -276,7 +277,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
     if (!target) return;
     this.gpsMessage.set(''); this.gpsError.set('');
     if (!navigator.geolocation) {
-      this.gpsError.set('Este navegador no ofrece GPS. Selecciona la ubicación en el mapa o ingresa las coordenadas.');
+      this.gpsError.set('Este navegador no ofrece GPS. Se conservará la ubicación mostrada; puedes cambiarla en el mapa.');
       return;
     }
     const request = ++this.gpsRequest;
@@ -297,7 +298,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
     try {
       navigator.geolocation.getCurrentPosition(
         (position) => finish({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
-        (error) => finish(null, error.code === 1 ? 'Permiso de ubicación denegado. Habilítalo o selecciona la ubicación en el mapa.'
+        (error) => finish(null, error.code === 1 ? 'Permiso de ubicación denegado. Se conservará la ubicación mostrada; puedes cambiarla en el mapa.'
           : error.code === 3 ? 'Se agotó el tiempo de espera del GPS. Intenta de nuevo o usa el mapa.' : 'No fue posible obtener la ubicación GPS. Intenta de nuevo o usa el mapa.'),
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
     } catch { finish(null, 'No fue posible iniciar el GPS. Selecciona la ubicación en el mapa.'); }
@@ -600,7 +601,7 @@ export class CustomerModalComponent implements OnChanges, OnDestroy {
   }
 
   private emptyLocation(isPrimary: boolean): CustomerLocation {
-    return { latitude: Number.NaN, longitude: Number.NaN, alias: '', address: '', isPrimary, source: 'Manual' };
+    return { latitude: 4.5709, longitude: -74.2973, alias: '', address: '', isPrimary, source: 'Manual' };
   }
 
   private fromDetails(customer: CustomerDetails): CustomerDraft {
