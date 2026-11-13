@@ -43,6 +43,13 @@ export interface FrequencyOption {
   label: string;
 }
 
+export function getLocalIsoDate(d = new Date()): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 @Component({
   selector: 'app-agenda-page',
   standalone: true,
@@ -71,7 +78,7 @@ export class AgendaPage implements OnInit {
 
   readonly routes = signal<readonly AccessibleRoute[]>([]);
   readonly selectedRouteId = signal<string>('');
-  readonly selectedBusinessDate = signal<string>(new Date().toISOString().substring(0, 10));
+  readonly selectedBusinessDate = signal<string>(getLocalIsoDate());
 
   readonly dayClosingStatus = signal<RouteDayClosingStatus | null>(null);
   readonly isBoxClosed = computed(() => !!this.dayClosingStatus()?.isClosed);
@@ -310,7 +317,7 @@ export class AgendaPage implements OnInit {
 
   readonly filterForm = new FormGroup({
     routeId: new FormControl<string>('', { nonNullable: true }),
-    date: new FormControl<string>(new Date().toISOString().substring(0, 10), { nonNullable: true }),
+    date: new FormControl<string>(getLocalIsoDate(), { nonNullable: true }),
   });
 
   itemKey(item: AgendaItem): string {
@@ -571,7 +578,12 @@ export class AgendaPage implements OnInit {
 
       this.agenda.set(data);
 
-      const targetDateStr = date || new Date().toISOString().substring(0, 10);
+      if (data?.summary?.targetDate) {
+        this.selectedBusinessDate.set(data.summary.targetDate);
+        this.filterForm.patchValue({ date: data.summary.targetDate }, { emitEvent: false });
+      }
+
+      const targetDateStr = data?.summary?.targetDate || date || getLocalIsoDate();
       const loansToday = (loansRes.items ?? []).filter((l) => {
         const sDate = (l.startsAtUtc || l.createdAtUtc || '').substring(0, 10);
         return sDate === targetDateStr;
@@ -933,7 +945,7 @@ export class AgendaPage implements OnInit {
 
 
   private getDateKey(dateStr?: string): string {
-    const date = dateStr || this.filterForm.controls.date.value || new Date().toISOString().substring(0, 10);
+    const date = dateStr || this.filterForm.controls.date.value || getLocalIsoDate();
     return `cobroup_will_not_pay_${date}`;
   }
 
