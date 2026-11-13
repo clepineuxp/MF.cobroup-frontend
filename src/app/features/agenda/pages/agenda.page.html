@@ -656,6 +656,28 @@
         </header>
 
         <div class="modal-body summary-scroll-body">
+          <section class="summary-contact" aria-label="Dirección y contacto del cliente">
+            <div><span class="contact-label">Dirección principal</span><strong class="contact-address">{{ summaryContact().address }}</strong></div>
+            @if (summaryContact().googleMaps) {
+              <div class="summary-contact-actions">
+                <button type="button" (click)="showSummaryMap.set(!showSummaryMap())" [attr.aria-expanded]="showSummaryMap()" aria-controls="summary-customer-map">{{ showSummaryMap() ? 'Ocultar mapa' : 'Ver mapa' }}</button>
+                <a [href]="summaryContact().googleMaps" target="_blank" rel="noopener noreferrer">Ir con Google Maps</a>
+                <a [href]="summaryContact().waze" target="_blank" rel="noopener noreferrer">Ir con Waze</a>
+              </div>
+              @if (showSummaryMap()) {
+                <div id="summary-customer-map"><app-map-view [points]="summaryMapPoints()" [selectedPointId]="selectedSummaryItem()?.customerId ?? null" height="220px" /></div>
+              }
+            } @else {
+              <span class="contact-label">No hay coordenadas disponibles para navegar.</span>
+            }
+            <div class="summary-phone-row">
+              <div><span class="contact-label">Teléfono principal</span><strong>{{ summaryContact().phone || 'Sin teléfono registrado' }}</strong></div>
+              <div class="summary-contact-actions">
+                @if (summaryContact().telephone) { <a [href]="summaryContact().telephone">Llamar</a> }
+                @if (summaryWhatsAppUrl()) { <a class="contact-whatsapp" [href]="summaryWhatsAppUrl()" target="_blank" rel="noopener noreferrer">WhatsApp</a> }
+              </div>
+            </div>
+          </section>
           <!-- Métricas financieras del crédito -->
           <div class="summary-metrics-grid">
             <div class="metric-card">

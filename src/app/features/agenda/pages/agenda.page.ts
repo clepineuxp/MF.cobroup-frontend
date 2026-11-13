@@ -1,3 +1,5 @@
+import { CustomerDetails } from '../../customers/data/customer.models';
+import { MapViewComponent, MapPoint } from '../../../shared/ui/map-view/map-view.component';
 import { CustomersService } from '../../customers/data/customers.service';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, OnInit, ViewChild, inject, signal, computed, HostListener } from '@angular/core';
@@ -63,6 +65,7 @@ export function getLocalIsoDate(d = new Date()): string {
     NuevoPrestamoComponent,
     AppIconComponent,
     CajaBlockedDialogComponent,
+    MapViewComponent,
   ],
   templateUrl: './agenda.page.html',
   styleUrl: './agenda.page.scss',
@@ -283,6 +286,60 @@ export class AgendaPage implements OnInit {
   readonly selectedLoanSummary = signal<LoanDetails | null>(null);
   readonly selectedLoanPayments = signal<readonly PaymentDetails[]>([]);
   readonly selectedSummaryItem = signal<AgendaItem | null>(null);
+  readonly summaryCustomer = signal<CustomerDetails | null>(null);
+  readonly showSummaryMap = signal(false);
+  private summaryRequest = 0;
+
+  readonly summaryContact = computed(() => {
+    const customer = this.summaryCustomer();
+    const item = this.selectedSummaryItem();
+    const location = customer?.locations?.find(location => location.isPrimary);
+    const phone = customer?.phones?.find(phone => phone.isPrimary)?.number ?? item?.primaryPhone ?? '';
+    const digits = phone.replace(/[^0-9]/g, '');
+    const international = digits.length === 10 ? `57${digits}` : digits;
+    const latitude = location?.latitude ?? item?.latitude;
+    const longitude = location?.longitude ?? item?.longitude;
+    const validLocation = typeof latitude === 'number' && Number.isFinite(latitude) && latitude >= -90 && latitude <= 90
+      && typeof longitude === 'number' && Number.isFinite(longitude) && longitude >= -180 && longitude <= 180;
+    const coordinates = validLocation ? `${latitude},${longitude}` : null;
+    return { phone, telephone: digits ? `tel:${phone.trim().startsWith('+') ? '+' : ''}${digits}` : null,
+      whatsapp: international.length >= 7 && international.length <= 15 ? `https://wa.me/${international}` : null,
+      address: location?.address || item?.address || 'Dirección principal sin registrar', latitude, longitude,
+      googleMaps: coordinates ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(coordinates)}` : null,
+      waze: coordinates ? `https://waze.com/ul?ll=${encodeURIComponent(coordinates)}&navigate=yes` : null,
+    };
+  });
+
+  readonly summaryMapPoints = computed<readonly MapPoint[]>(() => {
+    const contact = this.summaryContact();
+    const item = this.selectedSummaryItem();
+    if (!contact.googleMaps || !item) return [];
+    return [{ customerId: item.customerId, customerName: item.customerName, businessOrWorkName: item.businessOrWorkName,
+      address: contact.address, latitude: contact.latitude!, longitude: contact.longitude!, status: item.status, markerColor: item.markerColor }];
+  });
+
+  readonly summaryWhatsAppMessage = computed(() => {
+    const loan = this.selectedLoanSummary();
+    const item = this.selectedSummaryItem();
+    if (!loan || !item || loan.balanceAmount <= 0 || loan.status !== 'Active') return '';
+    const date = this.selectedBusinessDate();
+    const pending = loan.installments.filter(i => i.expectedAmount > i.paidAmount);
+    const total = (items: typeof pending) => Math.round(items.reduce((sum, i) => sum + i.expectedAmount - i.paidAmount, 0) * 100) / 100;
+    const overdue = loan.installments.length ? total(pending.filter(i => i.dueDate.slice(0, 10) < date)) : item.overdueAmount;
+    const today = loan.installments.length ? total(pending.filter(i => i.dueDate.slice(0, 10) === date)) : item.dueTodayAmount;
+    const name = this.summaryCustomer()?.businessOrWorkName?.trim() || item.businessOrWorkName?.trim();
+    const greeting = name ? `Hola, ${name}.` : 'Hola.';
+    const money = (amount: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 2 }).format(amount);
+    if (overdue > 0) return `${greeting} Te escribimos de CobroUp respecto al crédito *${loan.id}*.\n\nTienes cuotas vencidas con un saldo pendiente de *${money(overdue)}*. ¿Nos confirmas cuándo puedes realizar el pago o un abono para ponerte al día?\n\nSi ya realizaste el pago, por favor compártenos el comprobante para verificarlo. Muchas gracias.`;
+    if (today > 0) return `${greeting} Te escribimos de CobroUp respecto al crédito *${loan.id}* para coordinar el cobro de la cuota de hoy por *${money(today)}*.\n\n¿Nos confirmas a qué hora podemos contar con tu pago? Si ya lo realizaste, por favor compártenos el comprobante. Muchas gracias.`;
+    return '';
+  });
+
+  readonly summaryWhatsAppUrl = computed(() => {
+    const url = this.summaryContact().whatsapp;
+    const message = this.summaryWhatsAppMessage();
+    return url && message ? `${url}?text=${encodeURIComponent(message)}` : url;
+  });
 
   readonly isStatusVoucherOpen = signal(false);
   readonly statusVoucherImage = signal('');
@@ -1132,6 +1189,9 @@ export class AgendaPage implements OnInit {
 
   async openLoanSummary(item: AgendaItem): Promise<void> {
     if (!item.activeLoanId) return;
+    const request = ++this.summaryRequest;
+    this.summaryCustomer.set(null);
+    this.showSummaryMap.set(false);
     this.selectedSummaryItem.set(item);
     this.isLoanSummaryOpen.set(true);
     this.loadingLoanSummary.set(true);
@@ -1139,21 +1199,28 @@ export class AgendaPage implements OnInit {
     this.selectedLoanPayments.set([]);
 
     try {
-      const [loan, payments] = await Promise.all([
+      const [loan, payments, customer] = await Promise.all([
         this.loansService.get(item.activeLoanId),
         this.paymentsService.listByLoan(item.activeLoanId).catch(() => []),
+        this.customersService.get(item.customerId).catch(() => null),
       ]);
+      if (request !== this.summaryRequest) return;
+      this.summaryCustomer.set(customer);
       this.selectedLoanSummary.set(loan);
       this.selectedLoanPayments.set(payments);
     } catch {
+      if (request !== this.summaryRequest) return;
       this.error.set('No se pudo cargar el detalle del crédito.');
       setTimeout(() => this.error.set(''), 3500);
     } finally {
-      this.loadingLoanSummary.set(false);
+      if (request === this.summaryRequest) this.loadingLoanSummary.set(false);
     }
   }
 
   closeLoanSummary(): void {
+    this.summaryRequest++;
+    this.summaryCustomer.set(null);
+    this.showSummaryMap.set(false);
     this.isLoanSummaryOpen.set(false);
     this.selectedLoanSummary.set(null);
     this.selectedLoanPayments.set([]);
